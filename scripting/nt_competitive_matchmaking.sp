@@ -32,9 +32,12 @@ public OnPluginStart()
 {
 	g_hMatchmaking = CreateConVar("sm_competitive_matchmaking",	"1",	"Enable matchmaking mode (automated queue system instead of manual join)", _, true, 0.0, true, 1.0);
 	
-	g_hMatchSize = FindConVar("sm_competitive_players_total");
-	
 	HookConVarChange(g_hMatchmaking, Event_Matchmaking);
+}
+
+public OnAllPluginsLoaded()
+{
+	g_hMatchSize = FindConVar("sm_competitive_players_total");
 }
 
 public OnConfigsExecuted()

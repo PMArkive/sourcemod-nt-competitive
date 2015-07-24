@@ -22,8 +22,6 @@ public OnPluginStart()
 {
 	RegAdminCmd("sm_caster", Command_CasterMenu, ADMFLAG_GENERIC, "Open the casters overlay menu");
 	
-	hJinraiName	= FindConVar("sm_competitive_jinrai_name");
-	hNSFName	= FindConVar("sm_competitive_nsf_name");
 	hRoundTime	= FindConVar("neo_round_timelimit");
 	hFreezeTime	= FindConVar("mp_chattime");
 	
@@ -33,6 +31,12 @@ public OnPluginStart()
 	hTimer_UpdateData = CreateTimer(1.0, Timer_UpdateData, _, TIMER_REPEAT);
 	
 	HookEvent("game_round_start", Event_RoundStart);
+}
+
+public OnAllPluginsLoaded()
+{
+	hJinraiName	= FindConVar("sm_competitive_jinrai_name");
+	hNSFName	= FindConVar("sm_competitive_nsf_name");	
 }
 
 public OnConfigsExecuted()

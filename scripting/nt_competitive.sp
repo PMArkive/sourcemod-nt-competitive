@@ -223,6 +223,19 @@ public bool OnClientConnect(client)
 	return true;
 }
 
+public OnClientPutInServer(client)
+{
+	if (!g_isLive)
+		return;
+	
+	// This is a competitor rejoining server while the game is live. Automatically assign them to the correct team.
+	if (g_assignedTeamWhenLive[client] == TEAM_JINRAI || g_assignedTeamWhenLive[client] == TEAM_NSF)
+	{
+		ClientCommand(client, "jointeam %i", g_assignedTeamWhenLive[client]);
+		PrintToChat(client, "%s You have been assigned to team %s", g_tag, g_teamName[g_assignedTeamWhenLive[client]]);
+	}
+}
+
 public OnClientDisconnect(client)
 {
 	g_isReady[client] = false;

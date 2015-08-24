@@ -390,7 +390,7 @@ public Action:NeoRestartThis()
 		if (!Client_IsValid(i))
 			continue;
 		
-		SetPlayerRank(i, 0);
+		SetPlayerRank(i, 0); // We need to manually set everyone to private class to avoid a bug where players could spawn without a primary weapon
 	}
 }
 
@@ -417,9 +417,9 @@ public Action:TogglePause()
 			PrintToServer("%s Pause duration: %i seconds.", g_tag, GetConVarInt(g_hMaxPauseLength));
 		#endif
 		
-		CreateTimer((1.0 + GetConVarFloat(g_hMaxPauseLength)), Timer_Unpause); // Add 1 second to timer for messages to appear in correct order during countdown
+		CreateTimer((1.0 + GetConVarFloat(g_hMaxPauseLength)), Timer_Unpause); // Add 1 second to timer for messages to appear in a logical order during countdown
 		
-		if ((GetConVarFloat(g_hMaxPauseLength) / 2) > 10.0) // Don't bother with "half of pause time remaining" notice there's less than 10 secs remaining
+		if ((GetConVarFloat(g_hMaxPauseLength) / 2) > 10.0) // Don't bother with "half of pause time remaining" notice if there's less than 10 secs remaining
 			CreateTimer((GetConVarFloat(g_hMaxPauseLength) / 2), Timer_UnpauseNotice_Half);
 		
 		CreateTimer((GetConVarFloat(g_hMaxPauseLength) - float(g_unpauseTimer)), Timer_StartTenSecondsLeft);
@@ -536,6 +536,7 @@ public Action:TogglePauseLoop()
 			if (!g_isSpawned[i])
 				unspawnedClients[1]++;
 			
+			// Match is about to start, give up and ask any valid client to issue the pause
 			if (forcePause || unspawnedClients[1] <= unspawnedClients[0])
 			{				
 				ClientCommand(i, "pause");
@@ -558,6 +559,8 @@ public Action:TogglePauseLoop()
 		else
 			invalidClients++;
 		
+		// Try to find a spawned real player so the pause command definitely goes through
+		// Todo: Confirm if unspawned clients can actually issue a pause command (in which case this is redundant)
 		if (i == MaxClients && unspawnedClients[1] > 0) // This will keep looping in 1 second intervals for as long as there are valid unspawned clients
 		{
 			#if DEBUG > 1
@@ -584,7 +587,11 @@ public Action:TogglePauseLoop()
 		}
 		
 		else if (invalidClients == MaxClients)
+		{
 			LogError("Attempted pause command whilst no valid clients were connected inside TogglePause. This shouldn't happen.");
+			PrintToChatAll("%s Pause failed! Check plugin logs for details.", g_tag);
+			break; // Things got weird, let's get out of here
+		}
 	}
 }
 

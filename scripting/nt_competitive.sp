@@ -86,8 +86,8 @@ public OnPluginStart()
 	g_hLogMode				= CreateConVar("sm_competitive_log_mode",					"1",							"Competitive logging mode. 1 = enabled, 0 = disabled.", _, true, 0.0, true, 1.0);
 	g_hKillVersobity			= CreateConVar("sm_competitive_killverbosity",				"1",							"Display the players still alive in console after each kill.", _, true, 0.0, true, 1.0);
 	g_hClientRecording		= CreateConVar("sm_competitive_record_clients",			"0",							"Should clients automatically record when going live.", _, true, 0.0, true, 1.0);
-	g_hLimitLiveTeams		= CreateConVar("sm_limit_live_teams",							"1",							"Are players restricted from changing teams when a game is live.", _, true, 0.0, true, 1.0);
-	g_hLimitTeams			= CreateConVar("sm_limit_teams",								"1",							"Are teams enforced to use set numbers (5v5 for example). Default: 1", _, true, 0.0, true, 1.0);
+	g_hLimitLiveTeams		= CreateConVar("sm_competitive_limit_live_teams",		"1",							"Are players restricted from changing teams when a game is live.", _, true, 0.0, true, 1.0);
+	g_hLimitTeams			= CreateConVar("sm_competitive_limit_teams",				"1",							"Are teams enforced to use set numbers (5v5 for example). Default: 1", _, true, 0.0, true, 1.0);
 	
 	g_hAlltalk				= FindConVar("sv_alltalk");
 	g_hForceCamera		= FindConVar("mp_forcecamera");

@@ -75,7 +75,7 @@ public Action:CheckIfEveryoneIsReady()
 {	
 	new players = Client_GetCount(true, true); // countInGameOnly, countFakeClients
 	
-	if (IsSourceTVBotConnected()) // We don't want to consider SourceTV as a player
+	if ( IsSourceTVBotConnected() ) // We don't want to consider SourceTV as a player
 	{
 		players--;
 	}
@@ -1064,5 +1064,30 @@ public Action:ResetGlobalVariables() // Make sure all global variables are reset
 			g_isTeamReadyForUnPause[i]	= correctBool;
 			g_isWantingOverride[i]		= correctBool;
 		}
+	}
+}
+
+void ToggleClientReadyState(client, verbose = true, doReadyCheck = true)
+{
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		return;
+	
+	g_isReady[client] = !g_isReady[client];
+	
+	if (verbose)
+	{	
+		decl String:clientName[MAX_NAME_LENGTH];
+		GetClientName(client, clientName, sizeof(clientName));
+		
+		decl String:readyState[] = "NOT READY";
+		if (g_isReady[client])
+			strcopy(readyState, sizeof(readyState), "READY");
+		
+		PrintToChatAll("%s Player %s is %s.", g_tag, clientName, readyState);
+	}
+	
+	if (doReadyCheck)
+	{
+		CheckIfEveryoneIsReady();
 	}
 }

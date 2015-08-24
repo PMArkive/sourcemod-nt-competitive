@@ -1,3 +1,33 @@
+public PanelHandler_CompetitiveMain(Handle:menu, MenuAction:action, client, choice)
+{
+	if (action != MenuAction_Select)
+		return;
+	
+	switch (choice)
+	{
+		case 1: // Ready/unready
+		{
+			PrecacheSound(g_menuSoundOk);
+			EmitSoundToClient(client, g_menuSoundOk);
+			ToggleClientReadyState(client);
+			Command_CompetitiveMain(client, 1); // Redraw the comp main panel to show live state update
+		}
+		
+		case 2: // Pause commands
+		{
+			PrecacheSound(g_menuSoundOk);
+			EmitSoundToClient(client, g_menuSoundOk);
+			PrintToChat(client, "%s Do some pause menu stuff here.", g_tag);
+		}
+		
+		case 3: // Exit
+		{
+			PrecacheSound(g_menuSoundCancel);
+			EmitSoundToClient(client, g_menuSoundCancel);
+		}
+	}
+}
+
 public PanelHandler_Pause(Handle:menu, MenuAction:action, client, choice)
 {
 	if (action != MenuAction_Select)

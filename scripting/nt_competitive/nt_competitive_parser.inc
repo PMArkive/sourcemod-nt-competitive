@@ -1,3 +1,25 @@
+public Action:CommandListener_SetClass(client, const String:command[], args)
+{
+	if (!g_isLive)
+		return Plugin_Continue;
+	
+	// Class locking disabled, let the player pick any class
+	if (!GetConVarBool(g_hClassLocking))
+		return Plugin_Continue;
+	
+	// Something went wrong. Log error & let the player pick their class anyways so we won't glitch out. Shouldn't even happen(TM)
+	// FIXME: This might actually happen if cvar is changed whilst live. Add nag to server op?
+	if ( !IsClassSelectionIsFinished() && g_isLive )
+	{
+		LogError("Live with class locking, however class selection isn't finished. This shouldn't happen.");
+		return Plugin_Continue;
+	}
+	
+	SetPlayerClass(client, g_assignedClass[client]);
+	
+	return Plugin_Handled;
+}
+
 public Action:Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	new client = GetClientOfUserId(GetEventInt(event, "userid"));
@@ -39,7 +61,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	ResetPlayersAlive(); // Reset global count of living players. Used for kill feeds etc
 	
 	if (g_roundCount == 1)
-	{
+	{	
 		new String:tournamentName[128];
 		GetConVarString(g_hCompetitionName, tournamentName, sizeof(tournamentName));
 		

@@ -55,6 +55,7 @@ public OnPluginStart()
 	RegConsoleCmd("sm_timeout",		Command_Pause,				"Request a pause or timeout in a competitive match.");
 	
 	RegConsoleCmd("sm_readylist",	Command_ReadyList,			"List everyone who has or hasn't readied up.");
+	RegConsoleCmd("sm_class",			Command_Class);
 	
 	RegConsoleCmd("jointeam",			Command_JoinTeam); // There's no pick team event for NT, so we do this instead
 	
@@ -65,11 +66,15 @@ public OnPluginStart()
 		RegAdminCmd("sm_logtest",					Command_LoggingTest,		ADMFLAG_GENERIC,	"Test competitive file logging. Logs the cmd argument. Debug command.");
 		RegAdminCmd("sm_unpause_other",		Command_UnpauseOther,		ADMFLAG_GENERIC,	"Pretend the other team requested unpause. Debug command.");
 		RegAdminCmd("sm_start_other",			Command_OverrideStartOther,	ADMFLAG_GENERIC,	"Pretend the other team requested force start. Debug command.");
+		RegAdminCmd("sm_start_other2",			Command_OverrideStartOther2,	ADMFLAG_GENERIC,	"Flip the other team's ready bool. Debug command.");
 	#endif
 	
 	HookEvent("game_round_start",	Event_RoundStart);
 	HookEvent("player_death",			Event_PlayerDeath);
 	HookEvent("player_spawn",			Event_PlayerSpawn);
+	
+	// Hook player class selection (used for experimental class locking mode)
+	AddCommandListener(CommandListener_SetClass, "setclass");
 	
 	CreateConVar("sm_competitive_version", PLUGIN_VERSION, "Competitive plugin version.", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
 	
@@ -88,6 +93,7 @@ public OnPluginStart()
 	g_hClientRecording		= CreateConVar("sm_competitive_record_clients",			"0",							"Should clients automatically record when going live.", _, true, 0.0, true, 1.0);
 	g_hLimitLiveTeams		= CreateConVar("sm_competitive_limit_live_teams",		"1",							"Are players restricted from changing teams when a game is live.", _, true, 0.0, true, 1.0);
 	g_hLimitTeams			= CreateConVar("sm_competitive_limit_teams",				"1",							"Are teams enforced to use set numbers (5v5 for example). Default: 1", _, true, 0.0, true, 1.0);
+	g_hClassLocking			= CreateConVar("sm_competitive_class_locking",			"0",							"Play with restricted classes, chosen at match start. Default: 0", _, true, 0.0, true, 1.0);
 	
 	g_hAlltalk				= FindConVar("sv_alltalk");
 	g_hForceCamera		= FindConVar("mp_forcecamera");
@@ -238,7 +244,11 @@ public OnClientPutInServer(client)
 
 public OnClientDisconnect(client)
 {
+	// Faster to just set all these to false instead of checking actual state first
 	g_isReady[client] = false;
+	g_isSpawned[client] = false;
+	g_isInPanel[PANEL_SELECT_CLASS][client] = false;
+	g_isInPanel[PANEL_CONFIRM_CLASS][client] = false;
 }
 
 public Action:Command_CompetitiveMain(client, args)
@@ -556,7 +566,7 @@ public Action:Command_UnOverrideStart(client, args)
 }
 
 public Action:Command_Ready(client, args)
-{
+{	
 	if (g_isLive)
 	{
 		ReplyToCommand(client, "%s Game is live, cannot change ready state!", g_tag);
@@ -567,6 +577,20 @@ public Action:Command_Ready(client, args)
 	{
 		ReplyToCommand(client, "%s You are already marked as ready. Use !unready to revert this.", g_tag);
 		return Plugin_Continue;
+	}
+	
+	new team = GetClientTeam(client);
+	
+	if (team != TEAM_JINRAI && team != TEAM_NSF)
+		return Plugin_Stop;
+	
+	if (GetConVarBool(g_hClassLocking))
+	{
+		if (!g_hasConfirmedClassSelection[client])
+		{
+			ReplyToCommand(client, "%s You have to choose a class first. Type !class in chat.");
+			return Plugin_Continue;
+		}
 	}
 	
 	ToggleClientReadyState(client);
@@ -618,6 +642,18 @@ public Action:Command_LoggingTest(client, args)
 	LogCompetitive(message);
 	
 	ReplyToCommand(client, "Debug log message sent.");
+	
+	return Plugin_Handled;
+}
+
+public Action:Command_Class(client, args)
+{
+	new team = GetClientTeam(client);
+	
+	if (team != TEAM_JINRAI && team != TEAM_NSF)
+		return Plugin_Stop;
+	
+	SelectAssignedClass(client);
 	
 	return Plugin_Handled;
 }

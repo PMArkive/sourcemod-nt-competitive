@@ -12,12 +12,24 @@ new String:g_teamName[][64] = {
 	"Jinrai",
 	"NSF"
 };
+new String:g_className[][12] = {
+	"Recon",
+	"Assault",
+	"Support"
+};
 new String:g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing SteamIDs to allow disconnected players rejoining when live
 new String:g_menuSoundOk[] = "buttons/button14.wav";
 new String:g_menuSoundCancel[] = "buttons/combine_button7.wav";
 //new String:g_soundLive[] = "buttons/button17.wav";
 new String:g_kvPath[PLATFORM_MAX_PATH];
 
+enum {
+	PANEL_SELECT_CLASS = 0,
+	PANEL_CONFIRM_CLASS,
+	ENUMS_PANEL
+};
+
+new g_assignedClass[MAXPLAYERS+1];
 new g_assignedTeamWhenLive[MAXPLAYERS+1];
 new g_jinraiScore;
 new g_liveTimer = 5;
@@ -31,7 +43,6 @@ new g_unpauseTimer = 10;
 new g_usedTimeouts[sizeof(g_teamName)];
 new g_killVerbosity;
 new g_playersAlive[sizeof(g_teamName)];
-new g_timeSinceUnpausedForRejoin;
 new g_limitLiveTeams;
 new g_limitTeams;
 new g_winner;
@@ -50,6 +61,8 @@ new bool:g_isTeamReadyForUnPause[sizeof(g_teamName)]; // Unassigned, spec, jinra
 new bool:g_isWantingOverride[sizeof(g_teamName)]; // Unassigned, spec, jinrai, nsf
 new bool:g_shouldPause;
 new bool:g_shouldClientsRecord;
+new bool:g_hasConfirmedClassSelection[MAXPLAYERS+1];
+new bool:g_isInPanel[ENUMS_PANEL][MAXPLAYERS+1];
 
 new Handle:g_hAlltalk;
 new Handle:g_hCommsBehaviour;
@@ -70,15 +83,82 @@ new Handle:g_hKillVersobity;
 new Handle:g_hClientRecording;
 new Handle:g_hLimitLiveTeams;
 new Handle:g_hLimitTeams;
+new Handle:g_hClassLocking;
+
+bool IsClassSelectionIsFinished()
+{
+	PrintToServer("IsClassSelectionIsFinished()");
+	
+	
+	PrintToServer("if ( !GetConVarBool(g_hClassLocking) )");
+	if ( !GetConVarBool(g_hClassLocking) )
+	{
+		PrintToServer("false");
+		return false;
+	}
+	else
+		PrintToServer("true");
+	
+	PrintToServer("For loop start");
+	for (new i = 1; i < MaxClients; i++)
+	{
+		if (!Client_IsValid(i) || IsFakeClient(i))
+		{
+			PrintToServer("if (!Client_IsValid(i) || IsFakeClient(i))");
+			continue;
+		}
+		
+		if (g_assignedTeamWhenLive[i] != TEAM_JINRAI && g_assignedTeamWhenLive[i] != TEAM_NSF)
+		{
+			PrintToServer("if (g_assignedTeamWhenLive[i] != TEAM_JINRAI && g_assignedTeamWhenLive[i] != TEAM_NSF)");
+			continue;
+		}
+		
+		
+		PrintToServer("if (g_assignedClass[i] < 1 || g_assignedClass[i] > 3)");
+		if (g_assignedClass[i] < 1 || g_assignedClass[i] > 3)
+		{
+			PrintToServer("false");
+			return false;
+		}
+		else
+			PrintToServer("true");
+		
+		
+		PrintToServer("if (!g_hasConfirmedClassSelection[i])");
+		if (!g_hasConfirmedClassSelection[i])
+		{
+			PrintToServer("false");
+			return false;
+		}
+		else
+			PrintToServer("true");
+	}
+	
+	PrintToServer("For loop end");
+	
+	PrintToServer("Function end, return true");
+	
+	return true;
+}
 
 public Action:CheckIfEveryoneIsReady()
 {	
 	new players = Client_GetCount(true, true); // countInGameOnly, countFakeClients
 	
-	if ( IsSourceTVBotConnected() ) // We don't want to consider SourceTV as a player
-	{
-		players--;
-	}
+	#if DEBUG
+		// Disregard any bots
+		for (new i = 1; i < MaxClients; i++)
+		{
+			if (Client_IsValid(i) && IsFakeClient(i))
+				players--;
+		}
+	#else
+		if ( IsSourceTVBotConnected() ) // We don't want to consider SourceTV as a player
+		{
+			players--;
+		}
+	#endif
 	
 	new playersReady = GetPlayersReady();
 	
@@ -112,6 +192,7 @@ public Action:CheckIfEveryoneIsReady()
 	}
 	
 	LiveCountDown(); // Passed all checks, ready to go live
+	PrintClassLockInfo();
 	
 	return Plugin_Handled;
 }
@@ -505,6 +586,18 @@ public Action:Command_OverrideStartOther(client, args) // Pretend the other team
 		ReplyToCommand(client, "%s Debug: Could not find any players in the other team to fake force start.", g_tag);
 	else
 		ReplyToCommand(client, "%s Debug: Faked force start request from the other team.", g_tag);
+	
+	return Plugin_Handled;
+}
+
+public Action:Command_OverrideStartOther2(client, args) // Just flip the force start boolean. Debug command.
+{
+	new team = GetClientTeam(client);
+	new otherTeam = GetOtherTeam(team);
+	
+	g_isWantingOverride[otherTeam] = true;
+	
+	ReplyToCommand(client, "Start bool flipped.");
 	
 	return Plugin_Handled;
 }
@@ -969,108 +1062,59 @@ public Action:ResetPlayersAlive() // Reset g_playersAlive array. Only call this 
 public Action:ResetGlobalVariables() // Make sure all global variables are reset properly
 {
 	new i; // for looping arrays
-	//new String:errorMsgExplanatoryEnding[] = "These values have now been reset."; // Repeating phrase for error messages below
 	
 	// Reset global integers
-	new correctInt = 0; // Value to check variables against
+	new correctInt = 0; // Desired value
 	
-	if (g_jinraiScore != correctInt || g_nsfScore != correctInt || g_roundCount != correctInt || g_timeSinceUnpausedForRejoin != correctInt)
-	{	
-		/*
-		LogError("Global integers not properly reset. \
-		g_jinraiScore = %i. g_nsfScore = %i. g_roundCount = %i. g_timeSinceUnpausedForRejoin = %i. \
-		These should all be %i. %s", g_jinraiScore, g_nsfScore, g_roundCount, g_timeSinceUnpausedForRejoin, correctInt, errorMsgExplanatoryEnding);
-		*/
-		g_jinraiScore					= correctInt;
-		g_nsfScore						= correctInt;
-		g_roundCount					= correctInt;
-		g_timeSinceUnpausedForRejoin	= correctInt;
-	}
+	g_jinraiScore							= correctInt;
+	g_nsfScore								= correctInt;
+	g_roundCount							= correctInt;
 	
 	for (i = 0; i < sizeof(g_usedTimeouts); i++)
 	{
-		if (g_usedTimeouts[i] != correctInt)
-		{
-			/*
-			LogError("Global integers not properly reset. \
-			g_usedTimeouts[%i] = %i. This should be %i. %s", i, g_usedTimeouts[i], correctInt, errorMsgExplanatoryEnding);
-			*/
-			g_usedTimeouts[i] = correctInt;
-		}
+		g_usedTimeouts[i] = correctInt;
+	}
+	
+	for (i = 0; i < sizeof(g_assignedClass); i++)
+	{
+		g_assignedClass[i] = correctInt;
 	}
 	
 	correctInt = -1;
 	
 	for (i = 0; i < sizeof(g_assignedTeamWhenLive); i++)
 	{	
-		if (g_assignedTeamWhenLive[i] != correctInt)
-		{
-			/*
-			LogError("Global integers not properly reset. \
-			g_assignedTeamWhenLive[%i] = %i. This should be %i. %s", i, g_assignedTeamWhenLive[i], correctInt, errorMsgExplanatoryEnding);
-			*/
-			g_assignedTeamWhenLive[i] = correctInt;
-		}
+		g_assignedTeamWhenLive[i] = correctInt;
 	}
 	
 	// Reset global strings
 	for (i = 0; i < sizeof(g_livePlayers); i++)
 	{
-		if (strlen(g_livePlayers[i]) > 1)
-		{
-			/*
-			LogError("Global strings not properly set. \
-			g_livePlayers[%i] = %s. This string should be empty. %s", i, g_livePlayers[i], errorMsgExplanatoryEnding);
-			*/
-			strcopy(g_livePlayers[i], sizeof(g_livePlayers[]), "");
-		}
+		strcopy(g_livePlayers[i], sizeof(g_livePlayers[]), "");
 	}
 	
 	// Reset global bools
-	new bool:correctBool = false; // Value to check variables against
+	new bool:correctBool = false;
 	
-	if (g_isExpectingOverride != correctBool || g_isExpectingUnPauseTimer != correctBool || g_isLive != correctBool || g_isPaused != correctBool || g_isSourceTVRecording != correctBool || g_shouldPause != correctBool || g_shouldClientsRecord != correctBool)
-	{
-		/*
-		LogError("Global booleans not properly reset. \
-		g_isExpectingOverride = %i. g_isExpectingUnPauseTimer = %i. g_isLive = %i. g_isPaused = %i. g_isSourceTVRecording = %i. g_shouldPause = %i. g_shouldClientsRecord = %i. g_isUnpausedForClientRejoin = %i. \
-		These should all be %i. %s", g_isExpectingOverride, g_isExpectingUnPauseTimer, g_isLive, g_isPaused, g_isSourceTVRecording, g_shouldPause, g_shouldClientsRecord, g_isUnpausedForClientRejoin, correctBool, errorMsgExplanatoryEnding);
-		*/
-		g_isExpectingOverride		= correctBool;
-		g_isExpectingUnPauseTimer	= correctBool;
-		g_isLive					= correctBool;
-		g_isPaused					= correctBool;
-		g_isSourceTVRecording		= correctBool;
-		g_shouldPause				= correctBool;
-		g_shouldClientsRecord		= correctBool;
-	}
+	g_isExpectingOverride			= correctBool;
+	g_isExpectingUnPauseTimer	= correctBool;
+	g_isLive								= correctBool;
+	g_isPaused							= correctBool;
+	g_isSourceTVRecording			= correctBool;
+	g_shouldPause					= correctBool;
+	g_shouldClientsRecord			= correctBool;
 	
 	for (i = 0; i <= MaxClients; i++)
 	{
-		if (g_isReady[i] != correctBool || g_isSpawned[i] != correctBool)
-		{
-			/*
-			LogError("Global booleans not properly reset. \
-			g_isReady[%i] = %i. g_isSpawned[%i] = %i. \
-			These should all be %i. %s", i, g_isReady[i], i, g_isSpawned[i], correctBool, errorMsgExplanatoryEnding);
-			*/
-			g_isReady[i]	= correctBool;
-			g_isSpawned[i]	= correctBool;
-		}
+		g_isReady[i]								= correctBool;
+		g_isSpawned[i]							= correctBool;
+		g_hasConfirmedClassSelection[i]	= correctBool;
 	}
 	
 	for (i = 0; i < sizeof(g_teamName); i++)
 	{
-		if (g_isTeamReadyForUnPause[i] != correctBool || g_isWantingOverride[i] != correctBool)
-		{
-			/*
-			LogError("Global booleans not properly reset. \
-			g_isTeamReadyForUnPause[%i] = %i. g_isWantingOverride[%i] = %i. \
-			These should all be %i. %s", i, g_isTeamReadyForUnPause[i], i, g_isWantingOverride[i], correctBool, errorMsgExplanatoryEnding);
-			*/
 			g_isTeamReadyForUnPause[i]	= correctBool;
-			g_isWantingOverride[i]		= correctBool;
-		}
+			g_isWantingOverride[i]			= correctBool;
 	}
 }
 
@@ -1096,5 +1140,170 @@ void ToggleClientReadyState(client, verbose = true, doReadyCheck = true)
 	if (doReadyCheck)
 	{
 		CheckIfEveryoneIsReady();
+	}
+}
+
+void PrintClassLockInfo()
+{
+	decl String:classInfo_TeamTitle[512];
+	decl String:classInfo_Class[16];
+	
+	for (new i = 1; i < MaxClients; i++)
+	{
+		if (!Client_IsValid(i) || IsFakeClient(i))
+			continue;
+		
+		Format(classInfo_TeamTitle, sizeof(classInfo_TeamTitle), "Team %s:\n", g_teamName[TEAM_JINRAI]);
+		PrintToConsole(i, "\n\nSelected Classes:");
+		PrintToConsole(i, classInfo_TeamTitle);
+		
+		for (new j = 1; j < MaxClients; j++)
+		{
+			if (!Client_IsValid(j) || IsFakeClient(j))
+				continue;
+			
+			if (GetClientTeam(j) != TEAM_JINRAI)
+				continue;
+			
+			Format(classInfo_Class, sizeof(classInfo_Class), "- %s", g_className[g_assignedClass[j - 1]]); // Class ints go 1-3 whereas our name array goes 0-2
+			PrintToConsole(i, classInfo_Class);
+		}
+		
+		PrintToConsole(i, "\n- - - - - - - - - -\n");
+		
+		Format(classInfo_TeamTitle, sizeof(classInfo_TeamTitle), "Team %s:\n", g_teamName[TEAM_NSF]);
+		PrintToConsole(i, "\nSelected Classes:");
+		PrintToConsole(i, classInfo_TeamTitle);
+		
+		for (new j = 1; j < MaxClients; j++)
+		{
+			if (!Client_IsValid(j) || IsFakeClient(j))
+				continue;
+			
+			if (GetClientTeam(j) != TEAM_NSF)
+				continue;
+			
+			Format(classInfo_Class, sizeof(classInfo_Class), "- %s", g_className[g_assignedClass[j - 1]]);
+			PrintToConsole(i, classInfo_Class);
+		}
+	}
+}
+
+void ConfirmClassSelections(client)
+{	
+	new Handle:panel = CreatePanel();
+	new team;
+	
+	team = GetClientTeam(client);
+	
+	SetPanelTitle(panel, "Confirm class selections");
+	
+	DrawPanelText(panel, " ");
+	DrawPanelText(panel, "Your team:");
+	DrawTeamClasses(panel, team);
+	
+	DrawPanelText(panel, " ");
+	DrawPanelItem(panel, "Confirm your selection");
+	DrawPanelItem(panel, "Edit your selection");
+	
+	SendPanelToClient(panel, client, PanelHandler_ConfirmClassSelections, MENU_TIME);
+	
+	g_isInPanel[PANEL_CONFIRM_CLASS][client] = true;
+	
+	CloseHandle(panel);
+}
+
+void DrawTeamClasses(Handle:panel, team)
+{
+	if (panel == INVALID_HANDLE)
+	{
+		LogError("Invalid panel handle %h", panel);
+		return;
+	}
+	
+	if (team != TEAM_JINRAI && team != TEAM_NSF)
+	{
+		LogError("Invalid team %i", team);
+		return;
+	}
+	
+	new clientTeam;
+	new drawnItems;
+	
+	for (new i = 1; i < MaxClients; i++)
+	{
+		// FIXME: Won't draw over 5 players per team due to panel's limited size. Come up with something nicer at some point.
+		if (drawnItems >= 5)
+			break;
+		
+		if (!Client_IsValid(i) || IsFakeClient(i))
+			continue;
+		
+		clientTeam = GetClientTeam(i);
+		if (clientTeam != team)
+			continue;
+		
+		decl String:classSelection[12];
+		decl String:clientName[MAX_NAME_LENGTH];
+		new String:confirmed[] = "not confirmed";
+		decl String:panelText[sizeof(classSelection) + sizeof(clientName) + sizeof(confirmed) + 6];
+		
+		strcopy(classSelection, sizeof(classSelection), g_className[g_assignedClass[i] - 1]);
+		GetClientName(i, clientName, sizeof(clientName));
+		
+		if (g_hasConfirmedClassSelection[i])
+			strcopy(confirmed, sizeof(confirmed), "confimed");
+		
+		Format(panelText, sizeof(panelText), "%s: %s (%s)", clientName, classSelection, confirmed);
+		
+		DrawPanelText(panel, panelText);
+		drawnItems++;
+	}
+}
+
+
+void SelectAssignedClass(client)
+{
+	new Handle:panel = CreatePanel();
+	
+	SetPanelTitle(panel, "Select your class:");
+	DrawPanelItem(panel, "Recon");
+	DrawPanelItem(panel, "Assault");
+	DrawPanelItem(panel, "Support");
+	
+	SendPanelToClient(panel, client, PanelHandler_SelectAssignedClass, MENU_TIME);
+	
+	g_isInPanel[PANEL_SELECT_CLASS][client] = true;
+	
+	CloseHandle(panel);
+}
+
+void UpdateTeammatePanels(client, panel)
+{
+	new team = GetClientTeam(client);
+	
+	for (new i = 1; i < MaxClients; i++)
+	{
+		if (!Client_IsValid(i) || IsFakeClient(i))
+			continue;
+		
+		if (team != GetClientTeam(i))
+			continue;
+		
+		if (!g_isInPanel[panel][i])
+			continue;
+		
+		switch (panel)
+		{
+			case PANEL_SELECT_CLASS:
+			{
+				SelectAssignedClass(i);
+			}
+			
+			case PANEL_CONFIRM_CLASS:
+			{
+				ConfirmClassSelections(i);
+			}
+		}
 	}
 }

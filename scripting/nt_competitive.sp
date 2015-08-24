@@ -160,6 +160,7 @@ public OnClientAuthorized(client, const String:authID[])
 		
 		// ** Check for competitor status below **
 		new bool:isPlayerCompeting;
+		new bool:areLANPlayersPresent;
 		new earlierUserid;
 		
 		for (new i = 0; i < sizeof(g_livePlayers); i++)
@@ -169,6 +170,9 @@ public OnClientAuthorized(client, const String:authID[])
 				PrintToServer("Contents: %s", g_livePlayers[i]);
 			#endif
 			
+			if ( StrEqual("STEAM_ID_LAN", g_livePlayers[i]) )
+				areLANPlayersPresent = true;
+			
 			if (StrEqual(authID, g_livePlayers[i]))
 			{
 				isPlayerCompeting = true;
@@ -177,7 +181,16 @@ public OnClientAuthorized(client, const String:authID[])
 			}
 		}
 		
-		if (!isPlayerCompeting)
+		if (StrEqual(authID, "STEAM_ID_LAN") && areLANPlayersPresent)
+		{
+			g_assignedTeamWhenLive[client] = -1; // We are in LAN environment, let player join any team as we can't identify them by SteamID
+			
+			#if DEBUG
+				PrintToServer("LAN environment detected. Allowing client to join any team.");
+			#endif
+		}
+		
+		else if (!isPlayerCompeting)
 			g_assignedTeamWhenLive[client] = TEAM_SPECTATOR;
 		
 		else

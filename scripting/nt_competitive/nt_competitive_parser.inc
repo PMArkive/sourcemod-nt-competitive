@@ -141,12 +141,15 @@ public Action:Command_JoinTeam(client, args)
 	if (!g_isLive || !g_limitLiveTeams)
 		return Plugin_Continue;
 	
-	new String:clientName[MAX_NAME_LENGTH];
+	decl String:clientName[MAX_NAME_LENGTH];
 	GetClientName(client, clientName, sizeof(clientName));
 	
-	new String:steamID[MAX_STEAMID_LENGTH];
+	decl String:steamID[MAX_STEAMID_LENGTH];
 	if (!GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID)))
+	{
 		LogError("Failed fetching auth string for %s (client %i)", clientName, client);
+		strcopy(steamID, sizeof(steamID), "SteamID error");
+	}
 	
 	new String:team[10];
 	GetCmdArg(1, team, sizeof(team));

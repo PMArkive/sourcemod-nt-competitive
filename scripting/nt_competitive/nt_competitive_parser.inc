@@ -1,29 +1,56 @@
-public Action:CommandListener_SetClass(client, const String:command[], args)
+public Action:CommandListener_SpawnSetup(client, const String:command[], args)
 {
 	if (!g_isLive)
 		return Plugin_Continue;
 	
-	// Class locking disabled, let the player pick any class
+	// Class locking disabled, let the player pick any class normally
 	if (!GetConVarBool(g_hClassLocking))
 		return Plugin_Continue;
 	
-	// Something went wrong. Log error & let the player pick their class anyways so we won't glitch out. Shouldn't even happen(TM)
-	// FIXME: This might actually happen if cvar is changed whilst live. Add nag to server op?
+	// We should never be live before class selections are finished. Log error, but let the player pick their class anyways so we won't glitch out.
 	if ( !IsClassSelectionIsFinished() && g_isLive )
 	{
 		LogError("Live with class locking, however class selection isn't finished. This shouldn't happen.");
 		return Plugin_Continue;
 	}
 	
-	SetPlayerClass(client, g_assignedClass[client]);
+	//decl String:cmd[3];
+	//GetCmdArgString(cmd, sizeof(cmd));
+	//new arg = StringToInt(cmd);
 	
-	return Plugin_Handled;
+	if (StrEqual(command, "setclass"))
+	{
+		SetPlayerClass(client, g_assignedClass[client]);
+		ClientCommand(client, "loadoutmenu");
+		
+		return Plugin_Handled;
+	}
+	
+	ClientCommand(client, "setclass %i", g_assignedClass[client]);
+	
+	return Plugin_Continue;
 }
 
 public Action:Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	g_isSpawned[client] = true;
+	
+	if (g_isLive && GetConVarBool(g_hClassLocking) && !IsFakeClient(client))
+	{
+		// Bit of an expensive check, but we only do this on new live rounds with class locking
+		// (Maybe set a global bool for class selection?)
+		if ( !IsClassSelectionIsFinished() || !g_hasConfirmedClassSelection[client] || g_assignedClass[client] < 1 )
+		{
+			LogError("Class selection error. IsClassSelectionIsFinished=%i, g_hasConfirmedClassSelection[%i]=%i, g_assignedClass[%i]=%i", IsClassSelectionIsFinished(), client, g_hasConfirmedClassSelection[client], client, g_assignedClass[client]);
+		}
+		else
+		{	
+			new classSpawn = GetPlayerClass(client);
+			if (classSpawn != g_assignedClass[client])
+				LogError("Wrong class spawn %i (expected %i)", classSpawn, g_assignedClass[client]);
+		}
+	}
 }
 
 public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)

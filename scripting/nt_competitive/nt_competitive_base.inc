@@ -12,7 +12,7 @@ new String:g_teamName[][64] = {
 	"Jinrai",
 	"NSF"
 };
-new String:g_className[][12] = {
+new const String:g_className[][8] = {
 	"Recon",
 	"Assault",
 	"Support"
@@ -26,7 +26,7 @@ new String:g_kvPath[PLATFORM_MAX_PATH];
 enum {
 	PANEL_SELECT_CLASS = 0,
 	PANEL_CONFIRM_CLASS,
-	ENUMS_PANEL
+	PANEL_NUM_ENUMS // Number of enums, keep as the last entry. Enums have to start from 0 for this to work.
 };
 
 new g_assignedClass[MAXPLAYERS+1];
@@ -62,7 +62,7 @@ new bool:g_isWantingOverride[sizeof(g_teamName)]; // Unassigned, spec, jinrai, n
 new bool:g_shouldPause;
 new bool:g_shouldClientsRecord;
 new bool:g_hasConfirmedClassSelection[MAXPLAYERS+1];
-new bool:g_isInPanel[ENUMS_PANEL][MAXPLAYERS+1];
+new bool:g_isInPanel[PANEL_NUM_ENUMS][MAXPLAYERS+1];
 
 new Handle:g_hAlltalk;
 new Handle:g_hCommsBehaviour;
@@ -86,58 +86,24 @@ new Handle:g_hLimitTeams;
 new Handle:g_hClassLocking;
 
 bool IsClassSelectionIsFinished()
-{
-	PrintToServer("IsClassSelectionIsFinished()");
-	
-	
-	PrintToServer("if ( !GetConVarBool(g_hClassLocking) )");
+{	
 	if ( !GetConVarBool(g_hClassLocking) )
-	{
-		PrintToServer("false");
 		return false;
-	}
-	else
-		PrintToServer("true");
 	
-	PrintToServer("For loop start");
 	for (new i = 1; i < MaxClients; i++)
 	{
 		if (!Client_IsValid(i) || IsFakeClient(i))
-		{
-			PrintToServer("if (!Client_IsValid(i) || IsFakeClient(i))");
 			continue;
-		}
 		
 		if (g_assignedTeamWhenLive[i] != TEAM_JINRAI && g_assignedTeamWhenLive[i] != TEAM_NSF)
-		{
-			PrintToServer("if (g_assignedTeamWhenLive[i] != TEAM_JINRAI && g_assignedTeamWhenLive[i] != TEAM_NSF)");
 			continue;
-		}
 		
-		
-		PrintToServer("if (g_assignedClass[i] < 1 || g_assignedClass[i] > 3)");
 		if (g_assignedClass[i] < 1 || g_assignedClass[i] > 3)
-		{
-			PrintToServer("false");
 			return false;
-		}
-		else
-			PrintToServer("true");
 		
-		
-		PrintToServer("if (!g_hasConfirmedClassSelection[i])");
 		if (!g_hasConfirmedClassSelection[i])
-		{
-			PrintToServer("false");
 			return false;
-		}
-		else
-			PrintToServer("true");
 	}
-	
-	PrintToServer("For loop end");
-	
-	PrintToServer("Function end, return true");
 	
 	return true;
 }
@@ -192,7 +158,9 @@ void CheckIfEveryoneIsReady()
 	}
 	
 	LiveCountDown(); // Passed all checks, ready to go live
-	PrintClassLockInfo();
+	
+	if (GetConVarBool(g_hClassLocking))
+		PrintClassLockInfo();
 }
 
 public Action:Command_ReadyList(client, args)
@@ -200,7 +168,7 @@ public Action:Command_ReadyList(client, args)
 	if (!Client_IsValid(client))
 		return Plugin_Stop;
 	
-	PrintToChat(client, "%s List of readied players is printed in your console.", g_tag);
+	PrintToChat(client, "%s List of readied players has been printed in your console.", g_tag);
 	
 	PrintToConsole(client, "\n%s Players and their READY state:", g_tag);
 	for (new i = 1; i <= MaxClients; i++)
@@ -220,7 +188,7 @@ public Action:Command_ReadyList(client, args)
 			PrintToConsole(client, "[READY]\t%s", clientName);
 		
 		else
-			PrintToConsole(client, "[NOT READY]\t%s", clientName);
+			PrintToConsole(client, "[*NOT READY*]\t%s", clientName);
 	}
 	PrintToConsole(client, "\n");
 	
@@ -345,8 +313,11 @@ void ToggleLive()
 			{
 				new String:clientName[MAX_NAME_LENGTH];
 				GetClientName(i, clientName, sizeof(clientName));
-				PrintToChatAll("%s Player \"%s\" has no SteamID authorized yet! Stopped going live. Please try again in a moment.");
-				PrintToServer("%s Player \"%s\" has no SteamID authorized yet! Stopped going live. Please try again in a moment.");
+				PrintToChatAll("%s Player \"%s\" has no SteamID authorized yet! Stopped going live. Please try again in a moment.", g_tag, clientName);
+				
+				#if DEBUG
+					PrintToServer("%s Player \"%s\" has no SteamID authorized yet! Stopped going live. Please try again in a moment.", g_tag, clientName);
+				#endif
 				
 				g_isLive = false;
 				
@@ -465,7 +436,7 @@ void NeoRestartThis()
 		if (!Client_IsValid(i))
 			continue;
 		
-		SetPlayerRank(i, 0); // We need to manually set everyone to private class to avoid a bug where players could spawn without a primary weapon
+		SetPlayerRank(i, 0); // We need to manually set everyone to private rank to avoid a bug where players could spawn without a primary weapon
 	}
 }
 
@@ -502,7 +473,6 @@ void TogglePause()
 	
 	else
 	{
-		// Close any open unpause timer, countdown timer, and half countdown timer handles below
 		if (!g_isExpectingUnPauseTimer)
 			LogError("Unpause timer executed unexpectedly.");
 		
@@ -589,7 +559,7 @@ public Action:Command_OverrideStartOther2(client, args) // Just flip the force s
 	
 	g_isWantingOverride[otherTeam] = true;
 	
-	ReplyToCommand(client, "Start bool flipped.");
+	ReplyToCommand(client, "Other team wants override: true.");
 	
 	return Plugin_Handled;
 }
@@ -853,7 +823,7 @@ void ToggleSourceTV()
 		}
 		replayBuffer[bufferPos] = '\0'; // Terminate the string with 0
 		
-		ReplaceString(replayBuffer, sizeof(replayBuffer), ":", ""); // Remove : characters from the SteamID. To-do: proper sanitazion
+		ReplaceString(replayBuffer, sizeof(replayBuffer), ":", ""); // Remove : characters from the SteamID. To-do: proper sanitazion. We could alternatively use steam64 format (all int)
 		strcopy(replayName, sizeof(replayName), replayBuffer);
 		
 		ServerCommand("tv_stoprecord"); // Stop any previous server record
@@ -968,7 +938,7 @@ void LogCompetitive(const String:message[])
 	new String:loggingPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, loggingPath, sizeof(loggingPath), "logs/competitive");
 	
-	new String:debugFile[] = "logfile.log"; // Static debug file for logging. We later want to use keyvalues using match IDs etc
+	new String:debugFile[] = "logfile.log"; // Static debug file for logging. We later want to use keyvalues using match IDs etc, and perhaps configurable log with human readable info
 	Format(loggingPath, sizeof(loggingPath), "%s/%s", loggingPath, debugFile);
 		
 	new Handle:hFile = OpenFile(loggingPath, "a"); // C++ fopen modes
@@ -1025,6 +995,7 @@ void ResetPlayersAlive() // Reset g_playersAlive array. Only call this on new ro
 	new jinraiPlayers;
 	new nsfPlayers;
 	
+	// TODO: Is there a smlib function for this?
 	for (new i = 1; i <= MaxClients; i++)
 	{
 		#if !defined DEBUG || DEBUG == 0
@@ -1056,7 +1027,7 @@ void ResetGlobalVariables() // Make sure all global variables are reset properly
 	// Reset global integers
 	new correctInt = 0; // Desired value
 	
-	g_jinraiScore							= correctInt;
+	g_jinraiScore								= correctInt;
 	g_nsfScore								= correctInt;
 	g_roundCount							= correctInt;
 	
@@ -1091,20 +1062,20 @@ void ResetGlobalVariables() // Make sure all global variables are reset properly
 	g_isLive								= correctBool;
 	g_isPaused							= correctBool;
 	g_isSourceTVRecording			= correctBool;
-	g_shouldPause					= correctBool;
+	g_shouldPause						= correctBool;
 	g_shouldClientsRecord			= correctBool;
 	
 	for (i = 0; i <= MaxClients; i++)
 	{
-		g_isReady[i]								= correctBool;
-		g_isSpawned[i]							= correctBool;
+		g_isReady[i]									= correctBool;
+		g_isSpawned[i]								= correctBool;
 		g_hasConfirmedClassSelection[i]	= correctBool;
 	}
 	
 	for (i = 0; i < sizeof(g_teamName); i++)
 	{
-			g_isTeamReadyForUnPause[i]	= correctBool;
-			g_isWantingOverride[i]			= correctBool;
+		g_isTeamReadyForUnPause[i]	= correctBool;
+		g_isWantingOverride[i]			= correctBool;
 	}
 }
 
@@ -1134,9 +1105,10 @@ void ToggleClientReadyState(client, verbose = true, doReadyCheck = true)
 }
 
 void PrintClassLockInfo()
-{
+{	
 	decl String:classInfo_TeamTitle[512];
 	decl String:classInfo_Class[16];
+	new drawnItems;
 	
 	for (new i = 1; i < MaxClients; i++)
 	{
@@ -1157,6 +1129,13 @@ void PrintClassLockInfo()
 			
 			Format(classInfo_Class, sizeof(classInfo_Class), "- %s", g_className[g_assignedClass[j - 1]]); // Class ints go 1-3 whereas our name array goes 0-2
 			PrintToConsole(i, classInfo_Class);
+			
+			drawnItems++;
+		}
+		
+		if (drawnItems == 0)
+		{
+			PrintToConsole(i, "No players found.");
 		}
 		
 		PrintToConsole(i, "\n- - - - - - - - - -\n");
@@ -1164,6 +1143,8 @@ void PrintClassLockInfo()
 		Format(classInfo_TeamTitle, sizeof(classInfo_TeamTitle), "Team %s:\n", g_teamName[TEAM_NSF]);
 		PrintToConsole(i, "\nSelected Classes:");
 		PrintToConsole(i, classInfo_TeamTitle);
+		
+		drawnItems = 0;
 		
 		for (new j = 1; j < MaxClients; j++)
 		{
@@ -1173,8 +1154,15 @@ void PrintClassLockInfo()
 			if (GetClientTeam(j) != TEAM_NSF)
 				continue;
 			
-			Format(classInfo_Class, sizeof(classInfo_Class), "- %s", g_className[g_assignedClass[j - 1]]);
+			Format(classInfo_Class, sizeof(classInfo_Class), "- %s", g_className[g_assignedClass[j] - 1]);
 			PrintToConsole(i, classInfo_Class);
+			
+			drawnItems++;
+		}
+		
+		if (drawnItems == 0)
+		{
+			PrintToConsole(i, "No players found.");
 		}
 	}
 }
@@ -1196,7 +1184,7 @@ void ConfirmClassSelections(client)
 	DrawPanelItem(panel, "Confirm your selection");
 	DrawPanelItem(panel, "Edit your selection");
 	
-	SendPanelToClient(panel, client, PanelHandler_ConfirmClassSelections, MENU_TIME);
+	SendPanelToClient(panel, client, PanelHandler_ConfirmClassSelections, MENU_TIME_FOREVER);
 	
 	g_isInPanel[PANEL_CONFIRM_CLASS][client] = true;
 	
@@ -1207,7 +1195,7 @@ void DrawTeamClasses(Handle:panel, team)
 {
 	if (panel == INVALID_HANDLE)
 	{
-		LogError("Invalid panel handle %h", panel);
+		LogError("Invalid panel handle %h", panel); // Todo: can we %h?
 		return;
 	}
 	
@@ -1217,7 +1205,6 @@ void DrawTeamClasses(Handle:panel, team)
 		return;
 	}
 	
-	new clientTeam;
 	new drawnItems;
 	
 	for (new i = 1; i < MaxClients; i++)
@@ -1226,11 +1213,10 @@ void DrawTeamClasses(Handle:panel, team)
 		if (drawnItems >= 5)
 			break;
 		
-		if (!Client_IsValid(i) || IsFakeClient(i))
+		if ( !Client_IsValid(i) || IsFakeClient(i) )
 			continue;
 		
-		clientTeam = GetClientTeam(i);
-		if (clientTeam != team)
+		if ( team != GetClientTeam(i) )
 			continue;
 		
 		decl String:classSelection[12];
@@ -1238,7 +1224,17 @@ void DrawTeamClasses(Handle:panel, team)
 		new String:confirmed[] = "not confirmed";
 		decl String:panelText[sizeof(classSelection) + sizeof(clientName) + sizeof(confirmed) + 6];
 		
-		strcopy(classSelection, sizeof(classSelection), g_className[g_assignedClass[i] - 1]);
+		if (g_assignedClass[i] < 1)
+		{
+			LogError("Client %i has invalid class %i selected.", i, g_assignedClass[i]);
+			strcopy(classSelection, sizeof(classSelection), "(class error)");
+		}
+		else
+		{
+			//strcopy(classSelection, sizeof(classSelection), g_className[-1 + g_assignedClass[i]]);
+			Format(classSelection, sizeof(classSelection), g_className[g_assignedClass[i] - 1]);
+		}
+		
 		GetClientName(i, clientName, sizeof(clientName));
 		
 		if (g_hasConfirmedClassSelection[i])
@@ -1248,6 +1244,20 @@ void DrawTeamClasses(Handle:panel, team)
 		
 		DrawPanelText(panel, panelText);
 		drawnItems++;
+	}
+	
+	if (drawnItems == 0)
+	{
+		DrawPanelText(panel, "(no players found)");
+	}
+	
+	PrintToServer("Everyone's assigned classes as follows:\n");
+	for (new i = 1; i < MaxClients; i++)
+	{
+		if (!Client_IsValid(i) || IsFakeClient(i))
+			continue;
+		
+		PrintToServer("Client %i: class %i (is assigned: %i)", i, g_assignedClass[i], g_hasConfirmedClassSelection[i]);
 	}
 }
 
@@ -1261,7 +1271,7 @@ void SelectAssignedClass(client)
 	DrawPanelItem(panel, "Assault");
 	DrawPanelItem(panel, "Support");
 	
-	SendPanelToClient(panel, client, PanelHandler_SelectAssignedClass, MENU_TIME);
+	SendPanelToClient(panel, client, PanelHandler_SelectAssignedClass, MENU_TIME_FOREVER);
 	
 	g_isInPanel[PANEL_SELECT_CLASS][client] = true;
 	

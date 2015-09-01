@@ -1,46 +1,34 @@
 public PanelHandler_SelectAssignedClass(Handle:menu, MenuAction:action, client, choice)
 {
+	g_isInPanel[PANEL_SELECT_CLASS][client] = false; // We won't be in the panel anymore when this is called
+	
 	if (action != MenuAction_Select)
-	{
-		g_isInPanel[PANEL_SELECT_CLASS][client] = false;
 		return;
-	}
 	
 	g_assignedClass[client] = choice; // 1-3,  recon-support
 	
 	UpdateTeammatePanels(client, PANEL_SELECT_CLASS);
 	
 	ConfirmClassSelections(client);
-	
-	g_isInPanel[PANEL_SELECT_CLASS][client] = false;
 }
 
 public PanelHandler_ConfirmClassSelections(Handle:menu, MenuAction:action, client, choice)
 {
+	g_isInPanel[PANEL_CONFIRM_CLASS][client] = false; // We won't be in the panel anymore when this is called
+	
 	if (action != MenuAction_Select)
-	{
-		g_isInPanel[PANEL_CONFIRM_CLASS][client] = false;
 		return;
-	}
 	
 	new clientTeam = GetClientTeam(client);
 	
 	if (clientTeam != TEAM_JINRAI && clientTeam != TEAM_NSF)
-	{
-		g_isInPanel[PANEL_CONFIRM_CLASS][client] = false;
 		return;
-	}
 	
 	switch (choice)
 	{
 		case 1: // Confirm class selection
 		{
 			g_hasConfirmedClassSelection[client] = true;
-			
-			if ( IsClassSelectionIsFinished() )
-			{
-				CheckIfEveryoneIsReady();
-			}
 		}
 		
 		case 2: // Edit class selection
@@ -49,8 +37,6 @@ public PanelHandler_ConfirmClassSelections(Handle:menu, MenuAction:action, clien
 			SelectAssignedClass(client);
 		}
 	}
-	
-	g_isInPanel[PANEL_CONFIRM_CLASS][client] = false;
 }
 
 public PanelHandler_CompetitiveMain(Handle:menu, MenuAction:action, client, choice)
@@ -60,7 +46,7 @@ public PanelHandler_CompetitiveMain(Handle:menu, MenuAction:action, client, choi
 	
 	switch (choice)
 	{
-		case 1: // Ready/unready
+		case 1: // Ready / unready
 		{
 			PrecacheSound(g_menuSoundOk);
 			EmitSoundToClient(client, g_menuSoundOk);

@@ -73,8 +73,10 @@ public OnPluginStart()
 	HookEvent("player_death",			Event_PlayerDeath);
 	HookEvent("player_spawn",			Event_PlayerSpawn);
 	
-	// Hook player class selection (used for experimental class locking mode)
-	AddCommandListener(CommandListener_SetClass, "setclass");
+	// We use these hooks to force player class, if using the experimental class locking mode
+	AddCommandListener(CommandListener_SpawnSetup, "setclass");
+	//AddCommandListener(CommandListener_SpawnSetup, "loadout");
+	AddCommandListener(CommandListener_SpawnSetup, "loadoutmenu");
 	
 	CreateConVar("sm_competitive_version", PLUGIN_VERSION, "Competitive plugin version.", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
 	
@@ -588,7 +590,7 @@ public Action:Command_Ready(client, args)
 	{
 		if (!g_hasConfirmedClassSelection[client])
 		{
-			ReplyToCommand(client, "%s You have to choose a class first. Type !class in chat.");
+			ReplyToCommand(client, "%s You have to choose a class first. Type !class in chat.", g_tag);
 			return Plugin_Continue;
 		}
 	}
@@ -650,6 +652,7 @@ public Action:Command_Class(client, args)
 {
 	new team = GetClientTeam(client);
 	
+	// Command is only available to players
 	if (team != TEAM_JINRAI && team != TEAM_NSF)
 		return Plugin_Stop;
 	
@@ -674,6 +677,7 @@ public Competitive_IsPaused(Handle:plugin, numParams)
 	return false;
 }
 
+// TODO: SourceMod already has a function for this, could be redundant as a native?
 public Competitive_GetTeamScore(Handle:plugin, numParams)
 {
 	if (numParams != 1)

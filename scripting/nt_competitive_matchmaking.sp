@@ -2,22 +2,15 @@
 
 #include <sourcemod>
 #include <smlib>
+#include "nt_competitive/nt_competitive_sql"
 
 #define PLUGIN_VERSION "0.1"
-
-#define MAX_SQL_LENGTH 2048
-
-#define SQL_CONFIG "nt_competitive_matchmaking"
-#define SQL_TABLE_QUEUED "queued"
-#define SQL_TABLE_OFFER_MATCH "match_offers"
 
 new Handle:g_hMatchmaking;
 new Handle:g_hMatchSize;
 
 new Handle:g_hTimer_CheckMMStatus = INVALID_HANDLE;
-new Handle:db = INVALID_HANDLE;
 
-new bool:g_isSQLInitialized;
 new bool:g_isServerOfferingMatch;
 
 public Plugin:myinfo = {
@@ -25,14 +18,24 @@ public Plugin:myinfo = {
 	description	=	"Handle queue based matchmaking",
 	author		=	"Rain",
 	version		=	PLUGIN_VERSION,
-	url			=	""
+	url				=	"https://github.com/Rainyan/sourcemod-nt-competitive"
 };
+
+public OnAllPluginsLoaded()
+{
+	// Make sure we are running the base competitive plugin
+	new Handle:hPluginBase = FindPluginByFile("nt_competitive.smx");
+	new PluginStatus:hPluginBase_Status = GetPluginStatus(hPluginBase);
+	
+	if (hPluginBase == INVALID_HANDLE || hPluginBase_Status != Plugin_Running)
+		SetFailState("Matchmaking module requires the base nt_competitive plugin to run");
+	
+	g_hMatchSize = FindConVar("sm_competitive_players_total");
+}
 
 public OnPluginStart()
 {
 	g_hMatchmaking = CreateConVar("sm_competitive_matchmaking",	"1",	"Enable matchmaking mode (automated queue system instead of manual join)", _, true, 0.0, true, 1.0);
-	
-	g_hMatchSize = FindConVar("sm_competitive_players_total");
 	
 	HookConVarChange(g_hMatchmaking, Event_Matchmaking);
 }
@@ -48,9 +51,15 @@ public OnConfigsExecuted()
 	}
 }
 
-GetPlayersQueued()
-{	
-	new String:sql[MAX_SQL_LENGTH];
+int GetPlayersQueued()
+{
+	if (db == INVALID_HANDLE)
+	{
+		LogError("SQL error: database handle is invalid");
+		return 0;
+	}
+	
+	decl String:sql[MAX_SQL_LENGTH];
 	
 	Format(sql, sizeof(sql), "SELECT players_queued FROM %s", SQL_TABLE_QUEUED);
 	
@@ -72,69 +81,25 @@ GetPlayersQueued()
 	return playersQueued;
 }
 
-InitSQL()
-{
-	new String:sqlError[256];
-	db = SQL_Connect(SQL_CONFIG, true, sqlError, sizeof(sqlError));
-	
-	if (db == INVALID_HANDLE)
-	{
-		LogError("SQL error: %s", sqlError);
-		return;
-	}
-	
-	new String:sql[MAX_SQL_LENGTH];
-	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s( \
-		id INT(5) NOT NULL AUTO_INCREMENT, \
-		players_queued INT(2), \
-		Timestamp TIMESTAMP, \
-		PRIMARY KEY (id)) CHARACTER SET=utf8;", SQL_TABLE_QUEUED);
-	
-	if (!SQL_FastQuery(db, sql))
-	{
-		LogError("SQL error: query error");
-		return;
-	}
-	
-	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s( \
-		id INT(5) NOT NULL AUTO_INCREMENT, \
-		server_ip VARCHAR(16), \
-		server_port INT(5), \
-		server_password VARCHAR(32), \
-		server_name VARCHAR(128), \
-		Timestamp TIMESTAMP, \
-		PRIMARY KEY (id)) CHARACTER SET=utf8;", SQL_TABLE_OFFER_MATCH);
-	
-	if (!SQL_FastQuery(db, sql))
-	{
-		LogError("SQL error: query error");
-		return;
-	}
-	
-	g_isSQLInitialized = true;
-	
-	return;
-}
-
-public Action:OfferMatch()
+void OfferMatch()
 {
 	if (!g_isSQLInitialized || g_isServerOfferingMatch)
-		return Plugin_Stop;
+		return;
 	
-	new String:serverIP[16];
+	decl String:serverIP[16];
 	Server_GetIPString(serverIP, sizeof(serverIP));
 	new serverPort = Server_GetPort();
 	
-	new String:sql[MAX_SQL_LENGTH];
+	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE server_ip=? AND server_port=?, ", SQL_TABLE_OFFER_MATCH);
 	
-	new String:sqlError[256];
+	decl String:sqlError[256];
 	new Handle:stmt = SQL_PrepareQuery(db, sql, sqlError, sizeof(sqlError));
 	
 	if (stmt == INVALID_HANDLE)
 	{
 		LogError("SQL error: %s", sqlError);
-		return Plugin_Stop;
+		return;
 	}
 	
 	SQL_BindParamString(stmt, 0, serverIP, false);
@@ -143,6 +108,11 @@ public Action:OfferMatch()
 	if (!SQL_Execute(stmt))
 	{
 		LogError("SQL error: %s", sqlError);
+		
+		if (stmt != INVALID_HANDLE)
+			CloseHandle(stmt);
+		
+		return;
 	}
 	
 	new entries;
@@ -156,7 +126,7 @@ public Action:OfferMatch()
 	
 	PrintToServer("Found entries: %i", entries);
 	
-	return Plugin_Handled;
+	return;
 }
 
 public Event_Matchmaking(Handle:cvar, const String:oldVal[], const String:newVal[])
@@ -167,7 +137,8 @@ public Event_Matchmaking(Handle:cvar, const String:oldVal[], const String:newVal
 
 public Action:Timer_CheckMMStatus(Handle:timer)
 {
-	if (!GetConVarBool(g_hMatchmaking)) // We're not in "matchmaking" mode anymore, stop this timer
+	// We're not in "matchmaking" mode anymore, stop this timer
+	if ( !GetConVarBool(g_hMatchmaking) )
 	{
 		if (g_hTimer_CheckMMStatus != INVALID_HANDLE)
 		{
@@ -176,7 +147,8 @@ public Action:Timer_CheckMMStatus(Handle:timer)
 		}
 	}
 	
-	if ( GetPlayersQueued() >= GetConVarInt(g_hMatchSize) ) // There's enough people queued up to start a match
+	// There's enough people queued up to start a match
+	if ( GetPlayersQueued() >= GetConVarInt(g_hMatchSize) )
 	{
 		if (!g_isServerOfferingMatch)
 			OfferMatch();

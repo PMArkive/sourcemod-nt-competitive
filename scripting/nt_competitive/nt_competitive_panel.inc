@@ -4,12 +4,12 @@
 #endif
 #define _panel_included_
 
-public PanelHandler_Pause(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_Pause(Handle menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
 	
-	new team = GetClientTeam(client);
+	int team = GetClientTeam(client);
 	
 	switch (choice)
 	{
@@ -53,7 +53,7 @@ public PanelHandler_Pause(Handle:menu, MenuAction:action, client, choice)
 	}
 }
 
-public PanelHandler_UnPause(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_UnPause(Handle menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
@@ -75,7 +75,7 @@ public PanelHandler_UnPause(Handle:menu, MenuAction:action, client, choice)
 	}
 }
 
-public PanelHandler_CancelPause(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_CancelPause(Handle menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
@@ -97,7 +97,7 @@ public PanelHandler_CancelPause(Handle:menu, MenuAction:action, client, choice)
 	}
 }
 
-public PanelHandler_RefereeMenu_Main(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_RefereeMenu_Main(Handle menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
@@ -162,7 +162,7 @@ public PanelHandler_RefereeMenu_Main(Handle:menu, MenuAction:action, client, cho
 	}
 }
 
-public PanelHandler_ManualEdit_TeamScore(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_ManualEdit_TeamScore(Handle menu, MenuAction action, int client, int choice)
 {	
 	if (action != MenuAction_Select)
 		return;
@@ -192,7 +192,7 @@ public PanelHandler_ManualEdit_TeamScore(Handle:menu, MenuAction:action, client,
 	}
 }
 
-public PanelHandler_RefereeMenu_ChangeRound(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_RefereeMenu_ChangeRound(Handle menu, MenuAction action, int client, int choice)
 {
 	g_isEditingSetting[client] = false; // We're done editing the setting when this gets called
 	
@@ -237,7 +237,7 @@ public PanelHandler_RefereeMenu_ChangeRound(Handle:menu, MenuAction:action, clie
 	}
 }
 
-public PanelHandler_PenaltyMenu(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_PenaltyMenu(Handle menu, MenuAction action, int client, int choice)
 {
 	g_isCurrentlyGivingPenalty[client] = false;
 	
@@ -269,7 +269,7 @@ public PanelHandler_PenaltyMenu(Handle:menu, MenuAction:action, client, choice)
 	}
 }
 
-public PanelHandler_PenalizeTeam(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_PenalizeTeam(Handle menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
@@ -292,7 +292,7 @@ public PanelHandler_PenalizeTeam(Handle:menu, MenuAction:action, client, choice)
 	}
 }
 
-public PanelHandler_RefereeMenu_GameInfo(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_RefereeMenu_GameInfo(Handle menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
@@ -343,7 +343,7 @@ public PanelHandler_RefereeMenu_GameInfo(Handle:menu, MenuAction:action, client,
 	}
 }
 
-public PanelHandler_RefereeMenu_LoadMatch_ViewMeta(Handle:menu, MenuAction:action, client, choice)
+public PanelHandler_RefereeMenu_LoadMatch_ViewMeta(Handle menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
@@ -386,17 +386,17 @@ Menu BuildClientMenu()
 {
 	Menu menu = new Menu(Menu_Clients);
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || IsFakeClient(i) )
 			continue;
 		
-		new team = GetClientTeam(i);
+		int team = GetClientTeam(i);
 		if (team != TEAM_JINRAI && team != TEAM_NSF)
 			continue;
 		
-		decl String:clientName[MAX_NAME_LENGTH];
-		decl String:clientStr[3];
+		char clientName[MAX_NAME_LENGTH];
+		char clientStr[3];
 		IntToString(i, clientStr, sizeof(clientStr));
 		GetClientName( i, clientName, sizeof(clientName) );
 		
@@ -408,15 +408,14 @@ Menu BuildClientMenu()
 	return menu;
 }
 
-public int Menu_Clients(Menu menu, MenuAction action, client, choice)
+public int Menu_Clients(Menu menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
 	
-	decl String:targetString[32];
+	char targetString[32];
 	menu.GetItem( choice, targetString, sizeof(targetString) );
-	
-	new target = StringToInt(targetString);
+	int target = StringToInt(targetString);
 	
 	if ( !Client_IsValid(target) )
 	{
@@ -427,7 +426,7 @@ public int Menu_Clients(Menu menu, MenuAction action, client, choice)
 	RefereeMenu_ClientActions(client);
 }
 
-void Menu_KvDetails(client, const String:kvFileName[], bool:outOfBounds = false)
+void Menu_KvDetails(int client, const char[] kvFileName, bool outOfBounds = false)
 {
 	if ( !Client_IsValid(client) || !IsClientInGame(client) )
 		return;
@@ -444,7 +443,7 @@ void Menu_KvDetails(client, const String:kvFileName[], bool:outOfBounds = false)
 		return;
 	}
 	
-	decl String:fullPath[PLATFORM_MAX_PATH];
+	char fullPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, fullPath, sizeof(fullPath), "%s/%s", g_kvPath, kvFileName);
 	
 	// Import KeyValues from file
@@ -460,26 +459,26 @@ void Menu_KvDetails(client, const String:kvFileName[], bool:outOfBounds = false)
 	kv.JumpToKey("meta", false);
 	
 	// Get this match's date/time
-	decl String:readableTime[64];
+	char readableTime[64];
 	FormatTime( readableTime, sizeof(readableTime), "%Y%m%d-%H%M", kv.GetNum("timestamp") );
 	
 	// Get match title, if any
-	new String:matchTitle[MAX_CVAR_LENGTH];
+	char matchTitle[MAX_CVAR_LENGTH];
 	kv.GetString( g_kvKey_competitionName, matchTitle, sizeof(matchTitle) );
 	if (strlen(matchTitle) < 1)
 		strcopy(matchTitle, sizeof(matchTitle), "untitled match");
 	
 	// Get team names, if any
-	new String:jinraiName[MAX_CVAR_LENGTH];
+	char jinraiName[MAX_CVAR_LENGTH];
 	kv.GetString( g_kvKey_jinraiName, jinraiName, sizeof(jinraiName) );
-	new String:nsfName[MAX_CVAR_LENGTH];
+	char nsfName[MAX_CVAR_LENGTH];
 	kv.GetString( g_kvKey_nsfName, nsfName, sizeof(nsfName) );
 	
 	kv.GoBack();
 	
-	decl String:roundLabel[16] = "round";
-	new roundCount = 1;
-	decl String:labelBuffer[16];
+	char roundLabel[16] = "round";
+	int roundCount = 1;
+	char labelBuffer[16];
 	Format(labelBuffer, sizeof(labelBuffer), "%s%i", roundLabel, roundCount);
 	
 	while ( kv.JumpToKey(labelBuffer, false) )
@@ -494,15 +493,15 @@ void Menu_KvDetails(client, const String:kvFileName[], bool:outOfBounds = false)
 	Format(labelBuffer, sizeof(labelBuffer), "%s%i", roundLabel, roundCount);
 	kv.JumpToKey(labelBuffer, false);
 	
-	new jinraiScore = kv.GetNum(g_kvKey_jinraiScore);
-	new nsfScore = kv.GetNum(g_kvKey_nsfScore);
-	new roundLimit = kv.GetNum(g_kvKey_roundLimit);
+	int jinraiScore = kv.GetNum(g_kvKey_jinraiScore);
+	int nsfScore = kv.GetNum(g_kvKey_nsfScore);
+	int roundLimit = kv.GetNum(g_kvKey_roundLimit);
 	
 	// Done reading from kv
 	delete kv;
 	
 	// Create panel
-	new Handle:panel = CreatePanel();
+	Handle panel = CreatePanel();
 	// Store selected kv filename for use in callbacks
 	strcopy(g_kvName_Temp[client], sizeof(g_kvName_Temp), kvFileName);
 	
@@ -514,14 +513,14 @@ void Menu_KvDetails(client, const String:kvFileName[], bool:outOfBounds = false)
 	DrawPanelText(panel, readableTime);
 	DrawPanelText(panel, matchTitle);
 	
-	decl String:infoBuffer[128];
+	char infoBuffer[128];
 	Format(infoBuffer, sizeof(infoBuffer), "Jinrai %i vs %i NSF", jinraiScore, nsfScore);
 	DrawPanelText(panel, infoBuffer);
 	
 	Format(infoBuffer, sizeof(infoBuffer), "Round limit: %i", roundLimit);
 	DrawPanelText(panel, infoBuffer);
 	
-	decl String:liveFromRestore[27] = "Go live after restore: ";
+	char liveFromRestore[27] = "Go live after restore: ";
 	if (g_goLiveAfterKvRestore[client])
 		StrCat(liveFromRestore, sizeof(liveFromRestore), "yes");
 	else
@@ -539,12 +538,12 @@ void Menu_KvDetails(client, const String:kvFileName[], bool:outOfBounds = false)
 	CloseHandle(panel);
 }
 
-public MenuHandler_RefereeMenu_LoadMatch(Menu:menu, MenuAction:action, client, choice)
+public MenuHandler_RefereeMenu_LoadMatch(Menu menu, MenuAction action, int client, int choice)
 {
 	if (action != MenuAction_Select)
 		return;
 	
-	decl String:kvFileName[PLATFORM_MAX_PATH];
+	char kvFileName[PLATFORM_MAX_PATH];
 	menu.GetItem( choice, kvFileName, sizeof(kvFileName) );
 	
 	Menu_KvDetails(client, kvFileName);

@@ -4,158 +4,157 @@
 #endif
 #define _base_included_
 
-#define PLUGIN_VERSION "0.3.9.11"
+#define PLUGIN_VERSION "0.4"
 
 #define MAX_STEAMID_LENGTH 44
 #define MAX_ROUNDS_PLAYED 255 // This is just a random large number used for 1d int arrays because it's cheap and simple. A single comp game should never have more rounds than this to avoid weirdness.
 #define MAX_CVAR_LENGTH 64
 
-#define KV_IDENTIFIER "compdata"
-
-new const String:g_tag[] = "[COMP]";
-new String:g_teamName[][64] = {
+char g_kvIdentifier[] = "compdata";
+char g_tag[] = "[COMP]";
+char g_teamName[][64] = {
 	"Unassigned",
 	"Spectator",
 	"Jinrai",
 	"NSF"
 };
-new String:g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing SteamIDs to allow disconnected players rejoining when live
-new const String:g_menuSoundOk[] = "buttons/button14.wav";
-new const String:g_menuSoundCancel[] = "buttons/combine_button7.wav";
-new const String:g_soundLive[] = "buttons/button17.wav";
-new String:g_killInfoBuffer[MAXPLAYERS+1][512];
-new String:g_convarBeingEdited[128];
+char g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing SteamIDs to allow disconnected players rejoining when live
+char g_menuSoundOk[] = "buttons/button14.wav";
+char g_menuSoundCancel[] = "buttons/combine_button7.wav";
+char g_soundLive[] = "buttons/button17.wav";
+char g_killInfoBuffer[MAXPLAYERS+1][512];
+char g_convarBeingEdited[128];
 #if DEBUG
-new String:g_path_logDebug[PLATFORM_MAX_PATH] = "logs/competitive";
-new String:g_kvPath[PLATFORM_MAX_PATH] = "data/competitive/matches";
-new String:g_kvName[128];
-new String:g_kvName_Temp[MAXPLAYERS+1][sizeof(g_kvName)];
+char g_path_logDebug[PLATFORM_MAX_PATH] = "logs/competitive";
+char g_kvPath[PLATFORM_MAX_PATH] = "data/competitive/matches";
+char g_kvName[128];
+char g_kvName_Temp[MAXPLAYERS+1][sizeof(g_kvName)];
 #endif
 
-new const String:g_kvKey_jinraiName[] = "jinrai_name";
-new const String:g_kvKey_nsfName[] = "nsf_name";
-new const String:g_kvKey_competitionName[] = "competition_name";
-new const String:g_kvKey_sourceTVPath[] = "sourcetv_path";
-new const String:g_kvKey_roundLimit[] = "round_limit";
-new const String:g_kvKey_matchSize[] = "match_size";
-new const String:g_kvKey_maxTimeouts[] = "max_timeouts";
-new const String:g_kvKey_maxPauseLength[] = "max_pause_length";
-new const String:g_kvKey_maxPauseLengthTechnical[] = "max_pause_length_technical";
-new const String:g_kvKey_commsBehaviour[] = "comms_behaviour";
-new const String:g_kvKey_logMode[] = "log_mode";
-new const String:g_kvKey_killVerbosity[] = "kill_verbosity";
-new const String:g_kvKey_killVerbosityDelay[] = "kill_verbosity_delay";
-new const String:g_kvKey_clientRecording[] = "client_recording";
-new const String:g_kvKey_limitLiveTeams[] = "limit_live_teams";
-new const String:g_kvKey_limitTeams[] = "limit_teams";
-new const String:g_kvKey_pauseMode[] = "pause_mode";
-new const String:g_kvKey_collectiveReady[] = "collective_ready";
-new const String:g_kvKey_noZanshi[] = "no_zanshi";
-new const String:g_kvKey_jinraiScore[] = "jinrai_score";
-new const String:g_kvKey_nsfScore[] = "nfs_score";
-new const String:g_kvKey_suddenDeath[] = "sudden_death";
-new const String:g_kvKey_centered_displayRemaining[] = "centered_display_remaining";
-new const String:g_kvKey_centered_displayTarget[] = "centered_display_target";
-new const String:g_kvKey_natives_alltalk[] = "natives_alltalk";
-new const String:g_kvKey_natives_forceCamera[] = "natives_forcecamera";
-new const String:g_kvKey_natives_pausable[] = "natives_pausable";
-new const String:g_kvKey_natives_roundTime[] = "natives_round_time";
-new const String:g_kvKey_natives_scoreLimit[] = "natives_scorelimit";
-new const String:g_kvKey_jinraiPauses[] = "jinrai_pauses_used";
-new const String:g_kvKey_nsfPauses[] = "nsf_pauses_used";
+char g_kvKey_jinraiName[] = "jinrai_name";
+char g_kvKey_nsfName[] = "nsf_name";
+char g_kvKey_competitionName[] = "competition_name";
+char g_kvKey_sourceTVPath[] = "sourcetv_path";
+char g_kvKey_roundLimit[] = "round_limit";
+char g_kvKey_matchSize[] = "match_size";
+char g_kvKey_maxTimeouts[] = "max_timeouts";
+char g_kvKey_maxPauseLength[] = "max_pause_length";
+char g_kvKey_maxPauseLengthTechnical[] = "max_pause_length_technical";
+char g_kvKey_commsBehaviour[] = "comms_behaviour";
+char g_kvKey_logMode[] = "log_mode";
+char g_kvKey_killVerbosity[] = "kill_verbosity";
+char g_kvKey_killVerbosityDelay[] = "kill_verbosity_delay";
+char g_kvKey_clientRecording[] = "client_recording";
+char g_kvKey_limitLiveTeams[] = "limit_live_teams";
+char g_kvKey_limitTeams[] = "limit_teams";
+char g_kvKey_pauseMode[] = "pause_mode";
+char g_kvKey_collectiveReady[] = "collective_ready";
+char g_kvKey_noZanshi[] = "no_zanshi";
+char g_kvKey_jinraiScore[] = "jinrai_score";
+char g_kvKey_nsfScore[] = "nfs_score";
+char g_kvKey_suddenDeath[] = "sudden_death";
+char g_kvKey_centered_displayRemaining[] = "centered_display_remaining";
+char g_kvKey_centered_displayTarget[] = "centered_display_target";
+char g_kvKey_natives_alltalk[] = "natives_alltalk";
+char g_kvKey_natives_forceCamera[] = "natives_forcecamera";
+char g_kvKey_natives_pausable[] = "natives_pausable";
+char g_kvKey_natives_roundTime[] = "natives_round_time";
+char g_kvKey_natives_scoreLimit[] = "natives_scorelimit";
+char g_kvKey_jinraiPauses[] = "jinrai_pauses_used";
+char g_kvKey_nsfPauses[] = "nsf_pauses_used";
 
-new g_assignedTeamWhenLive[MAXPLAYERS+1];
-new g_jinraiScore[MAX_ROUNDS_PLAYED];
-new g_liveTimer = 5;
-new g_liveTimer_OriginalValue;
-new g_loggingEnabled;
-new g_nsfScore[MAX_ROUNDS_PLAYED];
-new g_pauseReason;
-new g_pausingTeam;
-new g_roundNumber;
-new g_spamTimerCount;
-new g_unpauseTimer = 10;
-new g_unpauseTimer_OriginalValue;
-new g_usedTimeouts[sizeof(g_teamName)];
-new g_playersAlive[sizeof(g_teamName)];
-new g_winner;
-new g_health[MAXPLAYERS+1];
-new g_damageDealt[MAXPLAYERS+1][MAXPLAYERS+1];
-new g_playerDeaths[MAXPLAYERS+1][MAX_ROUNDS_PLAYED];	// Players' deaths for each round
-new g_playerXP[MAXPLAYERS+1][MAX_ROUNDS_PLAYED];		// Players' XP for each round
-new g_targetRound;
-new g_furthestPlayedRound;
-new g_penalizedTeam;
-new g_ghostCapturingTeam;
-new g_epoch;
+int g_assignedTeamWhenLive[MAXPLAYERS+1];
+int g_jinraiScore[MAX_ROUNDS_PLAYED];
+int g_liveTimer = 5;
+int g_liveTimer_OriginalValue;
+int g_loggingEnabled;
+int g_nsfScore[MAX_ROUNDS_PLAYED];
+int g_pauseReason;
+int g_pausingTeam;
+int g_roundNumber;
+int g_spamTimerCount;
+int g_unpauseTimer = 10;
+int g_unpauseTimer_OriginalValue;
+int g_usedTimeouts[sizeof(g_teamName)];
+int g_playersAlive[sizeof(g_teamName)];
+int g_winner;
+int g_health[MAXPLAYERS+1];
+int g_damageDealt[MAXPLAYERS+1][MAXPLAYERS+1];
+int g_playerDeaths[MAXPLAYERS+1][MAX_ROUNDS_PLAYED];	// Players' deaths for each round
+int g_playerXP[MAXPLAYERS+1][MAX_ROUNDS_PLAYED];		// Players' XP for each round
+int g_targetRound;
+int g_furthestPlayedRound;
+int g_penalizedTeam;
+int g_ghostCapturingTeam;
+int g_epoch;
 
-new Float:g_fRoundTime;
+float g_fRoundTime;
 
-new bool:g_isAlltalkByDefault;
-new bool:g_isExpectingOverride;
-new bool:g_isExpectingUnPauseTimer;
-new bool:g_isLive;
-new bool:g_isPaused;
-new bool:g_isReady[MAXPLAYERS+1];
-new bool:g_isSourceTVRecording;
-new bool:g_isSpawned[MAXPLAYERS+1];
-new bool:g_isTeamReadyForUnPause[sizeof(g_teamName)]; // Unassigned, spec, jinrai, nsf
-new bool:g_isWantingOverride[sizeof(g_teamName)]; // Unassigned, spec, jinrai, nsf
-new bool:g_shouldPause;
-new bool:g_shouldShowKillInfo[MAXPLAYERS+1];
-new bool:g_isLiveCountdown;
-new bool:g_isEditingSetting[MAXPLAYERS+1];
-new bool:g_confirmLiveEnd;
-new bool:g_isGamedataOutdated;
-new bool:g_isCurrentlyUnPausing;
-new bool:g_confirmRoundChange;
-new bool:g_isCurrentlyRestoringRound;
-new bool:g_isCurrentlyEditingClients[MAXPLAYERS+1];
-new bool:g_isCurrentlyGivingPenalty[MAXPLAYERS+1];
-new bool:g_survivedLastRound[MAXPLAYERS+1];
-new bool:g_isSuddenDeathRound;
-new bool:g_goLiveAfterKvRestore[MAXPLAYERS+1] = true;
+bool g_isAlltalkByDefault;
+bool g_isExpectingOverride;
+bool g_isExpectingUnPauseTimer;
+bool g_isLive;
+bool g_isPaused;
+bool g_isReady[MAXPLAYERS+1];
+bool g_isSourceTVRecording;
+bool g_isSpawned[MAXPLAYERS+1];
+bool g_isTeamReadyForUnPause[sizeof(g_teamName)]; // Unassigned, spec, jinrai, nsf
+bool g_isWantingOverride[sizeof(g_teamName)]; // Unassigned, spec, jinrai, nsf
+bool g_shouldPause;
+bool g_shouldShowKillInfo[MAXPLAYERS+1];
+bool g_isLiveCountdown;
+bool g_isEditingSetting[MAXPLAYERS+1];
+bool g_confirmLiveEnd;
+bool g_isGamedataOutdated;
+bool g_isCurrentlyUnPausing;
+bool g_confirmRoundChange;
+bool g_isCurrentlyRestoringRound;
+bool g_isCurrentlyEditingClients[MAXPLAYERS+1];
+bool g_isCurrentlyGivingPenalty[MAXPLAYERS+1];
+bool g_survivedLastRound[MAXPLAYERS+1];
+bool g_isSuddenDeathRound;
+bool g_goLiveAfterKvRestore[MAXPLAYERS+1] = true;
 
-new Handle:g_hAlltalk;
-new Handle:g_hCommsBehaviour;
-new Handle:g_hCompetitionName;
-new Handle:g_hForceCamera;
-new Handle:g_hLogMode;
-new Handle:g_hMatchSize;
-new Handle:g_hMaxPauseLength;
-new Handle:g_hMaxPauseLength_Technical;
-new Handle:g_hMaxTimeouts;
-new Handle:g_hNeoScoreLimit;
-new Handle:g_hNeoRestartThis;
-new Handle:g_hPausable;
-new Handle:g_hRoundLimit;
-new Handle:g_hSourceTVEnabled;
-new Handle:g_hSourceTVPath;
-new Handle:g_hJinraiName;
-new Handle:g_hNSFName;
-new Handle:g_hKillVersobity;
-new Handle:g_hClientRecording;
-new Handle:g_hLimitLiveTeams;
-new Handle:g_hLimitTeams;
-new Handle:g_hVerbosityDelay;
-new Handle:g_hPauseMode;
-new Handle:g_hCollectiveReady;
-new Handle:g_hPreventZanshiStrats;
-new Handle:g_hRoundTime;
-new Handle:g_hJinraiScore;
-new Handle:g_hNSFScore;
-new Handle:g_hSuddenDeath;
-new Handle:g_hCenteredDisplayRemaining;
-new Handle:g_hCenteredDisplayTarget;
+Handle g_hAlltalk;
+Handle g_hCommsBehaviour;
+Handle g_hCompetitionName;
+Handle g_hForceCamera;
+Handle g_hLogMode;
+Handle g_hMatchSize;
+Handle g_hMaxPauseLength;
+Handle g_hMaxPauseLength_Technical;
+Handle g_hMaxTimeouts;
+Handle g_hNeoScoreLimit;
+Handle g_hNeoRestartThis;
+Handle g_hPausable;
+Handle g_hRoundLimit;
+Handle g_hSourceTVEnabled;
+Handle g_hSourceTVPath;
+Handle g_hJinraiName;
+Handle g_hNSFName;
+Handle g_hKillVersobity;
+Handle g_hClientRecording;
+Handle g_hLimitLiveTeams;
+Handle g_hLimitTeams;
+Handle g_hVerbosityDelay;
+Handle g_hPauseMode;
+Handle g_hCollectiveReady;
+Handle g_hPreventZanshiStrats;
+Handle g_hRoundTime;
+Handle g_hJinraiScore;
+Handle g_hNSFScore;
+Handle g_hSuddenDeath;
+Handle g_hCenteredDisplayRemaining;
+Handle g_hCenteredDisplayTarget;
 #if DEBUG
-	new Handle:g_hDebugKeyValues;
+Handle g_hDebugKeyValues;
 #endif
 
-new Handle:g_hTimer_LiveCountdown			= INVALID_HANDLE;
-new Handle:g_hTimer_GoLive						= INVALID_HANDLE;
-new Handle:g_hTimer_UnPause					= INVALID_HANDLE;
-new Handle:g_hTimer_UnPause_Countdown	= INVALID_HANDLE;
-new Handle:g_hTimer_UnPause_HalfLeft		= INVALID_HANDLE;
+Handle g_hTimer_LiveCountdown			= INVALID_HANDLE;
+Handle g_hTimer_GoLive						= INVALID_HANDLE;
+Handle g_hTimer_UnPause					= INVALID_HANDLE;
+Handle g_hTimer_UnPause_Countdown	= INVALID_HANDLE;
+Handle g_hTimer_UnPause_HalfLeft		= INVALID_HANDLE;
 
 KeyValues g_kv;
 
@@ -188,13 +187,13 @@ enum {
 
 void CheckIfEveryoneIsReady()
 {	
-	new players = GetPlayerCount();
-	new playersReady = GetPlayersReady();
+	int players = GetPlayerCount();
+	int playersReady = GetPlayersReady();
 	
-	#if DEBUG
-		LogDebug("%s Players found total: %i", g_tag, players);
-		LogDebug("%s Players ready: %i", g_tag, playersReady);
-	#endif
+#if DEBUG
+	LogDebug("%s Players found total: %i", g_tag, players);
+	LogDebug("%s Players ready: %i", g_tag, playersReady);
+#endif
 	
 	if (players > playersReady) // Everyone isn't ready, stop here
 		return;
@@ -223,7 +222,7 @@ void CheckIfEveryoneIsReady()
 	LiveCountDown(); // Passed all checks, ready to go live
 }
 
-public Action:Command_ReadyList(client, args)
+public Action Command_ReadyList(int client, int args)
 {
 	if (!Client_IsValid(client))
 		return Plugin_Stop;
@@ -231,7 +230,7 @@ public Action:Command_ReadyList(client, args)
 	PrintToChat(client, "%s List of readied players is printed in your console.", g_tag);
 	
 	PrintToConsole(client, "\n%s Players and their READY state:", g_tag);
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!Client_IsValid(i))
 			continue;
@@ -262,33 +261,32 @@ void ToggleRecording()
 	
 	if (g_isLive) // Start recording
 	{
-		for (new i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (!Client_IsValid(i) || IsFakeClient(i))
 				continue;
 			
-			new String:steamID[MAX_STEAMID_LENGTH];
+			char steamID[MAX_STEAMID_LENGTH];
 			GetClientAuthId(i, AuthId_Steam2, steamID, sizeof(steamID));
 			
-			new String:timestamp[15];
+			char timestamp[15];
 			FormatTime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M");
 			
-			new String:competitionName[32];
+			char competitionName[32];
 			GetConVarString(g_hCompetitionName, competitionName, sizeof(competitionName));
 			
-			new String:replayName[sizeof(steamID)+sizeof(timestamp)+sizeof(competitionName)+2];
+			char replayName[sizeof(steamID)+sizeof(timestamp)+sizeof(competitionName)+2];
 			
 			if (strlen(competitionName) > 0)
 				Format(replayName, sizeof(replayName), "%s_%s_%s", competitionName, timestamp, steamID);
-			
 			else
 				Format(replayName, sizeof(replayName), "%s_%s", timestamp, steamID);
 			
 			// Clean up any non alphanumeric characters from the string
-			new String:replayBuffer[sizeof(replayName) + 1];
-			new bufferPos;
+			char replayBuffer[sizeof(replayName) + 1];
+			int bufferPos;
 			
-			for (new j = 0; j < sizeof(replayName); j++)
+			for (int j = 0; j < sizeof(replayName); j++)
 			{
 				if (IsCharAlpha(replayName[j]) || IsCharNumeric(replayName[j]) || !IsCharSpace(replayName[j]))
 					replayBuffer[bufferPos++] = replayName[j];
@@ -309,7 +307,7 @@ void ToggleRecording()
 	
 	else // Stop recording
 	{		
-		for (new i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (!Client_IsValid(i) || IsFakeClient(i))
 				continue;
@@ -343,23 +341,23 @@ void LiveCountDown()
 	g_hTimer_GoLive = CreateTimer((float(g_liveTimer) + 1.0), Timer_GoLive);
 }
 
-public Action:Timer_GoLive(Handle:timer)
+public Action Timer_GoLive(Handle timer)
 {
 	EmptyScore(); // Make sure everyone starts private so we avoid the no weapon spawn bug
 	CreateTimer(0.1, Timer_ToggleLive); // A slight delay so the score reset above takes effect in time
 }
 
-public Action:Timer_ToggleLive(Handle:timer)
+public Action Timer_ToggleLive(Handle timer)
 {
 	ToggleLive();
 }
 
-public Action:Timer_CancelLiveEndConfirmation(Handle:timer)
+public Action Timer_CancelLiveEndConfirmation(Handle timer)
 {
 	g_confirmLiveEnd = false;
 }
 
-void ToggleLive(bool:isKvRestore = false)
+void ToggleLive(bool isKvRestore = false)
 {
 	g_isLive = !g_isLive;
 	
@@ -378,18 +376,18 @@ void ToggleLive(bool:isKvRestore = false)
 		
 #if DEBUG
 		LogDebug("Creating SteamID array of players...");
-		new foundPlayers;
+		int foundPlayers;
 #endif
 		
 		// Save connected players' SteamIDs so they can be allowed to rejoin their teams if disconnected
-		for (new i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (!Client_IsValid(i) || IsFakeClient(i) ||!IsClientInGame(i))
 				continue;
 			
 			if (!IsClientAuthorized(i))
 			{
-				new String:clientName[MAX_NAME_LENGTH];
+				char clientName[MAX_NAME_LENGTH];
 				GetClientName(i, clientName, sizeof(clientName));
 				PrintToChatAll("%s Player \"%s\" has no SteamID authorized yet! Stopped going live. Please try again in a moment.");
 #if DEBUG
@@ -400,10 +398,10 @@ void ToggleLive(bool:isKvRestore = false)
 				return;
 			}
 			
-			new String:steamID[MAX_STEAMID_LENGTH];
+			char steamID[MAX_STEAMID_LENGTH];
 			GetClientAuthId(i, AuthId_Steam2, steamID, sizeof(steamID));
 			PrintToServer("SteamID of %i: %s", i, steamID);
-			new team = GetClientTeam(i);
+			int team = GetClientTeam(i);
 			
 			if (strlen(steamID) == 0)
 			{
@@ -453,14 +451,14 @@ void ToggleLive(bool:isKvRestore = false)
 		ToggleRecording();
 		
 		// Announce game start, possible tournament name, and teams
-		decl String:competitionName[32];
+		char competitionName[32];
 		GetConVarString(g_hCompetitionName, competitionName, sizeof(competitionName));
 		
 		// If competition name hasn't been specified
 		if (strlen(competitionName) < 1)
 			strcopy(competitionName, sizeof(competitionName), "Competitive Neotokyo");
 		
-		decl String:liveTitle[sizeof(g_tag) + sizeof(competitionName) + sizeof(g_teamName[]) * 2 + 6];
+		char liveTitle[sizeof(g_tag) + sizeof(competitionName) + sizeof(g_teamName[]) * 2 + 6];
 		Format(liveTitle, sizeof(liveTitle), "%s %s: %s - %s", g_tag, competitionName, g_teamName[TEAM_JINRAI], g_teamName[TEAM_NSF]);
 		
 		PrintToChatAll(liveTitle);
@@ -502,7 +500,7 @@ void NeoRestartThis()
 {
 	SetConVarBool(g_hNeoRestartThis, true);
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!Client_IsValid(i))
 			continue;
@@ -538,7 +536,7 @@ void TogglePause()
 				// Close any previous unpause timer handles
 				KillTimers_UnPause();
 				
-				new Float:fPauseLength;
+				float fPauseLength;
 				
 				// Pause length for technical issues
 				if (g_pauseReason == REASON_TECHNICAL)
@@ -607,8 +605,8 @@ void TogglePause()
 				
 				GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 ); // Set round time to zero. This instantly ends current round and rings the tie/win music, which works to alert players about upcoming pause.
 				
-				new Float:transitionTime = 5.0;
-				new Float:fPauseLength;
+				float transitionTime = 5.0;
+				float fPauseLength;
 				
 				// Pause length for technical issues
 				if (g_pauseReason == REASON_TECHNICAL)
@@ -655,7 +653,7 @@ void TogglePause()
 	}
 }
 
-public Action:Timer_NeoRestartThis(Handle:timer)
+public Action Timer_NeoRestartThis(Handle timer)
 {
 	ServerCommand("neo_restart_this 1");
 }
@@ -681,11 +679,11 @@ void KillTimers_UnPause()
 	}
 }
 
-public Action:Timer_EnterPauseRound(Handle:timer)
+public Action Timer_EnterPauseRound(Handle timer)
 {
 	WarmUp_Start();
 	
-	new Float:pauseLength;
+	float pauseLength;
 	if (g_pauseReason == REASON_TECHNICAL)
 		pauseLength = GetConVarFloat(g_hMaxPauseLength_Technical);
 	else
@@ -693,14 +691,14 @@ public Action:Timer_EnterPauseRound(Handle:timer)
 	
 	GameRules_SetPropFloat( "m_fRoundTimeLeft", pauseLength ); // Pause round uses max pause length roundtime
 	
-	for (new i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
 		PrintToChatAll("GAME IS PAUSED");
 	}
 }
 
 #if DEBUG
-public Action:Command_UnpauseOther(client, args) // Pretend the other team made an unpause request. Debug command.
+public Action Command_UnpauseOther(int client, int args) // Pretend the other team made an unpause request. Debug command.
 {
 	if (client == 0)
 	{
@@ -708,16 +706,16 @@ public Action:Command_UnpauseOther(client, args) // Pretend the other team made 
 		return Plugin_Stop;
 	}
 	
-	new bool:foundSomeoneInOtherTeam;
-	new team = GetClientTeam(client);
-	new otherTeam = GetOtherTeam(team);
+	bool foundSomeoneInOtherTeam;
+	int team = GetClientTeam(client);
+	int otherTeam = GetOtherTeam(team);
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!Client_IsValid(i))
 			continue;
 		
-		new forLoopTeam = GetClientTeam(i);
+		int forLoopTeam = GetClientTeam(i);
 		if (forLoopTeam == otherTeam)
 		{
 			foundSomeoneInOtherTeam = true;
@@ -734,18 +732,18 @@ public Action:Command_UnpauseOther(client, args) // Pretend the other team made 
 	return Plugin_Handled;
 }
 
-public Action:Command_OverrideStartOther(client, args) // Pretend the other team made a force start request. Debug command.
+public Action Command_OverrideStartOther(int client, int args) // Pretend the other team made a force start request. Debug command.
 {
-	new bool:foundSomeoneInOtherTeam;
-	new team = GetClientTeam(client);
-	new otherTeam = GetOtherTeam(team);
+	bool foundSomeoneInOtherTeam;
+	int team = GetClientTeam(client);
+	int otherTeam = GetOtherTeam(team);
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!Client_IsValid(i))
 			continue;
 		
-		new forLoopTeam = GetClientTeam(i);
+		int forLoopTeam = GetClientTeam(i);
 		if (forLoopTeam == otherTeam)
 		{
 			foundSomeoneInOtherTeam = true;
@@ -763,7 +761,7 @@ public Action:Command_OverrideStartOther(client, args) // Pretend the other team
 }
 #endif
 
-public Action:Timer_TogglePauseLoop(Handle:timer)
+public Action Timer_TogglePauseLoop(Handle timer)
 {
 	TogglePauseLoop();
 	
@@ -772,11 +770,11 @@ public Action:Timer_TogglePauseLoop(Handle:timer)
 
 void TogglePauseLoop()
 {
-	new invalidClients;
-	new unspawnedClients[2];
-	new bool:forcePause;
+	int invalidClients;
+	int unspawnedClients[2];
+	bool forcePause;
 	
-	for (new i = 1; i <= MaxClients; i++) // The server can't exec "pause" for some reason. So, instead, use the first valid client to execute it.
+	for (int i = 1; i <= MaxClients; i++) // The server can't exec "pause" for some reason. So, instead, use the first valid client to execute it.
 	{
 		unspawnedClients[0] = unspawnedClients[1];
 		if (Client_IsValid(i))
@@ -840,20 +838,20 @@ void TogglePauseLoop()
 	}
 }
 
-public Action:Timer_TogglePause(Handle:timer)
+public Action Timer_TogglePause(Handle timer)
 {
 	TogglePause();
 }
 
-public Action:Timer_DisablePause(Handle:timer)
+public Action Timer_DisablePause(Handle timer)
 {
 	SetConVarBool(g_hPausable, false);
 }
 
-public Action:Timer_SpamLive(Handle:timer)
+public Action Timer_SpamLive(Handle timer)
 {
 	// Print the LIVE message X times, then kill the repeat timer calling this
-	new spamLiveTimes = 3;
+	int spamLiveTimes = 3;
 	g_spamTimerCount++;
 	
 	if (g_spamTimerCount == 1) // Don't spam "LIVE" during the first increment. This has to do with chat message ordering (round number msgs) during match start, in Event_RoundStart.
@@ -876,7 +874,7 @@ void SpamTimer()
 	CreateTimer(0.25, Timer_SpamLive, _, TIMER_REPEAT); // This repeat timer is killed inside the callback after X repeats
 }
 
-public Action:Timer_Unpause(Handle:timer)
+public Action Timer_Unpause(Handle timer)
 {
 	if (g_isPaused)
 	{
@@ -890,7 +888,7 @@ public Action:Timer_Unpause(Handle:timer)
 	return Plugin_Handled;
 }
 
-public Action:Timer_UnpauseNotice_Half(Handle:timer)
+public Action Timer_UnpauseNotice_Half(Handle timer)
 {
 	// Show notification when half of the max pause time has elapsed
 	if (g_isPaused)
@@ -904,7 +902,7 @@ public Action:Timer_UnpauseNotice_Half(Handle:timer)
 	return Plugin_Handled;
 }
 
-public Action:Timer_StartTenSecondsLeft(Handle:timer)
+public Action Timer_StartTenSecondsLeft(Handle timer)
 {
 	if (g_isPaused)
 		CreateTimer(1.0, Timer_Unpause_SecondsCountdown, _, TIMER_REPEAT); // This repeat timer is killed inside the callback
@@ -914,7 +912,7 @@ public Action:Timer_StartTenSecondsLeft(Handle:timer)
 	return Plugin_Handled;
 }
 
-public Action:Timer_Live_SecondsCountdown(Handle:timer)
+public Action Timer_Live_SecondsCountdown(Handle timer)
 {
 	if (g_liveTimer > 0)
 	{
@@ -931,7 +929,7 @@ public Action:Timer_Live_SecondsCountdown(Handle:timer)
 	return Plugin_Stop;
 }
 
-public Action:Timer_Unpause_SecondsCountdown(Handle:timer)
+public Action Timer_Unpause_SecondsCountdown(Handle timer)
 {
 	if (!g_isLive || !g_isPaused) // Pause has properly ended or the match is not live anymore (which implies the pause was properly ended already)
 		return Plugin_Stop;
@@ -950,13 +948,13 @@ public Action:Timer_Unpause_SecondsCountdown(Handle:timer)
 	return Plugin_Stop;
 }
 
-void InitDirectory(const String:sDir[])
+void InitDirectory(const char[] sDir)
 {
-	decl String:sPieces[32][PLATFORM_MAX_PATH];
-	new String:sPath[PLATFORM_MAX_PATH];
-	new iNumPieces = ExplodeString(sDir, "/", sPieces, sizeof(sPieces), sizeof(sPieces[]));
+	char sPieces[32][PLATFORM_MAX_PATH];
+	char sPath[PLATFORM_MAX_PATH];
+	int iNumPieces = ExplodeString(sDir, "/", sPieces, sizeof(sPieces), sizeof(sPieces[]));
 	
-	for(new i = 0; i < iNumPieces; i++)
+	for(int i = 0; i < iNumPieces; i++)
 	{
 		Format(sPath, sizeof(sPath), "%s/%s", sPath, sPieces[i]);
 		if(!DirExists(sPath))
@@ -990,19 +988,19 @@ void ToggleSourceTV()
 			return;
 		}
 		
-		decl String:demoPath[PLATFORM_MAX_PATH];
+		char demoPath[PLATFORM_MAX_PATH];
 		GetConVarString(g_hSourceTVPath, demoPath, sizeof(demoPath));
 		
-		decl String:timestamp[16];
+		char timestamp[16];
 		FormatTime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M");
 		
-		decl String:mapName[32];
+		char mapName[32];
 		GetCurrentMap(mapName, sizeof(mapName));
 		
-		decl String:competitionName[32];
+		char competitionName[32];
 		GetConVarString(g_hCompetitionName, competitionName, sizeof(competitionName));
 		
-		decl String:replayName[sizeof(mapName)+sizeof(timestamp)+sizeof(competitionName)+2];
+		char replayName[sizeof(mapName)+sizeof(timestamp)+sizeof(competitionName)+2];
 		
 		if (strlen(competitionName) > 0)
 			Format(replayName, sizeof(replayName), "%s_%s_%s_", competitionName, timestamp, mapName);
@@ -1011,15 +1009,15 @@ void ToggleSourceTV()
 			Format(replayName, sizeof(replayName), "%s_%s_", timestamp, mapName);
 		
 		// Concatenate epoch to the end of filename. This can be helpful to connect a replay to related KeyValues entry
-		decl String:epochBuffer[16];
+		char epochBuffer[16];
 		IntToString( g_epoch, epochBuffer, sizeof(epochBuffer) );
 		StrCat(replayName, sizeof(replayName), epochBuffer);
 		
 		// Clean up any non alphanumeric characters from the string
-		new String:replayBuffer[sizeof(replayName) + 1];
-		new bufferPos;
+		char replayBuffer[sizeof(replayName) + 1];
+		int bufferPos;
 		
-		for (new j = 0; j < sizeof(replayName); j++)
+		for (int j = 0; j < sizeof(replayName); j++)
 		{
 			if (IsCharAlpha(replayName[j]) || IsCharNumeric(replayName[j]) || !IsCharSpace(replayName[j]))
 				replayBuffer[bufferPos++] = replayName[j];
@@ -1042,20 +1040,19 @@ void ToggleSourceTV()
 // This won't play a sound if used during an engine pause
 void PlayLiveBeep()
 {
-	new Float:volume	= 0.5;	// Volume between 0.0 - 1.0 (original volume is 1.0)
-	new pitch				= 175;	// Pitch between 0 - 255 (original pitch is 100)
+	float volume			= 0.5;	// Volume between 0.0 - 1.0 (original volume is 1.0)
+	int pitch				= 175;	// Pitch between 0 - 255 (original pitch is 100)
 	
 	PrecacheSound(g_soundLive);
 	EmitSoundToAll(g_soundLive, _, _, _, _, volume, pitch);
 }
 
-
-bool:IsSourceTVBotConnected()
+bool IsSourceTVBotConnected()
 {
 	// Get the SourceTV bot's name cvar, and figure out if bot is connected
-	new Handle:hBotName = FindConVar("tv_name");
+	Handle hBotName = FindConVar("tv_name");
 	
-	decl String:botName[MAX_NAME_LENGTH];
+	char botName[MAX_NAME_LENGTH];
 	GetConVarString(hBotName, botName, sizeof(botName));
 	
 	CloseHandle(hBotName);
@@ -1064,13 +1061,14 @@ bool:IsSourceTVBotConnected()
 	LogDebug("Looking for a SourceTV bot...");
 #endif
 	
-	for (new i = 1; i <= MaxClients; i++)
+	char clientName[MAX_NAME_LENGTH];
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!Client_IsValid(i) || !IsFakeClient(i)) // We are looking for a valid fake client (bot)
 			continue;
 		
-		decl String:clientName[MAX_NAME_LENGTH];
-		GetClientName(i, clientName, sizeof(clientName));
+		if ( !GetClientName( i, clientName, sizeof(clientName) ) )
+			continue;
 		
 #if DEBUG > 1
 		LogDebug("Found valid fake client, index: %i, name: %s", i, clientName);
@@ -1091,14 +1089,13 @@ bool:IsSourceTVBotConnected()
 // Return players in Jinrai + NSF total
 int GetPlayerCount()
 {
-	new players;
-	
-	for (new i = 1; i <= MaxClients; i++)
+	int players;
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !IsClientInGame(i) || IsFakeClient(i) )
 			continue;
 		
-		new team = GetClientTeam(i);
+		int team = GetClientTeam(i);
 		
 		if (team != TEAM_JINRAI && team != TEAM_NSF)
 			continue;
@@ -1111,14 +1108,13 @@ int GetPlayerCount()
 
 int GetPlayersReady()
 {
-	new playersReady;
-
-	for (new i = 1; i <= MaxClients; i++)
+	int playersReady;
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !g_isReady[i] || IsFakeClient(i) )
 			continue;
 			
-		new team = GetClientTeam(i);
+		int team = GetClientTeam(i);
 		
 		if (team != TEAM_JINRAI && team != TEAM_NSF)
 			continue;
@@ -1131,7 +1127,7 @@ int GetPlayersReady()
 
 int GetDesiredCommsBehaviour()
 {
-	new behaviour = GetConVarInt(g_hCommsBehaviour); // 0: disable alltalk, 1: enable alltalk, 2: use whichever initial alltalk value (tracked with g_isAlltalkByDefault)
+	int behaviour = GetConVarInt(g_hCommsBehaviour); // 0: disable alltalk, 1: enable alltalk, 2: use whichever initial alltalk value (tracked with g_isAlltalkByDefault)
 	
 	if (behaviour <= 1)
 		return behaviour;
@@ -1155,30 +1151,29 @@ int GetOtherTeam(team)
 	}
 }
 
-void LogCompetitive(const String:message[])
+void LogCompetitive(const char[] message)
 {
 	if (!g_loggingEnabled)
 		return;
 	
-	decl String:loggingPath[PLATFORM_MAX_PATH];
+	char loggingPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, loggingPath, sizeof(loggingPath), "logs/competitive");
 	
-	new String:debugFile[] = "logfile.log"; // Static debug file for logging. We later want to use keyvalues using match IDs etc
+	char debugFile[] = "logfile.log"; // Static debug file for logging. We later want to use keyvalues using match IDs etc
 	Format(loggingPath, sizeof(loggingPath), "%s/%s", loggingPath, debugFile);
 		
-	new Handle:hFile = OpenFile(loggingPath, "a"); // C++ fopen modes
-	
+	Handle hFile = OpenFile(loggingPath, "a"); // C++ fopen modes
 	WriteFileLine(hFile, message);
 	
 	CloseHandle(hFile);
 }
 
-void PrintToConsoleAll(const String:message[], any ...)
+void PrintToConsoleAll(const char[] message, any ...)
 {
-	decl String:formatMsg[512];
+	char formatMsg[512];
 	VFormat(formatMsg, sizeof(formatMsg), message, 2);
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !IsClientInGame(i) || IsFakeClient(i) )
 			continue;
@@ -1189,10 +1184,10 @@ void PrintToConsoleAll(const String:message[], any ...)
 
 void UpdatePlayersAlive() // Updates g_playersAlive array
 {
-	new jinraiAlive;
-	new nsfAlive;
+	int jinraiAlive;
+	int nsfAlive;
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 #if !defined DEBUG || DEBUG == 0
 		if (IsFakeClient(i))
@@ -1205,7 +1200,7 @@ void UpdatePlayersAlive() // Updates g_playersAlive array
 		if (!IsPlayerAlive(i))
 			continue;
 		
-		new team = GetClientTeam(i);
+		int team = GetClientTeam(i);
 		
 		if (team == TEAM_JINRAI)
 			jinraiAlive++;
@@ -1220,10 +1215,10 @@ void UpdatePlayersAlive() // Updates g_playersAlive array
 
 void ResetPlayersAlive() // Reset g_playersAlive array. Only call this on new round start (otherwise we have to do a spawn check to avoid marking unspawned players as dead).
 {
-	new jinraiPlayers;
-	new nsfPlayers;
+	int jinraiPlayers;
+	int nsfPlayers;
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 #if !defined DEBUG || DEBUG == 0
 		if (IsFakeClient(i))
@@ -1233,7 +1228,7 @@ void ResetPlayersAlive() // Reset g_playersAlive array. Only call this on new ro
 		if (!Client_IsValid(i))
 			continue;
 		
-		new team = GetClientTeam(i);
+		int team = GetClientTeam(i);
 		
 		if (team == TEAM_JINRAI)
 			jinraiPlayers++;
@@ -1249,10 +1244,10 @@ void ResetPlayersAlive() // Reset g_playersAlive array. Only call this on new ro
 
 void ResetGlobalVariables() // Make sure all global variables are reset properly
 {
-	new i;
+	int i;
 	
 	// Reset global integers
-	new correctInt = 0; // Desired value
+	int correctInt = 0; // Desired value
 	
 	g_roundNumber = correctInt;
 	g_furthestPlayedRound = correctInt;
@@ -1290,7 +1285,7 @@ void ResetGlobalVariables() // Make sure all global variables are reset properly
 	}
 	
 	// Reset global bools
-	new bool:correctBool = false; // Desired value
+	bool correctBool = false; // Desired value
 	
 	g_isExpectingOverride		= correctBool;
 	g_isExpectingUnPauseTimer	= correctBool;
@@ -1316,7 +1311,7 @@ void ResetGlobalVariables() // Make sure all global variables are reset properly
 	}
 }
 
-void ShowKillInfoNextRound(client, const String:message[])
+void ShowKillInfoNextRound(int client, const char[] message)
 {
 	if ( !Client_IsValid(client) )
 		return;
@@ -1325,12 +1320,12 @@ void ShowKillInfoNextRound(client, const String:message[])
 	g_shouldShowKillInfo[client] = true;
 }
 
-void RefereeMenu_GameInfo(client)
+void RefereeMenu_GameInfo(int client)
 {
 	if ( !Client_IsValid(client) )
 		return;
 	
-	new Handle:panel = CreatePanel();
+	Handle panel = CreatePanel();
 	
 	SetPanelTitle(panel, "Game Information");
 	DrawPanelText(panel, " ");
@@ -1344,45 +1339,45 @@ void RefereeMenu_GameInfo(client)
 		DrawPanelText(panel, "Live: NOT LIVE");
 	
 	// Show the current competition name
-	decl String:competitionName_Cvar[64];
+	char competitionName_Cvar[64];
 	GetConVarString( g_hCompetitionName, competitionName_Cvar, sizeof(competitionName_Cvar) );
 	
 	if (strlen(competitionName_Cvar) < 1) // If no competition name set, use the generic "Competitive Neotokyo" name instead
 		strcopy(competitionName_Cvar, sizeof(competitionName_Cvar), "Competitive Neotokyo");
 	
-	decl String:competitionName[128];
+	char competitionName[128];
 	Format( competitionName, sizeof(competitionName), "Competition name: %s", competitionName_Cvar );
 	DrawPanelItem(panel, competitionName);
 	
 	// Show the current Jinrai name
-	decl String:jinraiName_Cvar[64];
+	char jinraiName_Cvar[64];
 	GetConVarString( g_hJinraiName, jinraiName_Cvar, sizeof(jinraiName_Cvar) );
 	
 	if (strlen(jinraiName_Cvar) < 1) // Use default Jinrai name "Jinrai" if none is set
 		strcopy(jinraiName_Cvar, sizeof(jinraiName_Cvar), "Jinrai");
 	
-	decl String:jinraiName[128];
+	char jinraiName[128];
 	Format(jinraiName, sizeof(jinraiName), "Jinrai name: %s", jinraiName_Cvar);
 	DrawPanelItem(panel, jinraiName);
 	
 	// Show the current NSF name
-	decl String:nsfName_Cvar[64];
+	char nsfName_Cvar[64];
 	GetConVarString( g_hNSFName, nsfName_Cvar, sizeof(nsfName_Cvar) );
 	
 	if (strlen(nsfName_Cvar) < 1) // Use default NSF name "NSF" if none is set
 		strcopy(nsfName_Cvar, sizeof(nsfName_Cvar), "NSF");
 	
-	decl String:nsfName[128];
+	char nsfName[128];
 	Format(nsfName, sizeof(nsfName), "NSF name: %s", nsfName_Cvar);
 	DrawPanelItem(panel, nsfName);
 	
 	// Show how many rounds are played
-	decl String:boRounds[128];
+	char boRounds[128];
 	Format( boRounds, sizeof(boRounds), "Best of %i rounds", GetConVarInt(g_hRoundLimit) );
 	DrawPanelItem(panel, boRounds);
 	
 	// Show how many (time-out) pauses are allowed per team per map
-	decl String:pauseAmount[128];
+	char pauseAmount[128];
 	Format( pauseAmount, sizeof(pauseAmount), "Pausing: %i time-outs allowed per team per map.", GetConVarInt(g_hMaxTimeouts) );
 	DrawPanelItem(panel, pauseAmount);
 	
@@ -1394,7 +1389,7 @@ void RefereeMenu_GameInfo(client)
 	CloseHandle(panel);
 }
 
-void RefereeMenu_ClientActions(client)
+void RefereeMenu_ClientActions(int client)
 {	
 	if (g_isCurrentlyEditingClients[client])
 	{
@@ -1402,7 +1397,7 @@ void RefereeMenu_ClientActions(client)
 		LogError("g_isCurrentlyEditingClients was already enabled for client %i before accessing RefereeMenu_ClientActions. This should never happen.", client);
 	}
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
 			continue;
@@ -1430,7 +1425,7 @@ void RefereeMenu_ClientActions(client)
 	g_clientMenu.Display(client, MENU_TIME_FOREVER);
 }
 
-void RefereeMenu_Penalties(client)
+void RefereeMenu_Penalties(int client)
 {
 	if (!g_isLive)
 	{
@@ -1439,7 +1434,7 @@ void RefereeMenu_Penalties(client)
 		return;
 	}
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
 			continue;
@@ -1462,7 +1457,7 @@ void RefereeMenu_Penalties(client)
 	
 	g_isCurrentlyGivingPenalty[client] = true;
 	
-	new Handle:panel = CreatePanel();
+	Handle panel = CreatePanel();
 	
 	SetPanelTitle(panel, "Penalty Menu");
 	
@@ -1474,7 +1469,7 @@ void RefereeMenu_Penalties(client)
 	CloseHandle(panel);
 }
 
-void RefereeMenu_ChangeRound(client)
+void RefereeMenu_ChangeRound(int client)
 {
 	if (!g_isLive)
 	{
@@ -1489,7 +1484,7 @@ void RefereeMenu_ChangeRound(client)
 		LogError("g_isEditingSetting was already enabled for client %i before accessing RefereeMenu_ChangeRound. This should never happen.", client);
 	}
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
 			continue;
@@ -1506,26 +1501,26 @@ void RefereeMenu_ChangeRound(client)
 	
 	g_isEditingSetting[client] = true;
 	
-	new Handle:panel = CreatePanel();
+	Handle panel = CreatePanel();
 	
 	SetPanelTitle(panel, "Change current round");
 	DrawPanelText(panel, " ");
 	
-	decl String:currentRound[24];
+	char currentRound[24];
 	Format(currentRound, sizeof(currentRound), "Current round: %i", g_roundNumber);
 	DrawPanelText(panel, currentRound);
 	
-	decl String:teamScores[24];
+	char teamScores[24];
 	Format(teamScores, sizeof(teamScores), "Jinrai: %i -- %i :NSF", g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
 	DrawPanelText(panel, teamScores);
 	
 	DrawPanelText(panel, " ");
 	
-	decl String:targetRound[24];
+	char targetRound[24];
 	Format(targetRound, sizeof(targetRound), "Target round: %i", g_targetRound);
 	DrawPanelText(panel, targetRound);
 	
-	decl String:teamScores_target[24];
+	char teamScores_target[24];
 	Format(teamScores_target, sizeof(teamScores_target), "Jinrai: %i -- %i :NSF", g_jinraiScore[g_targetRound], g_nsfScore[g_targetRound]);
 	DrawPanelText(panel, teamScores_target);
 	
@@ -1549,7 +1544,7 @@ void RefereeMenu_ChangeRound(client)
 	CloseHandle(panel);
 }
 
-void RefereeMenu_ManualEdit_TeamScore(client)
+void RefereeMenu_ManualEdit_TeamScore(int client)
 {
 	if (!g_isLive)
 	{
@@ -1564,14 +1559,14 @@ void RefereeMenu_ManualEdit_TeamScore(client)
 		LogError("g_isEditingSetting was already enabled for client %i before accessing RefereeMenu_ManualEdit_TeamScore. This should never happen.", client);
 	}
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
 			continue;
 		
 		if (g_isEditingSetting[i])
 		{
-			decl String:clientName[MAX_NAME_LENGTH];
+			char clientName[MAX_NAME_LENGTH];
 			GetClientName( i, clientName, sizeof(clientName) );
 			PrintToChat(client, "Admin %s is currently editing a setting. Please wait.", clientName);
 			
@@ -1579,12 +1574,12 @@ void RefereeMenu_ManualEdit_TeamScore(client)
 		}
 	}
 	
-	new Handle:panel = CreatePanel();
+	Handle panel = CreatePanel();
 	
 	SetPanelTitle(panel, "Manually edit team score");
 	DrawPanelText(panel, " ");
 	
-	decl String:teamScores[24];
+	char teamScores[24];
 	Format(teamScores, sizeof(teamScores), "Jinrai: %i -- %i :NSF", g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
 	DrawPanelText(panel, teamScores);
 	
@@ -1600,20 +1595,20 @@ void RefereeMenu_ManualEdit_TeamScore(client)
 }
 
 // Todo: add functionality
-void RefereeMenu_ManualEdit_PlayerScore(client)
+void RefereeMenu_ManualEdit_PlayerScore(int client)
 {
 	PrintToChat(client, "The goggles, they do nothing!");
 	Command_RefereeMenu(client, 1);
 }
 
-void RefereeMenu_LoadMatch(client)
+void RefereeMenu_LoadMatch(int client)
 {
 #if DEBUG
 	Menu menu = CreateMenu(MenuHandler_RefereeMenu_LoadMatch);
 	
 	menu.SetTitle("Load previous match state");
 	
-	decl String:fullPath[PLATFORM_MAX_PATH];
+	char fullPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, fullPath, sizeof(fullPath), g_kvPath);
 	
 	if ( !DirExists(fullPath) )
@@ -1622,16 +1617,16 @@ void RefereeMenu_LoadMatch(client)
 		return;
 	}
 	
-	new Handle:dir = OpenDirectory(fullPath);
+	Handle dir = OpenDirectory(fullPath);
 	if (dir == null)
 	{
 		LogError("Failed to open KeyValues directory path: %s", fullPath);
 		return;
 	}
 	
-	new results;
-	new max_files = 128;
-	decl String:buffer[PLATFORM_MAX_PATH];
+	int results;
+	int max_files = 128;
+	char buffer[PLATFORM_MAX_PATH];
 	FileType type;
 	while ( ReadDirEntry(dir, buffer, sizeof(buffer), type) )
 	{
@@ -1664,7 +1659,7 @@ void RefereeMenu_LoadMatch(client)
 #endif
 }
 
-void ChatCvarEdit(client, Handle:cvar)
+void ChatCvarEdit(int client, Handle cvar)
 {
 	if (cvar == INVALID_HANDLE)
 	{
@@ -1681,7 +1676,7 @@ void ChatCvarEdit(client, Handle:cvar)
 		LogError("g_isEditingSetting was already enabled for client %i before accessing ChatCvarEdit. This should never happen.", client);
 	}
 	
-	for (new i = 0; i <= MaxClients; i++)
+	for (int i = 0; i <= MaxClients; i++)
 	{
 		if (g_isEditingSetting[i])
 		{
@@ -1714,17 +1709,17 @@ void ChatCvarEdit(client, Handle:cvar)
 // Make sure Neotokyo gamedata file is up to date, as some of the plugin features require it.
 void CheckGamedataFiles()
 {
-	new String:gamedataUrl[] = "https://github.com/alliedmodders/sourcemod/tree/master/gamedata"; // URL for the latest NT gamedata version
+	char gamedataUrl[] = "https://github.com/alliedmodders/sourcemod/tree/master/gamedata"; // URL for the latest NT gamedata version
 	
-	decl String:filePath[PLATFORM_MAX_PATH];
+	char filePath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, filePath, sizeof(filePath), "gamedata/sdktools.games/game.neotokyo.txt"); // Gamedata file path
 	
 	// Do a filesize based check.
 	// This should be fairly safe as the NT gamedata is updated extremely rarely.
-	new fileSize					= FileSize(filePath, false);		// Filesize of the currently running server gamedata version
-	new correctFileSize		= 1933;								// Filesize of the correct gamedata version (30 Dec 2015 or 10 Oct 2015)
-	new oldFileSize_2014	= 1179;								// Old version filesize (23 Dec 2014)
-	new oldFileSize_2009	= 1075;								// Old version filesize (15 Dec 2009)
+	int fileSize					= FileSize(filePath, false);		// Filesize of the currently running server gamedata version
+	int correctFileSize		= 1933;								// Filesize of the correct gamedata version (30 Dec 2015 or 10 Oct 2015)
+	int oldFileSize_2014	= 1179;								// Old version filesize (23 Dec 2014)
+	int oldFileSize_2009	= 1075;								// Old version filesize (15 Dec 2009)
 	
 	// File not found
 	if (fileSize == -1)
@@ -1755,12 +1750,12 @@ void CheckGamedataFiles()
 	}
 }
 
-void PrintToAdmins(bool toChat = true, bool toConsole = false, const String:message[], any ...)
+void PrintToAdmins(bool toChat = true, bool toConsole = false, const char[] message, any ...)
 {
-	decl String:formatMsg[512];
+	char formatMsg[512];
 	VFormat(formatMsg, sizeof(formatMsg), message, 4);
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
 			continue;
@@ -1773,14 +1768,14 @@ void PrintToAdmins(bool toChat = true, bool toConsole = false, const String:mess
 	}
 }
 
-void RestoreRound(roundNumber, bool:isAdminTriggered = false, client = 0, bool:isZanshiRestore = false)
+void RestoreRound(int roundNumber, bool isAdminTriggered = false, int client = 0, bool isZanshiRestore = false)
 {	
 	if (roundNumber > g_furthestPlayedRound || roundNumber <= 0)
 	{
 		LogError("Attempted to restore a nonexistant round %i. Furthest played round is %i.", roundNumber, g_furthestPlayedRound);
 		
-		new bool:adminsPresent;
-		for (new i = 1; i <= MaxClients; i++)
+		bool adminsPresent;
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
 				continue;
@@ -1856,7 +1851,7 @@ void RestoreRound(roundNumber, bool:isAdminTriggered = false, client = 0, bool:i
 		
 		GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 ); // Stop the round
 		
-		new Handle:endRoundTime = FindConVar("mp_chattime");
+		Handle endRoundTime = FindConVar("mp_chattime");
 		CreateTimer( (GetConVarFloat(endRoundTime) + 5.1), Timer_RestoreRound, roundNumber);
 		CloseHandle(endRoundTime);
 		
@@ -1866,24 +1861,24 @@ void RestoreRound(roundNumber, bool:isAdminTriggered = false, client = 0, bool:i
 	}
 }
 
-public Action:Timer_RestoreRound(Handle:timer, any:roundNumber)
+public Action Timer_RestoreRound(Handle timer, any roundNumber)
 {
 	RestoreRound(roundNumber);
 }
 
-public Action:Timer_ConfirmRoundChange(Handle:timer)
+public Action Timer_ConfirmRoundChange(Handle timer)
 {
 	g_confirmRoundChange = false;
 }
 
-public Action:Timer_ClearGhostCapper(Handle:timer)
+public Action Timer_ClearGhostCapper(Handle timer)
 {
 	g_ghostCapturingTeam = TEAM_NONE;
 }
 
 void EmptyScore()
 {
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !IsClientInGame(i) || IsFakeClient(i) )
 			continue;
@@ -1894,7 +1889,7 @@ void EmptyScore()
 	}
 }
 
-void PenalizeTeam(admin, team)
+void PenalizeTeam(int admin, int team)
 {
 	if (team != TEAM_JINRAI && team != TEAM_NSF)
 	{
@@ -1905,7 +1900,7 @@ void PenalizeTeam(admin, team)
 	
 	g_penalizedTeam = team;
 	
-	new Handle:panel = CreatePanel();
+	Handle panel = CreatePanel();
 	
 	SetPanelTitle(panel, "Give team penalty");
 	DrawPanelText(panel, " ");
@@ -1924,7 +1919,7 @@ void PenalizeTeam(admin, team)
 	CloseHandle(panel);
 }
 
-void ApplyPenalty(admin, team)
+void ApplyPenalty(int admin, int team)
 {
 	if (team != TEAM_JINRAI && team != TEAM_NSF)
 	{
@@ -1963,9 +1958,9 @@ void CheckMatchState()
 		Kv_Store(g_kv, g_kvName);
 	}
 #endif
-	new roundLimit = GetConVarInt(g_hRoundLimit);
-	new roundsLeft = roundLimit - g_roundNumber;
-	decl String:msgBuffer[256];
+	int roundLimit = GetConVarInt(g_hRoundLimit);
+	int roundsLeft = roundLimit - g_roundNumber;
+	char msgBuffer[256];
 	
 	// ** Announce match state below **
 	// Jinrai wins, NSF can't catch up anymore
@@ -2092,12 +2087,12 @@ void CheckGhostcapPlugin()
 	if ( !GetConVarBool(g_hPreventZanshiStrats) )
 		return;
 	
-	new Handle:ghostcapPlugin = FindConVar("sm_ntghostcap_version");
+	Handle ghostcapPlugin = FindConVar("sm_ntghostcap_version");
 	
 	// Look for ghost cap plugin's version variable
 	if (ghostcapPlugin == null)
 	{
-		new String:ghostcapUrl[] = "https://github.com/softashell/nt-sourcemod-plugins";
+		char ghostcapUrl[] = "https://github.com/softashell/nt-sourcemod-plugins";
 		LogError("Using sm_competitive_nozanshi 1 setting requires Soft as HELL's Ghost cap event plugin, version 1.5.4 or newer: %s", ghostcapUrl);
 		SetConVarBool(g_hPreventZanshiStrats, false);
 	}
@@ -2106,29 +2101,29 @@ void CheckGhostcapPlugin()
 #if DEBUG
 void PrepareDebugLogFolder()
 {
-	decl String:path[PLATFORM_MAX_PATH];
+	char path[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, path, sizeof(path), g_path_logDebug);
 	if ( !DirExists(path) )
 		CreateDirectory(path, 509);
 }
 
-void LogDebug(const String:message[], any ...)
+void LogDebug(const char[] message, any ...)
 {
-	decl String:path[PLATFORM_MAX_PATH];
+	char path[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, path, sizeof(path), g_path_logDebug);
 	StrCat(path, sizeof(path), "/competitive_debug.log");
 	
 	// Format according to SM format rules
-	decl String:formatMsg[512];
+	char formatMsg[512];
 	VFormat(formatMsg, sizeof(formatMsg), message, 2);
 	
-	new Handle:file = OpenFile(path, "a"); // fopen
+	Handle file = OpenFile(path, "a"); // fopen
 	WriteFileLine(file, formatMsg);
 	CloseHandle(file);
 }
 #endif
 
-bool DidPlayerReallySpawn(client)
+bool DidPlayerReallySpawn(int client)
 {
 	if ( !Client_IsValid(client) || !IsClientInGame(client) )
 	{
@@ -2136,14 +2131,14 @@ bool DidPlayerReallySpawn(client)
 		return false;
 	}
 	
-	new team = GetClientTeam(client);
+	int team = GetClientTeam(client);
 	if (team != TEAM_JINRAI && team != TEAM_NSF)
 	{
 //		PrintToServer("Team is not valid %i", team);
 		return false;
 	}
 	
-	new Float:currentTime = GetGameTime();
+	float currentTime = GetGameTime();
 	if (currentTime - g_fRoundTime > 30 + 1) // Spawn event triggered after round spawning is finished. Player cannot have spawned.
 	{
 //		PrintToServer("# # # NEW SPAWN Game Time: %f", currentTime);
@@ -2159,7 +2154,7 @@ void CenterText_DisplayRemaining()
 	if (GetConVarInt(g_hCenteredDisplayRemaining) == 0)
 		return;
 	
-	decl String:message[24];
+	char message[24];
 	
 	// Just display numbers remaining
 	if (GetConVarInt(g_hCenteredDisplayRemaining) == 1)
@@ -2168,16 +2163,16 @@ void CenterText_DisplayRemaining()
 	else
 		Format(message, sizeof(message), "JIN %i -- %i NSF", g_playersAlive[TEAM_JINRAI], g_playersAlive[TEAM_NSF]);
 	
-	new bool:specOnly;
+	bool specOnly;
 	if ( GetConVarInt(g_hCenteredDisplayTarget) == 1)
 		specOnly = true;
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !IsClientInGame(i) )
 			continue;
 		
-		new team = GetClientTeam(i);
+		int team = GetClientTeam(i);
 		
 		if (specOnly && team != TEAM_SPECTATOR)
 			continue;
@@ -2199,23 +2194,22 @@ bool Kv_IsValid(KeyValues kv)
 	
 	kv.Rewind();
 	
-	new identifier_length = strlen(KV_IDENTIFIER) +1; // strlen + terminator
-	decl String:sectionName[identifier_length];
-	kv.GetSectionName(sectionName, identifier_length);
+	char sectionName[sizeof(g_kvIdentifier)];
+	kv.GetSectionName( sectionName, sizeof(sectionName) );
 	
-	if ( !StrEqual(sectionName, KV_IDENTIFIER) )
+	if ( !StrEqual(sectionName, g_kvIdentifier) )
 	{
 		LogError("KeyValues handle points to a KeyValues that is not standard for the competitive plugin. This is most likely an error.");
-		LogError("Section name: %s Expected: %s", sectionName, KV_IDENTIFIER);
+		LogError("Section name: %s Expected: %s", sectionName, g_kvIdentifier);
 		return false;
 	}
 	
 	return true;
 }
 
-bool Kv_IsValidFile(const String:fileName[])
+bool Kv_IsValidFile(const char[] fileName)
 {
-	new const String:extension[] = ".kv";
+	char extension[] = ".kv";
 	if ( StrContains(fileName, extension) != strlen(fileName) - strlen(extension) )
 		return false;
 	
@@ -2234,7 +2228,7 @@ void Kv_LogRound(KeyValues kv)
 	kv.Rewind();
 	
 	// Create or jump to round key
-	decl String:roundKey[9];
+	char roundKey[9];
 	Format(roundKey, sizeof(roundKey), "round%i", g_roundNumber);
 	kv.JumpToKey(roundKey, true);
 	
@@ -2247,9 +2241,9 @@ void Kv_LogRound(KeyValues kv)
 	
 	// Set player values for round
 	kv.JumpToKey("client_values", true);
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	new team;
-	for (new i = 1; i <= MaxClients; i++)
+	char steamID[MAX_STEAMID_LENGTH];
+	int team;
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !IsClientConnected(i) || !IsClientAuthorized(i) || IsFakeClient(i) )
 			continue;
@@ -2287,16 +2281,16 @@ void Kv_Generate()
 	Format(g_kvName, sizeof(g_kvName), "comp_%i", g_epoch);
 	
 	// Concatenate competition title (if any) to the end of filename
-	decl String:compTitle[MAX_CVAR_LENGTH];
+	char compTitle[MAX_CVAR_LENGTH];
 	GetConVarString( g_hCompetitionName, compTitle, sizeof(compTitle) );
 	if (strlen(compTitle) > 0)
 	{
 		StrCat(g_kvName, sizeof(g_kvName), "_");
 		
 		// Clean up any non alphanumeric characters from the string
-		new String:compBuffer[sizeof(compTitle)];
-		new bufferPos;
-		for (new j = 0; j < sizeof(compTitle); j++)
+		char compBuffer[sizeof(compTitle)];
+		int bufferPos;
+		for (int j = 0; j < sizeof(compTitle); j++)
 		{
 			if (IsCharAlpha(compTitle[j]) || IsCharNumeric(compTitle[j]) || !IsCharSpace(compTitle[j]))
 				compBuffer[bufferPos++] = compTitle[j];
@@ -2307,7 +2301,7 @@ void Kv_Generate()
 	
 	StrCat(g_kvName, sizeof(g_kvName), ".kv");
 	
-	g_kv = new KeyValues(KV_IDENTIFIER);
+	g_kv = new KeyValues(g_kvIdentifier);
 	Kv_PopulateMeta(g_kv);
 }
 
@@ -2326,10 +2320,10 @@ void Kv_PopulateMeta(KeyValues kv)
 	kv.SetString("plugin_version", PLUGIN_VERSION);
 	
 	// Store string cvars
-	new String:jinraiName[MAX_CVAR_LENGTH];
-	new String:nsfName[MAX_CVAR_LENGTH];
-	new String:competitionName[MAX_CVAR_LENGTH];
-	new String:sourceTVPath[MAX_CVAR_LENGTH];
+	char jinraiName[MAX_CVAR_LENGTH];
+	char nsfName[MAX_CVAR_LENGTH];
+	char competitionName[MAX_CVAR_LENGTH];
+	char sourceTVPath[MAX_CVAR_LENGTH];
 	
 	GetConVarString( g_hJinraiName, jinraiName, sizeof(jinraiName) );
 	GetConVarString( g_hNSFName, nsfName, sizeof(nsfName) );
@@ -2372,9 +2366,9 @@ void Kv_PopulateMeta(KeyValues kv)
 	// List clients and their teams
 	kv.JumpToKey("clients", true);
 	
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	new team;
-	for (new i = 1; i <= MaxClients; i++)
+	char steamID[MAX_STEAMID_LENGTH];
+	int team;
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if ( !Client_IsValid(i) || !IsClientConnected(i) || !IsClientAuthorized(i) || IsFakeClient(i) )
 			continue;
@@ -2392,7 +2386,7 @@ void Kv_PopulateMeta(KeyValues kv)
 }
 
 // Purpose: Stores KeyValues data globally and exports latest changes to file
-void Kv_Store(KeyValues kv, const String:exportName[] = "comp_debug.kv")
+void Kv_Store(KeyValues kv, const char[] exportName = "comp_debug.kv")
 {
 	if ( !Kv_IsValid(kv) )
 	{
@@ -2408,13 +2402,13 @@ void Kv_Store(KeyValues kv, const String:exportName[] = "comp_debug.kv")
 		return;
 	}
 	
-	decl String:fullPath[PLATFORM_MAX_PATH];
+	char fullPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, fullPath, sizeof(fullPath), "%s/%s", g_kvPath, exportName);
 	
 	kv.ExportToFile(fullPath);
 }
 
-void Kv_RestoreFromFile(const String:fileName[], bool:goLive = false)
+void Kv_RestoreFromFile(const char[] fileName, bool goLive = false)
 {
 	if (strlen(fileName) < 1)
 	{
@@ -2428,7 +2422,7 @@ void Kv_RestoreFromFile(const String:fileName[], bool:goLive = false)
 		return;
 	}
 	
-	decl String:fullPath[PLATFORM_MAX_PATH];
+	char fullPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, fullPath, sizeof(fullPath), "%s/%s", g_kvPath, fileName);
 	
 	KeyValues kv = new KeyValues("");
@@ -2453,10 +2447,10 @@ void Kv_RestoreFromFile(const String:fileName[], bool:goLive = false)
 	*/
 	
 	// Restore string variables
-	new String:jinraiName[MAX_CVAR_LENGTH];
-	new String:nsfName[MAX_CVAR_LENGTH];
-	new String:competitionName[MAX_CVAR_LENGTH];
-	new String:sourceTVPath[MAX_CVAR_LENGTH];
+	char jinraiName[MAX_CVAR_LENGTH];
+	char nsfName[MAX_CVAR_LENGTH];
+	char competitionName[MAX_CVAR_LENGTH];
+	char sourceTVPath[MAX_CVAR_LENGTH];
 	
 	kv.GetString( g_kvKey_jinraiName, jinraiName, sizeof(jinraiName) );
 	kv.GetString( g_kvKey_nsfName, nsfName, sizeof(nsfName) );
@@ -2494,10 +2488,10 @@ void Kv_RestoreFromFile(const String:fileName[], bool:goLive = false)
 	
 	kv.GoBack();
 	
-	decl String:roundLabel[16] = "round";
-	new round = 1;
-	new i;
-	decl String:labelBuffer[16];
+	char labelBuffer[16];
+	char roundLabel[16] = "round";
+	int round = 1;
+	int i;
 	Format(labelBuffer, sizeof(labelBuffer), "%s%i", roundLabel, round);
 	
 	// Determine the highest played round
@@ -2513,8 +2507,8 @@ void Kv_RestoreFromFile(const String:fileName[], bool:goLive = false)
 		// Restore player scores etc. for specific round
 		kv.JumpToKey("client_values", false);
 		decl String:steamID[MAX_STEAMID_LENGTH];
-		new xp;
-		new deaths;
+		int xp;
+		int deaths;
 		for (i = 1; i <= MaxClients; i++)
 		{
 			if ( !Client_IsValid(i) || !IsClientConnected(i) || !IsClientAuthorized(i) || IsFakeClient(i) )
@@ -2615,23 +2609,23 @@ bool Kv_IsCompatible(const String:pluginVersion[])
 }
 */
 
-public Action:Timer_RestoreClientFromKeyValues(Handle:timer, DataPack:pack)
+public Action Timer_RestoreClientFromKeyValues(Handle timer, DataPack pack)
 {
 	pack.Reset();
-	new client = pack.ReadCell();
-	new xp = pack.ReadCell();
-	new deaths = pack.ReadCell();
+	int client = pack.ReadCell();
+	int xp = pack.ReadCell();
+	int deaths = pack.ReadCell();
 	
 	SetPlayerXP(client, xp);
 	SetPlayerDeaths(client, deaths);
 	UpdatePlayerRank(client);
 }
 
-public Action:Timer_RestoreTeamScores(Handle:timer, DataPack:pack)
+public Action Timer_RestoreTeamScores(Handle timer, DataPack pack)
 {
 	pack.Reset();
-	new jinraiScore = pack.ReadCell();
-	new nsfScore = pack.ReadCell();
+	int jinraiScore = pack.ReadCell();
+	int nsfScore = pack.ReadCell();
 	
 	SetConVarInt(g_hJinraiScore, jinraiScore);
 	SetConVarInt(g_hNSFScore, nsfScore);
@@ -2643,7 +2637,7 @@ public Action:Timer_RestoreTeamScores(Handle:timer, DataPack:pack)
 	SetTeamScore(TEAM_NSF, nsfScore);
 }
 
-void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:getPrevious = false)
+void Kv_Menu_Details_GetParallelFile(int client, const char[] kvFileName, bool getPrevious = false)
 {
 	if ( !Client_IsValid(client) || !IsClientInGame(client) )
 		return;
@@ -2660,17 +2654,17 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 		return;
 	}
 	
-	decl String:fullPath[PLATFORM_MAX_PATH];
+	char fullPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, fullPath, sizeof(fullPath), "%s", g_kvPath);
 	
-	new Handle:dir = OpenDirectory(fullPath);
+	Handle dir = OpenDirectory(fullPath);
 	if (!DirExists(fullPath) || dir == null)
 	{
 		LogError("Failed to open KeyValues directory path: %s", fullPath);
 		return;
 	}
 	
-	decl String:filePath[PLATFORM_MAX_PATH];
+	char filePath[PLATFORM_MAX_PATH];
 	Format(filePath, sizeof(filePath), "%s/%s", fullPath, kvFileName);
 	if ( !FileExists(filePath) )
 	{
@@ -2678,13 +2672,13 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 		return;
 	}
 	
-	new i;
-	new locatedPos;
-	new results;
-	new max_files = 128;
-	decl String:buffer[max_files][PLATFORM_MAX_PATH]; // fixme: this is expensive :-( dynamic array instead?
-	new bool:locatedFile;
-	new bool:servedFile;
+	int i;
+	int locatedPos;
+	int results;
+	int max_files = 128;
+	char[][] buffer = new char[max_files][PLATFORM_MAX_PATH]; // fixme: this is expensive :-( dynamic array instead?
+	bool locatedFile;
+	bool servedFile;
 	FileType type;
 	while ( ReadDirEntry(dir, buffer[i], PLATFORM_MAX_PATH, type) )
 	{
@@ -2774,7 +2768,7 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 // Purpose: Store current epoch globally so multiple functions can use it for identifying themselves
 void GenerateEpoch()
 {
-	new Handle:hTimeAdjustment = FindConVar("sm_time_adjustment");
+	Handle hTimeAdjustment = FindConVar("sm_time_adjustment");
 	g_epoch = GetTime() + GetConVarInt(hTimeAdjustment);
 	CloseHandle(hTimeAdjustment);
 }

@@ -4,9 +4,9 @@
 #endif
 #define _parser_included_
 
-public Action:Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int client = GetClientOfUserId(GetEventInt(event, "userid"));
 	
 	if ( DidPlayerReallySpawn(client) )
 	{
@@ -31,13 +31,13 @@ public Action:Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroa
 #endif
 }
 
-public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerDeath(Handle event, const char[]name, bool dontBroadcast)
 {	
-	new victim = GetClientOfUserId(GetEventInt(event, "userid"));
+	int victim = GetClientOfUserId(GetEventInt(event, "userid"));
 	
 	// Did the death happen after round time ran out?
-	new Float:roundTimeSecs = GetConVarFloat(g_hRoundTime) * 60;
-	new Float:currentTime = GetGameTime();
+	float roundTimeSecs = GetConVarFloat(g_hRoundTime) * 60;
+	float currentTime = GetGameTime();
 	
 	if (currentTime - g_fRoundTime < roundTimeSecs)
 		g_survivedLastRound[victim] = false;
@@ -45,10 +45,10 @@ public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroa
 	if ( GetConVarInt(g_hKillVersobity) == 0 ) // Do nothing
 		return Plugin_Continue;
 	
-	new victimTeam = GetClientTeam(victim);
+	int victimTeam = GetClientTeam(victim);
 	
-	new attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
-	decl String:attackerName[MAX_NAME_LENGTH];
+	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
+	char attackerName[MAX_NAME_LENGTH];
 	GetClientName( attacker, attackerName, sizeof(attackerName) );
 	
 	switch ( GetConVarInt(g_hKillVersobity) )
@@ -65,7 +65,7 @@ public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroa
 		
 		case 2: // Only show the victim how much damage they dealt to their killer (CSGO style)
 		{
-			decl String:msgBuffer[sizeof(g_tag) + MAX_NAME_LENGTH + 53];
+			char msgBuffer[sizeof(g_tag) + MAX_NAME_LENGTH + 53];
 			Format(msgBuffer, sizeof(msgBuffer), "%s Player \"%s\" killed you. Damage dealt: %i", g_tag, attackerName, g_damageDealt[victim][attacker]);
 			
 			if ( GetConVarBool(g_hVerbosityDelay) )
@@ -76,7 +76,7 @@ public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroa
 		
 		case 3: // Only show the victim their killer's remaining health
 		{
-			decl String:msgBuffer[sizeof(g_tag) + MAX_NAME_LENGTH + 53];
+			char msgBuffer[sizeof(g_tag) + MAX_NAME_LENGTH + 53];
 			Format(msgBuffer, sizeof(msgBuffer), "%s Player \"%s\" killed you with %i health remaining.", g_tag, attackerName, g_health[attacker]);
 			
 			if ( GetConVarBool(g_hVerbosityDelay) )
@@ -91,16 +91,16 @@ public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroa
 	return Plugin_Handled;
 }
 
-public Action:Event_PlayerHurt(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerHurt(Handle event, const char[] name, bool dontBroadcast)
 {
 	if ( GetConVarInt(g_hKillVersobity) < 2 ) // Kill verbosity cvar doesn't require any health info - do nothing
 		return Plugin_Continue;
 	
-	new attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
-	new victim = GetClientOfUserId(GetEventInt(event, "userid"));
+	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
+	int victim = GetClientOfUserId(GetEventInt(event, "userid"));
 	
-	new damage;
-	new health;
+	int damage;
+	int health;
 	
 	if ( !IsPlayerAlive(victim) ) // todo: is this called too fast for IsPlayerAlive to be reliable?
 	{
@@ -122,15 +122,15 @@ public Action:Event_PlayerHurt(Handle:event, const String:name[], bool:dontBroad
 	return Plugin_Handled;
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
-	new i;
+	int i;
 	for (i = 1; i <= MaxClients; i++)
 	{
 		g_isSpawned[i] = false;
 		g_health[i] = 100;
 		
-		for (new j = 1; j <= MaxClients; j++)
+		for (int j = 1; j <= MaxClients; j++)
 		{
 			g_damageDealt[i][j] = 0;
 		}
@@ -196,7 +196,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 #if DEBUG
 			LogDebug("Nobody captured the ghost last round");
 #endif
-			new survivors[sizeof(g_teamName)];
+			int survivors[sizeof(g_teamName)];
 			
 			// Get amount of survivors on both teams
 			for (i = 1; i <= MaxClients; i++)
@@ -204,7 +204,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 				if ( !Client_IsValid(i) || !IsClientInGame(i) )
 					continue;
 				
-				new team = GetClientTeam(i);
+				int team = GetClientTeam(i);
 				if (team != TEAM_JINRAI && team != TEAM_NSF)
 					continue;
 				
@@ -249,8 +249,8 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	
 	if (g_roundNumber == 1)
 	{
-		decl String:msgBuffer[256];
-		decl String:tournamentName[128];
+		char msgBuffer[256];
+		char tournamentName[128];
 		GetConVarString(g_hCompetitionName, tournamentName, sizeof(tournamentName));
 		
 		if (strlen(tournamentName) > 0)
@@ -261,7 +261,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		LogCompetitive(msgBuffer);
 	}
 	
-	decl String:roundBuffer[64];
+	char roundBuffer[64];
 	Format(roundBuffer, sizeof(roundBuffer), "***** Round %i *****", g_roundNumber);
 	LogCompetitive(roundBuffer);
 #if DEBUG
@@ -271,7 +271,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	{
 		g_shouldPause = false;
 		
-		new Float:pauseTime = 5.0;
+		float pauseTime = 5.0;
 		CreateTimer(pauseTime, Timer_TogglePause);
 		PrintToChatAll("%s Pausing the game...", g_tag);
 		LogCompetitive("Game is PAUSED.");
@@ -282,9 +282,9 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	return Plugin_Handled;
 }
 
-public Action:Command_JoinTeam(client, args)
+public Action Command_JoinTeam(int client, int args)
 {
-	decl String:clientName[MAX_NAME_LENGTH];
+	char clientName[MAX_NAME_LENGTH];
 	GetClientName(client, clientName, sizeof(clientName));
 
 	if (!g_isLive || !GetConVarBool(g_hLimitTeams) )
@@ -298,15 +298,15 @@ public Action:Command_JoinTeam(client, args)
 		return Plugin_Continue;
 	}
 	
-	new String:steamID[MAX_STEAMID_LENGTH];
+	char steamID[MAX_STEAMID_LENGTH];
 	if (!GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID)))
 		LogError("Failed fetching auth string for %s (client %i)", clientName, client);
 	
-	decl String:team[10];
+	char team[10];
 	GetCmdArg(1, team, sizeof(team));
-	new iTeam = StringToInt(team);
+	int iTeam = StringToInt(team);
 	
-	decl String:msgBuffer[512];
+	char msgBuffer[512];
 	
 	// Team joining is not restricted by cvar, allow and log the team change
 	if ( GetConVarInt(g_hLimitLiveTeams) == 0 )
@@ -335,7 +335,7 @@ public Action:Command_JoinTeam(client, args)
 	}
 	
 	// We use this variable here for clarity, since teams can rename themselves
-	new String:tempTeamName[13];
+	char tempTeamName[13];
 	switch (g_assignedTeamWhenLive[client])
 	{
 		case TEAM_JINRAI:
@@ -359,7 +359,7 @@ public Action:Command_JoinTeam(client, args)
 	return Plugin_Stop;
 }
 
-public Event_JinraiScore(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_JinraiScore(Handle cvar, const char[] oldVal, const char[] newVal)
 {
 	if (g_isLive)
 	{
@@ -375,7 +375,7 @@ public Event_JinraiScore(Handle:cvar, const String:oldVal[], const String:newVal
 	}
 }
 
-public Event_NSFScore(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_NSFScore(Handle cvar, const char[] oldVal, const char[] newVal)
 {
 	if (g_isLive)
 	{
@@ -391,13 +391,13 @@ public Event_NSFScore(Handle:cvar, const String:oldVal[], const String:newVal[])
 	}
 }
 
-public Event_CommsBehaviour(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_CommsBehaviour(Handle cvar, const char[] oldVal, const char[] newVal)
 {	
 	if (g_isLive)
 		SetConVarInt(g_hAlltalk, GetDesiredCommsBehaviour());
 }
 
-public Event_LogMode(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_LogMode(Handle cvar, const char[] oldVal, const char[] newVal)
 {
 	if (g_isLive)
 	{
@@ -406,7 +406,7 @@ public Event_LogMode(Handle:cvar, const String:oldVal[], const String:newVal[])
 	}
 }
 
-public Event_Restart(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_Restart(Handle cvar, const char[] oldVal, const char[] newVal)
 {
 	if (StringToInt(newVal)) // If nonzero, we have a restart
 	{
@@ -418,15 +418,15 @@ public Event_Restart(Handle:cvar, const String:oldVal[], const String:newVal[])
 	}
 }
 
-public Event_ZanshiStrats(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_ZanshiStrats(Handle cvar, const char[] oldVal, const char[] newVal)
 {
 	if (StringToInt(newVal))
 		CheckGhostcapPlugin();
 }
 
-public Event_TeamNameJinrai(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_TeamNameJinrai(Handle cvar, const char[] oldVal, const char[] newVal)
 {
-	decl String:nsfName[sizeof(g_teamName[])];
+	char nsfName[sizeof(g_teamName[])];
 	GetConVarString(g_hNSFName, nsfName, sizeof(nsfName));
 	
 	if (StrEqual(newVal, "NSF", false)) // Make sure we don't use the other team's default name
@@ -474,9 +474,9 @@ public Event_TeamNameJinrai(Handle:cvar, const String:oldVal[], const String:new
 	}
 }
 
-public Event_TeamNameNSF(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_TeamNameNSF(Handle cvar, const char[] oldVal, const char[] newVal)
 {
-	decl String:jinraiName[sizeof(g_teamName[])];
+	char jinraiName[sizeof(g_teamName[])];
 	GetConVarString(g_hJinraiName, jinraiName, sizeof(jinraiName));
 	
 	if (StrEqual(newVal, "Jinrai", false)) // Make sure we don't use the other team's default name
@@ -512,7 +512,7 @@ public Event_TeamNameNSF(Handle:cvar, const String:oldVal[], const String:newVal
 		
 		if (g_isLive)
 		{
-			decl String:msgBuffer[256];
+			char msgBuffer[256];
 			Format(msgBuffer, sizeof(msgBuffer), "NSF changed team name to: %s", newVal);
 			
 			LogCompetitive(msgBuffer);
@@ -524,7 +524,7 @@ public Event_TeamNameNSF(Handle:cvar, const String:oldVal[], const String:newVal
 	}
 }
 
-public Event_SourceTVEnabled(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_SourceTVEnabled(Handle cvar, const char[] oldVal, const char[] newVal)
 {
 	if (StringToInt(newVal) && !IsSourceTVBotConnected())
 	{
@@ -538,13 +538,13 @@ public Event_SourceTVEnabled(Handle:cvar, const String:oldVal[], const String:ne
 		ToggleSourceTV();
 }
 
-public Event_SourceTVPath(Handle:cvar, const String:oldVal[], const String:newVal[])
+public Event_SourceTVPath(Handle cvar, const char[] oldVal, const char[] newVal)
 {
 	if (!DirExists(newVal))
 		InitDirectory(newVal);
 }
 
-public Action:Hook_Fade(UserMsg:msg_id, Handle:bf, const players[], playersNum, bool:reliable, bool:init)
+public Action:Hook_Fade(UserMsg msg_id, Handle bf, const players[], int playersNum, bool reliable, bool init)
 {
 	if (GetConVarInt(g_hForceCamera))
 	{
@@ -555,13 +555,13 @@ public Action:Hook_Fade(UserMsg:msg_id, Handle:bf, const players[], playersNum, 
 	return Plugin_Continue;
 }
 
-public Action:SayCallback(client, const String:command[], argc)
+public Action SayCallback(int client, const char[] command, int argc)
 {
 	// This player is not editing a cvar via chat, let the chat message through normally.
 	if (!g_isEditingSetting[client])
 		return Plugin_Continue;
 	
-	new Handle:cvar = FindConVar(g_convarBeingEdited);
+	Handle cvar = FindConVar(g_convarBeingEdited);
 	if (cvar == INVALID_HANDLE)
 	{
 		LogError("Attempted to edit an invalid cvar handle.");
@@ -577,7 +577,7 @@ public Action:SayCallback(client, const String:command[], argc)
 		return Plugin_Stop;
 	}
 	
-	decl String:message[256];
+	char message[256];
 	GetCmdArgString( message, sizeof(message) );
 	
 	StripQuotes(message);

@@ -23,6 +23,8 @@ new String:g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing
 new const String:g_menuSoundOk[] = "buttons/button14.wav";
 new const String:g_menuSoundCancel[] = "buttons/combine_button7.wav";
 new const String:g_soundLive[] = "buttons/button17.wav";
+new const String:g_alphanumeric[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVXYZ1234567890";
+new const String:g_sqlTable_Servers[] = "servers";
 new String:g_killInfoBuffer[MAXPLAYERS+1][512];
 new String:g_convarBeingEdited[128];
 #if DEBUG
@@ -148,6 +150,9 @@ new Handle:g_hSuddenDeath;
 new Handle:g_hCenteredDisplayRemaining;
 new Handle:g_hCenteredDisplayTarget;
 new Handle:g_hCompForceCamera;
+new Handle:g_hPugEnabled;
+new Handle:g_hPassword;
+new Handle:g_hDbConfig;
 #if DEBUG
 new Handle:g_hDebugKeyValues;
 #endif
@@ -160,6 +165,7 @@ new Handle:g_hTimer_UnPause_HalfLeft		= INVALID_HANDLE;
 
 KeyValues g_kv;
 
+Database g_hDatabase = null;
 Menu g_clientMenu = null;
 
 enum {
@@ -185,6 +191,16 @@ enum {
 enum {
 	REASON_TECHNICAL = 0,
 	REASON_TIMEOUT
+};
+
+enum {
+	STATE_ERROR = 0,
+	STATE_OFFLINE,
+	STATE_BUSY,
+	STATE_AVAILABLE,
+	STATE_CONFIRMING,
+	STATE_WAITING,
+	STATE_LIVE
 };
 
 void CheckIfEveryoneIsReady()
@@ -2814,4 +2830,112 @@ void CancelLiveCountdown()
 	g_liveTimer = g_liveTimer_OriginalValue; // Reset live countdown timer to its original value
 	
 	PrintToChatAll("%s Live countdown cancelled.", g_tag);
+}
+
+void PugMode_Initialize()
+{
+	Pug_PasswordServer();
+	
+	Database_Initialize();
+	Database_UpdateServerInfo_This();
+	
+	// check what's going on at server (players connected, is game live?) to determine what sort of PUG status to report
+}
+
+void Pug_PasswordServer()
+{
+	new passwordLength = 10;
+	
+	decl String:password[passwordLength];
+	for (new i = 0; i < passwordLength; i++)
+	{
+		// Insert random alphanumeric to char index
+		password[i] = g_alphanumeric[GetRandomInt(0, sizeof(g_alphanumeric))];
+	}
+	password[passwordLength] = 0; // String terminator
+	
+	SetConVarString(g_hPassword, password);
+}
+
+void Database_Initialize() // TODO: Merge me with pug plugin functions as include
+{
+	decl String:error[256];
+	decl String:configName[64];
+	GetConVarString(g_hDbConfig, configName, sizeof(configName));
+	
+	g_hDatabase = SQL_Connect(configName, true, error, sizeof(error));
+	
+	if (g_hDatabase == null)
+		ThrowError(error);
+}
+
+void Database_UpdateServerInfo_This()
+{
+	decl String:sql[128];
+	decl String:error[256];
+	
+	// Check if server already is in database
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE hostname = ?", g_sqlTable_Servers);
+	
+	new Handle:stmt = SQL_PrepareQuery(g_hDatabase, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+	
+	// Get gameserver IP address
+	new Handle:hIP = FindConVar("ip");
+	if (hIP == INVALID_HANDLE)
+	{
+		ThrowError("Could not find cvar \"ip\"");
+	}
+	decl String:ipAddress[128];
+	GetConVarString(hIP, ipAddress, sizeof(ipAddress));
+	CloseHandle(hIP);
+	
+	// Get gameserver name
+	new Handle:hServerName = FindConVar("hostname");
+	if (hServerName == INVALID_HANDLE)
+	{
+		ThrowError("Could not find cvar \"hostname\"");
+	}
+	decl String:serverName[128];
+	GetConVarString(hServerName, serverName, sizeof(serverName));
+	
+	SQL_BindParamString(stmt, 0, ipAddress, false);
+	SQL_Execute(stmt);
+	
+	new foundRows = SQL_GetRowCount(stmt);
+	CloseHandle(stmt);
+	
+	PrintToServer("Found rows: %i", foundRows); // debug
+	
+	// Server is not in database, insert
+	if (foundRows == 0)
+	{
+		Format(sql, sizeof(sql), "INSERT INTO %s (hostname, server_name, game_status) VALUES (?, ?, ?)", g_sqlTable_Servers);
+		stmt = SQL_PrepareQuery(g_hDatabase, sql, error, sizeof(error));
+		if (stmt == INVALID_HANDLE)
+			ThrowError(error);
+		
+		SQL_BindParamString	(stmt, 0, ipAddress, false);
+		SQL_BindParamString	(stmt, 1, serverName, false);
+		SQL_BindParamInt		(stmt, 2, STATE_BUSY);
+	}
+	// Server is in database, update
+	else if (foundRows == 1)
+	{
+		Format(sql, sizeof(sql), "UPDATE %s SET server_name=?, game_status=? WHERE hostname=?", g_sqlTable_Servers);
+		stmt = SQL_PrepareQuery(g_hDatabase, sql, error, sizeof(error));
+		if (stmt == INVALID_HANDLE)
+			ThrowError(error);
+		
+		SQL_BindParamString	(stmt, 0, serverName, false);
+		SQL_BindParamInt		(stmt, 1, STATE_BUSY);
+		SQL_BindParamString	(stmt, 2, ipAddress, false);
+	}
+	else
+	{
+		ThrowError("Found %i rows matching server ip %s, expected to find 0 or 1.", foundRows, ipAddress);
+	}
+	SQL_Execute(stmt);
+	CloseHandle(stmt);
 }

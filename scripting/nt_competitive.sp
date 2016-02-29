@@ -99,9 +99,11 @@ public OnPluginStart()
 	g_hCenteredDisplayRemaining	= CreateConVar("sm_competitive_display_remaining_players_centered",	"2", "How the number of remaining players is displayed to clients in a competitive game. 0 = disabled, 1 = show remaining player numbers, 2 = show team names and remaining player numbers", _, true, 0.0, true, 2.0);
 	g_hCenteredDisplayTarget			= CreateConVar("sm_competitive_display_remaining_players_target",	"2", "Who to center display remaining players to. 1 = spectators only, 2 = spectators and dead players", _, true, 1.0, true, 2.0);
 	g_hCompForceCamera				= CreateConVar("sm_competitive_force_camera",				"1",				"Should fade to black be forced on death when live. Can be useful to disable on pugs etc.", _, true, 0.0, true, 1.0);
+	g_hPugEnabled							= CreateConVar("sm_competitive_pug_enabled",					"1",				"Is server in PUG mode. Disable for organized events.", _, true, 0.0, true, 1.0);
 #if DEBUG
 	g_hDebugKeyValues				= CreateConVar("sm_competitive_keyvalues_test",				"1",					"Store match data into KeyValues file. Debug cvar.", _, true, 0.0, true, 1.0);
 #endif
+	g_hDbConfig								= CreateConVar("sm_pug_db_cfg",									"pug",				"Database config entry name", FCVAR_PROTECTED);
 	
 	g_hAlltalk			= FindConVar("sv_alltalk");
 	g_hForceCamera		= FindConVar("mp_forcecamera");
@@ -109,6 +111,7 @@ public OnPluginStart()
 	g_hPausable			= FindConVar("sv_pausable");
 	g_hRoundTime		= FindConVar("neo_round_timelimit");
 	g_hNeoScoreLimit	= FindConVar("neo_score_limit");
+	g_hPassword		= FindConVar("sv_password");
 	
 	HookConVarChange(g_hNeoRestartThis,					Event_Restart);
 	HookConVarChange(g_hSourceTVEnabled,				Event_SourceTVEnabled);
@@ -165,6 +168,9 @@ public OnConfigsExecuted()
 {
 	g_isAlltalkByDefault = GetConVarBool(g_hAlltalk);
 	SetConVarInt(g_hNeoScoreLimit, 99); // Set Neotokyo's own round max round count to highest value
+
+	if ( GetConVarBool(g_hPugEnabled) )
+		PugMode_Initialize();
 }
 
 public OnClientAuthorized(client, const String:authID[])

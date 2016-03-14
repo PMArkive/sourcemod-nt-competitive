@@ -250,8 +250,10 @@ void Database_AddPugger(client)
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 	
-	SQL_BindParamString(stmt, 0, steamid, false);
-	SQL_BindParamInt(stmt, 1, PUGGER_STATUS_QUEUING, false);
+	new paramIndex;
+	SQL_BindParamString(stmt, paramIndex++, steamid, false);
+	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATUS_QUEUING, false);
+	
 	SQL_Execute(stmt);
 	CloseHandle(stmt);
 	

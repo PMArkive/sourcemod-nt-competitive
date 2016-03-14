@@ -2917,10 +2917,11 @@ void Database_UpdateServerInfo_This()
 		if (stmt == INVALID_HANDLE)
 			ThrowError(error);
 		
-		SQL_BindParamString	(stmt, 0, ipAddress, false);
-		SQL_BindParamString	(stmt, 1, serverName, false);
-		SQL_BindParamString	(stmt, 2, password, false);
-		SQL_BindParamInt		(stmt, 3, STATE_BUSY);
+		new paramIndex;
+		SQL_BindParamString	(stmt, paramIndex++, ipAddress, false);
+		SQL_BindParamString	(stmt, paramIndex++, serverName, false);
+		SQL_BindParamString	(stmt, paramIndex++, password, false);
+		SQL_BindParamInt		(stmt, paramIndex++, STATE_BUSY);
 	}
 	// Server is in database, update
 	else if (foundRows == 1)
@@ -2930,10 +2931,11 @@ void Database_UpdateServerInfo_This()
 		if (stmt == INVALID_HANDLE)
 			ThrowError(error);
 		
-		SQL_BindParamString	(stmt, 0, serverName, false);
-		SQL_BindParamString	(stmt, 1, password, false);
-		SQL_BindParamInt		(stmt, 2, STATE_BUSY);
-		SQL_BindParamString	(stmt, 3, ipAddress, false);
+		new paramIndex;
+		SQL_BindParamString	(stmt, paramIndex++, serverName, false);
+		SQL_BindParamString	(stmt, paramIndex++, password, false);
+		SQL_BindParamInt		(stmt, paramIndex++, STATE_BUSY);
+		SQL_BindParamString	(stmt, paramIndex++, ipAddress, false);
 	}
 	else
 	{

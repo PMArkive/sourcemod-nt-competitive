@@ -13,6 +13,7 @@ enum {
 	SERVER_HOSTNAME,
 	SERVER_NAME,
 	SERVER_STATUS,
+	SERVER_PASSWORD,
 	SERVER_ENUM_COUNT
 };
 
@@ -608,6 +609,7 @@ bool Servers_ReserveForPug()
 		SQL_FetchString(result, SERVER_HOSTNAME, serverInfo[row][SERVER_HOSTNAME], 64);
 		SQL_FetchString(result, SERVER_NAME, serverInfo[row][SERVER_NAME], 64);
 		SQL_FetchString(result, SERVER_STATUS, serverInfo[row][SERVER_STATUS], 64);
+		SQL_FetchString(result, SERVER_PASSWORD, serverInfo[row][SERVER_PASSWORD], 64);
 		row++;
 	}
 	
@@ -615,7 +617,7 @@ bool Servers_ReserveForPug()
 	
 	for (new i = 0; i < foundRows; i++)
 	{
-		PrintToServer("Server index %i:\tid:%s\thost:%s\tname:%s\tstatus:%s", i, serverInfo[i][SERVER_ID], serverInfo[i][SERVER_HOSTNAME], serverInfo[i][SERVER_NAME], serverInfo[i][SERVER_STATUS]);
+		PrintToServer("Server index %i:\tid:%s\thost:%s\tname:%s\tstatus:%s\tpassword:%s", i, serverInfo[i][SERVER_ID], serverInfo[i][SERVER_HOSTNAME], serverInfo[i][SERVER_NAME], serverInfo[i][SERVER_STATUS], serverInfo[i][SERVER_PASSWORD]);
 	}
 	
 	for (new i = 0; i < foundRows; i++)

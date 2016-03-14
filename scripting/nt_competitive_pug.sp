@@ -156,15 +156,32 @@ public Action:Command_JoinPugServer(client, args)
 {
 	if (!g_isInvited[client])
 	{
-		ReplyToCommand(client, "%s You are not queued for pugging.", g_tag);
-		ReplyToCommand(client, "Use !pug to enter yourself to the puggers list.");
+		if (!g_isPugging[client])
+		{
+			ReplyToCommand(client, "%s You are not queued for pugging.", g_tag);
+			ReplyToCommand(client, "Use !pug to enter yourself to the puggers list.");
+		}
+		else
+		{
+			ReplyToCommand(client, "%s You are not currently invited to a pug server.", g_tag);
+			ReplyToCommand(client, "Please wait for enough puggers to queue up for a match.", g_tag);
+		}
+		
 		return Plugin_Stop;
 	}
 	
-	decl String:joinCmd[10 + sizeof(g_reservedServer[])];
+	decl String:joinPassword[10 + sizeof(g_reservedServer[])];
+	Format(joinPassword, sizeof(joinPassword), "password %s", g_reservedServer[SERVER_PASSWORD]);
+	
+	decl String:joinCmd[9 + sizeof(g_reservedServer[])];
 	Format(joinCmd, sizeof(joinCmd), "connect %s", g_reservedServer[SERVER_HOSTNAME]);
 	
-	ClientCommand(client, joinCmd);
+	ClientCommand(client, joinPassword); // set pug server password
+	ClientCommand(client, joinCmd); // join pug server
+	
+	decl String:clientName[MAX_NAME_LENGTH];
+	GetClientName(client, clientName, sizeof(clientName));
+	PrintToChatAll("%s %s has joined a PUG", g_tag, clientName);
 	
 	/*
 		Yay, clients get to join the PUG!

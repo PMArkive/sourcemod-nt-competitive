@@ -2842,10 +2842,8 @@ void PugMode_Initialize()
 	// check what's going on at server (players connected, is game live?) to determine what sort of PUG status to report
 }
 
-void Pug_PasswordServer()
-{
-	new passwordLength = 10;
-	
+void Pug_PasswordServer(passwordLength = 10)
+{	
 	decl String:password[passwordLength];
 	for (new i = 0; i < passwordLength; i++)
 	{
@@ -2908,29 +2906,34 @@ void Database_UpdateServerInfo_This()
 	
 	PrintToServer("Found rows: %i", foundRows); // debug
 	
+	decl String:password[MAX_CVAR_LENGTH];
+	GetConVarString(g_hPassword, password, sizeof(password));
+	
 	// Server is not in database, insert
 	if (foundRows == 0)
 	{
-		Format(sql, sizeof(sql), "INSERT INTO %s (hostname, server_name, game_status) VALUES (?, ?, ?)", g_sqlTable_Servers);
+		Format(sql, sizeof(sql), "INSERT INTO %s (hostname, server_name, server_password, game_status) VALUES (?, ?, ?, ?)", g_sqlTable_Servers);
 		stmt = SQL_PrepareQuery(g_hDatabase, sql, error, sizeof(error));
 		if (stmt == INVALID_HANDLE)
 			ThrowError(error);
 		
 		SQL_BindParamString	(stmt, 0, ipAddress, false);
 		SQL_BindParamString	(stmt, 1, serverName, false);
-		SQL_BindParamInt		(stmt, 2, STATE_BUSY);
+		SQL_BindParamString	(stmt, 2, password, false);
+		SQL_BindParamInt		(stmt, 3, STATE_BUSY);
 	}
 	// Server is in database, update
 	else if (foundRows == 1)
 	{
-		Format(sql, sizeof(sql), "UPDATE %s SET server_name=?, game_status=? WHERE hostname=?", g_sqlTable_Servers);
+		Format(sql, sizeof(sql), "UPDATE %s SET server_name=?, server_password=?, game_status=? WHERE hostname=?", g_sqlTable_Servers);
 		stmt = SQL_PrepareQuery(g_hDatabase, sql, error, sizeof(error));
 		if (stmt == INVALID_HANDLE)
 			ThrowError(error);
 		
 		SQL_BindParamString	(stmt, 0, serverName, false);
-		SQL_BindParamInt		(stmt, 1, STATE_BUSY);
-		SQL_BindParamString	(stmt, 2, ipAddress, false);
+		SQL_BindParamString	(stmt, 1, password, false);
+		SQL_BindParamInt		(stmt, 2, STATE_BUSY);
+		SQL_BindParamString	(stmt, 3, ipAddress, false);
 	}
 	else
 	{

@@ -173,6 +173,9 @@ public Action:Command_JoinPugServer(client, args)
 		return Plugin_Stop;
 	}
 	
+	decl String:clientName[MAX_NAME_LENGTH];
+	GetClientName(client, clientName, sizeof(clientName));
+	
 	decl String:joinPassword[10 + sizeof(g_reservedServer[])];
 	Format(joinPassword, sizeof(joinPassword), "password %s", g_reservedServer[SERVER_PASSWORD]);
 	
@@ -187,8 +190,6 @@ public Action:Command_JoinPugServer(client, args)
 	
 	ClearRevokeTimer(client);
 	
-	decl String:clientName[MAX_NAME_LENGTH];
-	GetClientName(client, clientName, sizeof(clientName));
 	PrintToChatAll("%s %s has joined a PUG", g_tag, clientName);
 	
 	/*

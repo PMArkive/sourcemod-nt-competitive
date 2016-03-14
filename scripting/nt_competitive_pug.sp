@@ -36,6 +36,8 @@ Database db = null;
 
 new Handle:g_hCvar_DbConfig;
 
+new Handle:g_hTimer_RevokeInvite[MAXPLAYERS+1] = INVALID_HANDLE;
+
 new wantedPuggers = 1;
 
 new const String:g_tag[] = "[PUG]";
@@ -84,6 +86,7 @@ public OnClientDisconnect(client)
 {
 	g_isDisconnecting[client] = true;
 	g_isPugging[client] = false;
+	g_isInvited[client] = false;
 	CreateTimer(0.1, Timer_Purge);
 }
 
@@ -176,8 +179,13 @@ public Action:Command_JoinPugServer(client, args)
 	decl String:joinCmd[9 + sizeof(g_reservedServer[])];
 	Format(joinCmd, sizeof(joinCmd), "connect %s", g_reservedServer[SERVER_HOSTNAME]);
 	
-	ClientCommand(client, joinPassword); // set pug server password
-	ClientCommand(client, joinCmd); // join pug server
+	// Set pug server password
+	ClientCommand(client, joinPassword);
+	// Join pug server
+	ClientCommand(client, joinCmd);
+	// Client state will be cleared in OnClientDisconnect()
+	
+	ClearRevokeTimer(client);
 	
 	decl String:clientName[MAX_NAME_LENGTH];
 	GetClientName(client, clientName, sizeof(clientName));
@@ -564,7 +572,8 @@ void Client_InviteToPug(client)
 	SendPanelToClient(panel, client, PanelHandler_InviteToPug, MENU_TIME_INVITE);
 	CloseHandle(panel);
 	
-	CreateTimer(IntToFloat(MENU_TIME_INVITE), Timer_RevokeInvite, client);
+	ClearRevokeTimer(client);
+	g_hTimer_RevokeInvite[client] = CreateTimer(IntToFloat(MENU_TIME_INVITE), Timer_RevokeInvite, client);
 }
 
 public PanelHandler_InviteToPug(Handle:menu, MenuAction:action, client, choice)
@@ -575,6 +584,17 @@ public PanelHandler_InviteToPug(Handle:menu, MenuAction:action, client, choice)
 public Action:Timer_RevokeInvite(Handle:timer, any:client)
 {
 	g_isInvited[client] = false;
+	
+	if ( !Client_IsValid(client) || IsFakeClient(client) )
+		return Plugin_Stop;
+	
+	if (g_isPugging[client])
+	{
+		PrintToChat(client, "%s Your PUG invite has expired.", g_tag);
+		PrintToChat(client, "Type !unpug to leave the PUG queue, or wait for the next invitation.");
+	}
+	
+	return Plugin_Handled;
 }
 
 void PrintToPuggers(const String:message[], any ...)
@@ -652,4 +672,13 @@ bool Servers_ReserveForPug()
 	}
 	
 	return false;
+}
+
+void ClearRevokeTimer(client)
+{
+	if (g_hTimer_RevokeInvite[client] != INVALID_HANDLE)
+	{
+		KillTimer(g_hTimer_RevokeInvite[client]);
+		g_hTimer_RevokeInvite[client] = INVALID_HANDLE;
+	}
 }

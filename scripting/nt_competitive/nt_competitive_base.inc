@@ -2897,6 +2897,7 @@ void Database_UpdateServerInfo_This()
 	}
 	decl String:serverName[128];
 	GetConVarString(hServerName, serverName, sizeof(serverName));
+	CloseHandle(hServerName);
 	
 	SQL_BindParamString(stmt, 0, ipAddress, false);
 	SQL_Execute(stmt);

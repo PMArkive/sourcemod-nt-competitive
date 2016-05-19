@@ -545,10 +545,7 @@ void Database_UpdatePuggers()
 	for (i = 0; i < sizeof(puggers); i++)
 	{
 		if (strlen(puggers[i]) == 0)
-		{
-//			PrintToServer("zero!");
 			continue;
-		}
 		
 		PrintToServer("Found pugger: %s at index %i", puggers[i], i);
 	}
@@ -652,7 +649,7 @@ void Database_FindMatch()
 	}
 	else
 	{
-		PrintToPuggers("%s All %i pug servers are full. Waiting for a server to free up...", g_tag, 2);
+		PrintToPuggers("%s All %i pug servers are currently full. Waiting for a server to free up...", g_tag, Database_GetServerCount());
 	}
 }
 
@@ -749,7 +746,7 @@ void Client_InviteToPug(client)
 	
 //	DrawPanelItem(panel, "Close window");
 	
-	// Close panel instance after 2 seconds. Accept timer is updated once a second.
+	// Close panel instance after 2 seconds. Panel status is updated once per second.
 	SendPanelToClient(panel, client, PanelHandler_InviteToPug, 2);
 	CloseHandle(panel);
 }
@@ -795,6 +792,43 @@ void PrintToPuggers(const String:message[], any ...)
 		
 		PrintToChat(i, formatMsg);
 	}
+}
+
+int Database_GetServerCount(bool:onlyAvailableServers = false)
+{
+	Database_Initialize();
+	
+	decl String:error[256];
+	decl String:sql[128];
+	
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Servers);
+	
+	new Handle:result = SQL_Query(db, sql);
+	
+	if (result == INVALID_HANDLE)
+	{
+		LogError(error);
+		return 0;
+	}
+	
+	new rows;
+	
+	if (!onlyAvailableServers)
+	{
+		rows = SQL_GetRowCount(result);
+	}
+	else
+	{
+		while (SQL_FetchRow(result))
+		{
+			new status = SQL_FetchInt(result, SERVER_STATUS);
+			if (status == STATE_AVAILABLE)
+				rows++;
+		}
+	}
+	CloseHandle(result);
+	
+	return rows;
 }
 
 bool Servers_ReserveForPug()

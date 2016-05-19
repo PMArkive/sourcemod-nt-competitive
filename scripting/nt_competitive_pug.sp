@@ -1,5 +1,6 @@
 #pragma semicolon 1
 
+#include <sdktools_sound>
 #include <sourcemod>
 #include <smlib>
 
@@ -36,9 +37,8 @@ Database db = null;
 
 new Handle:g_hCvar_DbConfig;
 
-new Handle:g_hTimer_RevokeInvite[MAXPLAYERS+1] = INVALID_HANDLE;
-
 new wantedPuggers = 1;
+new g_pugInviteTimer[MAXPLAYERS+1];
 
 new const String:g_tag[] = "[PUG]";
 new const String:g_sqlTable_Puggers[] = "puggers";
@@ -47,6 +47,7 @@ new const String:g_sqlTable_Servers[] = "servers";
 new String:puggers[MAXPLAYERS+1][MAX_STEAMID_LENGTH];
 new String:g_reservedServer[SERVER_ENUM_COUNT][128];
 
+new bool:g_isDatabaseDown;
 new bool:g_isPugging[MAXPLAYERS+1];
 new bool:g_isDisconnecting[MAXPLAYERS+1];
 new bool:g_isInvited[MAXPLAYERS+1];
@@ -72,7 +73,6 @@ public OnPluginStart()
 
 public OnConfigsExecuted()
 {
-	PrintToServer("Database_Initialize()");
 	Database_Initialize();
 	Database_UpdatePuggers();
 }
@@ -103,6 +103,13 @@ public Action:Command_Pug(client, args)
 		return Plugin_Stop;
 	}
 	
+	if (g_isDatabaseDown)
+	{
+			ReplyToCommand(client, "%s Command failed due to database error.", g_tag);
+			ReplyToCommand(client, "Please contact server admins for help.");
+			return Plugin_Stop;
+	}
+	
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 	
@@ -130,27 +137,9 @@ public Action:Command_UnPug(client, args)
 		return Plugin_Stop;
 	}
 	
-	Database_UpdatePuggers();
-	
-	decl String:steamid[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
-	
-	for (new i = 0; i < sizeof(puggers); i++)
-	{
-		if (StrEqual(steamid, puggers[i]))
-		{
-			Database_RemovePugger(client);
-			g_isPugging[client] = false;
-			return Plugin_Handled;
-		}
-		if (g_isInvited[client])
-		{			
-			g_isInvited[client] = false;
-		}
-	}
-	
-	ReplyToCommand(client, "%s You are not queued for pugging.", g_tag);
-	ReplyToCommand(client, "Use !pug to enter yourself to the puggers list.");
+	g_isInvited[client] = false;
+	g_isPugging[client] = false;
+	Database_RemovePugger(client);
 	
 	return Plugin_Handled;
 }
@@ -187,8 +176,6 @@ public Action:Command_JoinPugServer(client, args)
 	// Join pug server
 	ClientCommand(client, joinCmd);
 	// Client state will be cleared in OnClientDisconnect()
-	
-	ClearRevokeTimer(client);
 	
 	PrintToChatAll("%s %s has joined a PUG", g_tag, clientName);
 	
@@ -269,6 +256,8 @@ void Database_AddPugger(client)
 
 void Database_RemovePugger(client = 0, bool:bySteamid = false, const String:sentSteamid[] = "")
 {
+	PrintToServer("Database_RemovePugger(client = %i, bySteamid = %b, sentSteamid = \"%s\")", client, bySteamid, sentSteamid);
+	
 	if ( !bySteamid && !Client_IsValid(client) )
 		ThrowError("Invalid client %i", client);
 	else if ( bySteamid && client == 0 && strlen(sentSteamid) < 1)
@@ -373,6 +362,8 @@ void Puggers_Purge()
 
 void Database_Initialize()
 {
+	PrintToServer("Database_Initialize()");
+	
 	decl String:error[256];
 	decl String:configName[64];
 	GetConVarString(g_hCvar_DbConfig, configName, sizeof(configName));
@@ -380,7 +371,14 @@ void Database_Initialize()
 	db = SQL_Connect(configName, true, error, sizeof(error));
 	
 	if (db == null)
+	{
+		g_isDatabaseDown = true;
 		ThrowError(error);
+	}
+	else
+	{
+		g_isDatabaseDown = false;
+	}
 }
 
 void Database_UpdatePuggers()
@@ -436,6 +434,8 @@ void Database_UpdatePuggers()
 
 void Puggers_Empty()
 {
+	PrintToServer("Puggers_Empty()");
+	
 	for (new i = 0; i < sizeof(puggers); i++)
 	{
 		strcopy(puggers[i], sizeof(puggers[]), "");
@@ -444,6 +444,8 @@ void Puggers_Empty()
 
 int Puggers_GetAmount()
 {
+	PrintToServer("Puggers_GetAmount()");
+	
 	new result;
 	for (new i = 0; i < sizeof(puggers); i++)
 	{
@@ -491,7 +493,7 @@ void Database_CheckPuggerAmount()
 	
 	if (Servers_ReserveForPug())
 	{
-		Puggers_Invite(chosenPuggers);
+		Puggers_Invite(chosenPuggers, wantedPuggers);
 	}
 	else
 	{
@@ -499,12 +501,15 @@ void Database_CheckPuggerAmount()
 	}
 }
 
-void Puggers_Invite(const String:chosenPuggers[][])
+void Puggers_Invite(const String:chosenPuggers[][], arraySize = 0)
 {
-	PrintToServer("Puggers_Invite(...)");
+	PrintToServer("Puggers_Invite(chosenPuggers[%i][])", arraySize);
+	
+	if (arraySize != wantedPuggers)
+		LogError("chosenPuggers[][] string array size does not match wantedPuggers size. This might be a mistake if wantedPuggers wasn't recently changed.");
 	
 	new client;
-	for (new i = 0; i < wantedPuggers; i++)
+	for (new i = 0; i < arraySize; i++)
 	{
 		// Only invite players listed on this server
 		client = Pugger_GetClient(chosenPuggers[i]);
@@ -512,6 +517,8 @@ void Puggers_Invite(const String:chosenPuggers[][])
 			continue;
 		
 		PrintToServer("steamid: %s, client: %i", chosenPuggers[i], client);
+		
+		g_pugInviteTimer[client] = MENU_TIME_INVITE;
 		Client_InviteToPug(client);
 	}
 }
@@ -551,32 +558,45 @@ int Pugger_GetClient(const String:steamid[])
 void Client_InviteToPug(client)
 {
 	if (client == 0 || !Client_IsValid(client))
+	{
+		g_isInvited[client] = false;
 		ThrowError("Invalid client: %i", client);
+	}
 	
-	g_isInvited[client] = true;
+	CreateTimer(1.0, Timer_UpdatePugInvite, client);
 	
-	PrintToServer("Client_InviteToPug(%i)", client);
-	PrintToChat(client, "%s Invite to join server: %s (%s)", g_tag, g_reservedServer[SERVER_NAME], g_reservedServer[SERVER_HOSTNAME]);
+	if (!g_isInvited[client])
+	{
+		g_isInvited[client] = true;
+		
+		PrintToServer("Client_InviteToPug(%i)", client);
+		PrintToChat(client, "%s Your match is ready: %s (%s)", g_tag, g_reservedServer[SERVER_NAME], g_reservedServer[SERVER_HOSTNAME]);
+		
+		PlayInviteSound(client);
+	}
 	
 	new Handle:panel = CreatePanel();
 	SetPanelTitle(panel, "PUG Match Ready!");
 	DrawPanelText(panel, " ");
 	
 	DrawPanelText(panel, "Type !join to enter the match, or");
-	DrawPanelText(panel, "type !unpug to cancel joining.");
+	DrawPanelText(panel, "type !unpug to leave the queue.");
 	DrawPanelText(panel, " ");
 	
 	DrawPanelText(panel, "Matches tend to last 30-60 minutes.");
 	DrawPanelText(panel, "Be nice and stay until the end of a match.");
 	DrawPanelText(panel, " ");
 	
-	DrawPanelItem(panel, "Close window");
+	decl String:timeRemaining[22];
+	Format(timeRemaining, sizeof(timeRemaining), "Time remaining: %i", g_pugInviteTimer[client]);
 	
-	SendPanelToClient(panel, client, PanelHandler_InviteToPug, MENU_TIME_INVITE);
+	DrawPanelText(panel, timeRemaining);
+	
+//	DrawPanelItem(panel, "Close window");
+	
+	// Close panel instance after 2 seconds. Accept timer is updated once a second.
+	SendPanelToClient(panel, client, PanelHandler_InviteToPug, 2);
 	CloseHandle(panel);
-	
-	ClearRevokeTimer(client);
-	g_hTimer_RevokeInvite[client] = CreateTimer(IntToFloat(MENU_TIME_INVITE), Timer_RevokeInvite, client);
 }
 
 public PanelHandler_InviteToPug(Handle:menu, MenuAction:action, client, choice)
@@ -584,20 +604,27 @@ public PanelHandler_InviteToPug(Handle:menu, MenuAction:action, client, choice)
 	return;
 }
 
-public Action:Timer_RevokeInvite(Handle:timer, any:client)
+public Action:Timer_UpdatePugInvite(Handle:timer, any:client)
 {
-	g_isInvited[client] = false;
-	
-	if ( !Client_IsValid(client) || IsFakeClient(client) )
+	if (!g_isInvited[client])
 		return Plugin_Stop;
 	
-	if (g_isPugging[client])
+	if (g_pugInviteTimer[client] < 1)
 	{
-		PrintToChat(client, "%s Your PUG invite has expired.", g_tag);
-		PrintToChat(client, "Type !unpug to leave the PUG queue, or wait for the next invitation.");
+		g_isInvited[client] = false;
+		
+		if (g_isPugging[client])
+		{
+			PrintToChat(client, "%s Your PUG invite has expired.", g_tag);
+			PrintToChat(client, "You can type !unpug to leave the queue, or wait for the next match.");
+		}
+		return Plugin_Stop;
 	}
 	
-	return Plugin_Handled;
+	g_pugInviteTimer[client]--;
+	Client_InviteToPug(client);
+	
+	return Plugin_Continue;
 }
 
 void PrintToPuggers(const String:message[], any ...)
@@ -613,13 +640,6 @@ void PrintToPuggers(const String:message[], any ...)
 		
 		PrintToChat(i, formatMsg);
 	}
-}
-
-float IntToFloat(integer)
-{
-	decl String:sInt[2];
-	IntToString(integer, sInt, sizeof(sInt));
-	return StringToFloat(sInt);
 }
 
 bool Servers_ReserveForPug()
@@ -677,11 +697,34 @@ bool Servers_ReserveForPug()
 	return false;
 }
 
-void ClearRevokeTimer(client)
+void PlayInviteSound(client)
 {
-	if (g_hTimer_RevokeInvite[client] != INVALID_HANDLE)
+	new burstAmount = 8;					// How many sound bursts to play
+	new soundsPerBurst = 3;				// How many notes make a burst
+	new Float:burstDelay = 0.4;			// How long to wait between bursts
+	new Float:burstIncrement = 0.05;	// How long should burst increments be
+	
+	new Float:timer;
+	new Float:increment;
+	for (new i = 0; i < burstAmount; i++)
 	{
-		KillTimer(g_hTimer_RevokeInvite[client]);
-		g_hTimer_RevokeInvite[client] = INVALID_HANDLE;
+		timer += burstDelay;
+		
+		for (new j = 0; j < soundsPerBurst; j++)
+		{
+			CreateTimer(timer + increment, Timer_InviteSound, client);
+			increment += burstIncrement;
+		}
 	}
+}
+
+public Action:Timer_InviteSound(Handle:timer, any:client)
+{
+	new const String:inviteSound[] = "buttons/button17.wav";
+	PrecacheSound(inviteSound);
+	
+	new Float:volume	= 1.0;	// Volume between 0.0 - 1.0 (original volume is 1.0)
+	new pitch				= 175;	// Pitch between 0 - 255 (original pitch is 100)
+	
+	EmitSoundToAll(inviteSound, _, _, _, _, volume, pitch);
 }

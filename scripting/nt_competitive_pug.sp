@@ -1,7 +1,14 @@
 #pragma semicolon 1
 
+// If you need to run this plugin on a server behind a NAT, enable this to properly announce your IP address.
+// You will then also need the latest SteamTools include + extension for the server: https://forums.alliedmods.net/forumdisplay.php?f=147
+#define USE_STEAMTOOLS 0
+
 #include <sdktools_sound>
 #include <sourcemod>
+#if USE_STEAMTOOLS == 1
+	#include <steamtools>
+#endif
 #include <smlib>
 
 #define PLUGIN_VERSION "0.1"
@@ -30,6 +37,7 @@ enum {
 
 enum {
 	PUGGER_STATUS_QUEUING = 0,
+	PUGGER_STATUS_RESERVED, // todo: clear reserved state on !unpug
 	PUGGER_STATUS_PLAYING
 };
 
@@ -248,10 +256,10 @@ void Database_AddPugger(client)
 	GetClientName(client, clientName, sizeof(clientName));
 	
 	g_isPugging[client] = true;
-	PrintToChatAll("%s %s entered the PUG list (%i / %i)", g_tag, clientName, Puggers_GetAmount(), wantedPuggers);
+	PrintToChatAll("%s %s entered the PUG list (%i / %i)", g_tag, clientName, Database_GetPuggerCount(), wantedPuggers);
 	
 	Database_UpdatePuggers();
-	Database_CheckPuggerAmount();
+	Database_FindMatch();
 }
 
 void Database_RemovePugger(client = 0, bool:bySteamid = false, const String:sentSteamid[] = "")
@@ -311,7 +319,125 @@ void Database_RemovePugger(client = 0, bool:bySteamid = false, const String:sent
 	GetClientName(client, clientName, sizeof(clientName));
 	
 	Database_UpdatePuggers();
-	PrintToChatAll("%s %s has left the PUG list (%i / %i)", g_tag, clientName, Puggers_GetAmount(), wantedPuggers);
+	PrintToChatAll("%s %s has left the PUG list (%i / %i)", g_tag, clientName, Database_GetPuggerCount(), wantedPuggers);
+}
+
+void Database_ReservePugger(const String:steamid[])
+{
+	PrintToServer("Database_ReservePugger(\"%s\")", steamid);
+	
+	Database_Initialize();
+	
+	decl String:sql[256];
+	decl String:error[256];
+	
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable_Puggers);
+	
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+	
+	SQL_BindParamString(stmt, 0, steamid, false);
+	SQL_Execute(stmt);
+	
+	new rows;
+	while (SQL_FetchRow(stmt))
+	{
+		rows++;
+		
+		new id = SQL_FetchInt(stmt, 0);
+		
+		if (rows > 1)
+		{
+			LogError("Found more than 1 result for SteamID %s in puggers database. Removing duplicate entry.", steamid);
+			
+			Format(sql, sizeof(sql), "DELETE FROM %s WHERE id = ?", g_sqlTable_Puggers);
+			
+			new Handle:stmt_deleteRow = SQL_PrepareQuery(db, sql, error, sizeof(error));
+			if (stmt_deleteRow == INVALID_HANDLE)
+				ThrowError(error);
+			
+			SQL_BindParamInt(stmt_deleteRow, 0, id);
+			
+			if (!SQL_Execute(stmt_deleteRow))
+			{
+				if (stmt_deleteRow != INVALID_HANDLE)
+				{
+					CloseHandle(stmt_deleteRow);
+					stmt_deleteRow = INVALID_HANDLE;
+				}
+				ThrowError(error);
+			}
+			
+			CloseHandle(stmt_deleteRow);
+			continue;
+		}
+		
+		PrintToServer("RESERVE CLIENT");
+		
+		Format(sql, sizeof(sql), "UPDATE %s SET status = ?, reservee = ? WHERE id = ?", g_sqlTable_Puggers);
+		
+		new Handle:stmt_updateRow = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_updateRow == INVALID_HANDLE)
+			ThrowError(error);
+		
+		decl String:serverIP[128];
+		Server_GetIPString(serverIP, sizeof(serverIP));
+		PrintToServer("IP STRING: %s", serverIP);
+		
+		new paramIndex;
+		SQL_BindParamInt(stmt_updateRow, paramIndex++, PUGGER_STATUS_RESERVED);
+		SQL_BindParamString(stmt_updateRow, paramIndex++, serverIP, false);
+		SQL_BindParamInt(stmt_updateRow, paramIndex++, id);
+		
+		if (!SQL_Execute(stmt_updateRow))
+			ThrowError(error);
+		
+		CloseHandle(stmt_updateRow);
+	}
+	
+	CloseHandle(stmt);
+}
+
+bool Database_Pugger_IsReservedForThisServer(const String:steamid[])
+{
+	PrintToServer("Database_Pugger_IsReservedForThisServer(\"%s\")", steamid);
+	
+	Database_Initialize();
+	
+	decl String:sql[256];
+	decl String:error[256];
+	
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ? AND reservee = ?", g_sqlTable_Puggers);
+	
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+	
+	decl String:serverIP[128];
+	Server_GetIPString(serverIP, sizeof(serverIP));
+	
+	new paramIndex;
+	SQL_BindParamString(stmt, paramIndex++, steamid, false);
+	SQL_BindParamString(stmt, paramIndex++, serverIP, false);
+	
+	if (!SQL_Execute(stmt))
+		ThrowError(error);
+	
+	new rowCount = SQL_GetRowCount(stmt);
+	new bool:isReserved;
+	
+	if (rowCount > 0)
+	{
+		isReserved = true;
+		
+		if (rowCount > 1)
+			LogError("Found multiple entries for SteamID %s in puggers database.", steamid);
+	}
+	
+	CloseHandle(stmt);
+	
+	return isReserved;
 }
 
 void Puggers_Purge()
@@ -403,7 +529,7 @@ void Database_UpdatePuggers()
 			CloseHandle(stmt);
 			stmt = INVALID_HANDLE;
 		}
-		ThrowError("SQL error: %s", error);
+		ThrowError(error);
 	}
 	
 	Puggers_Empty();
@@ -429,7 +555,7 @@ void Database_UpdatePuggers()
 	
 	CloseHandle(stmt);
 	
-	PrintToServer("Pugger amount: %i", Puggers_GetAmount());
+	PrintToServer("Pugger amount: %i", Database_GetPuggerCount());
 }
 
 void Puggers_Empty()
@@ -442,33 +568,50 @@ void Puggers_Empty()
 	}
 }
 
-int Puggers_GetAmount()
+int Database_GetPuggerCount(bool:justLocalAmount = false)
 {
-	PrintToServer("Puggers_GetAmount()");
-	
+	PrintToServer("Database_GetPuggerCount()");
 	new result;
-	for (new i = 0; i < sizeof(puggers); i++)
+	
+	// Just return local server pugger count
+	if (justLocalAmount)
 	{
-		if (strlen(puggers[i]) == 0)
-			continue;
+		PrintToServer("Returning local pugger amount");
 		
-		result++;
+		for (new i = 0; i < sizeof(puggers); i++)
+		{
+			if (strlen(puggers[i]) == 0)
+				continue;
+			
+			result++;
+		}
+	}
+	// Return total pugger count from database
+	else
+	{
+		PrintToServer("Returning database pugger amount");
+		
+		Database_Initialize();
+		
+		decl String:sql[256];
+		Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Puggers);
+		
+		new Handle:query = SQL_Query(db, sql);
+		if (query == INVALID_HANDLE)
+			ThrowError("SQL query failed: \"%s\"", sql);
+		
+		result = SQL_GetRowCount(query);
+		CloseHandle(query);
 	}
 	
 	return result;
 }
 
-void Database_CheckPuggerAmount()
+void Database_FindMatch()
 {
-	PrintToServer("Database_CheckPuggerAmount()");
+	PrintToServer("Database_FindMatch()");
 	
 	Database_Initialize();
-	
-	/*
-	// Only consider this server. Debug.
-	if (Puggers_GetAmount() < wantedPuggers)
-		return;
-	*/
 	
 	decl String:sql[128];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Puggers);
@@ -480,13 +623,25 @@ void Database_CheckPuggerAmount()
 	new String:chosenPuggers[wantedPuggers][MAX_STEAMID_LENGTH];
 	while (SQL_FetchRow(result))
 	{
-		foundRows++;
-		if (foundRows > wantedPuggers)
-			break;
+		new puggerStatus = SQL_FetchInt(result, 3);
 		
-		id[foundRows-1] = SQL_FetchInt(result, 0);
-		SQL_FetchString(result, 1, chosenPuggers[foundRows-1], MAX_STEAMID_LENGTH);
-		PrintToServer("chosenPuggers[%i]: %s", foundRows-1, chosenPuggers[foundRows-1]);
+		decl String:steamidBuffer[MAX_STEAMID_LENGTH];
+		SQL_FetchString(result, 1, steamidBuffer, sizeof(steamidBuffer));
+		
+		if (puggerStatus == PUGGER_STATUS_QUEUING ||
+			puggerStatus == PUGGER_STATUS_RESERVED && Database_Pugger_IsReservedForThisServer(steamidBuffer) )
+		{
+			foundRows++;
+			
+			if (foundRows > wantedPuggers)
+				break;
+			
+			Database_ReservePugger(steamidBuffer);
+			
+			id[foundRows-1] = SQL_FetchInt(result, 0);
+			strcopy(chosenPuggers[foundRows-1], MAX_STEAMID_LENGTH, steamidBuffer);
+			PrintToServer("chosenPuggers[%i]: %s", foundRows-1, chosenPuggers[foundRows-1]);
+		}
 	}
 	
 	CloseHandle(result);

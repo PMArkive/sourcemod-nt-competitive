@@ -726,5 +726,5 @@ public Action:Timer_InviteSound(Handle:timer, any:client)
 	new Float:volume	= 1.0;	// Volume between 0.0 - 1.0 (original volume is 1.0)
 	new pitch				= 175;	// Pitch between 0 - 255 (original pitch is 100)
 	
-	EmitSoundToAll(inviteSound, _, _, _, _, volume, pitch);
+	EmitSoundToClient(client, inviteSound, _, _, _, _, volume, pitch);
 }

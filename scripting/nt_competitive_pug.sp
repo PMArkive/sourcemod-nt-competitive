@@ -2,64 +2,11 @@
 
 #include <sourcemod>
 #include <smlib>
+#include "nt_competitive/nt_competitive_sql"
 
 #define DEBUG 1
 #define DEBUG_SQL 1
 #define PLUGIN_VERSION "0.1"
-
-#define MAX_CVAR_LENGTH 64
-#define MAX_STEAMID_LENGTH 44
-#define MAX_SQL_LENGTH 512
-#define MAX_SQL_ERROR_LENGTH 512
-
-// This table holds pugger information
-enum {
-	SQL_TABLE_PUGGER_ID = 0,									// Auto incremented database id
-	SQL_TABLE_PUGGER_TIMESTAMP,							// Timestamp of last update
-	SQL_TABLE_PUGGER_STEAMID,								// Player SteamID in AuthId_Steam2 format
-	SQL_TABLE_PUGGER_STATE,									// Current state of pugger, eg. queuing, confirming, playing a match
-	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,		// If playing, which server IP is player currently invited to play on
-	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT,	// If playing, which server port is player currently invited to play on
-	SQL_TABLE_PUGGER_MATCH_ID,								// If playing, what's the match id of the current match
-	SQL_TABLE_PUGGER_MATCH_TIMESTAMP,				// If playing, when did the match begin
-	SQL_TABLE_PUGGER_MATCH_ORGANIZER,					// If playing, who created the match (unique string id of a pub server, chat bot etc. for example their ip)
-	SQL_TABLE_PUGGER_IGNORED_INVITES,					// How many match invites has the player ignored? Used to determine placing in match queue.
-	SQL_TABLE_PUGGER_IGNORED_TIMESTAMP,				// When did the player last ignore a match invite? Ignores reset after set time.
-	SQL_TABLE_PUGGER_ENUM_COUNT
-};
-// This table holds PUG organizer information
-enum {
-	SQL_TABLE_ORG_ID = 0,										// Auto incremented database id
-	SQL_TABLE_ORG_TIMESTAMP,								// Timestamp of last update
-	SQL_TABLE_ORG_NAME,										// Unique string identifier for this organizer, for example their IP address
-	SQL_TABLE_ORG_RESERVING,									// Only one organizer is allowed to reserve a match at a time. This boolean determines whose turn it is.
-	SQL_TABLE_ORG_RESERVING_TIMESTAMP,				// When did this organizer last get permission to reserve a match
-	SQL_TABLE_ORG_ENUM_COUNT
-};
-// This table holds PUG game server information
-enum {
-	SQL_TABLE_PUG_SERVER_ID = 0,							// Auto incremented database id
-	SQL_TABLE_PUG_SERVER_TIMESTAMP,					// Timestamp of last update
-	SQL_TABLE_PUG_SERVER_NAME,								// Human friendly call name. Not used for identification so it doesn't have to be unique.
-	SQL_TABLE_PUG_SERVER_CONNECT_IP,					// Server connect IP. Used for identification together with port.
-	SQL_TABLE_PUG_SERVER_CONNECT_PORT,				// Server connect port.
-	SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD,		// Server connect password, if any.
-	SQL_TABLE_PUG_SERVER_STATUS,							// Server status (available, waiting for players, match live etc.)
-	SQL_TABLE_PUG_SERVER_RESERVEE,						// Which organizer last reserved this server
-	SQL_TABLE_PUG_SERVER_RESERVATION_TIMESTAMP,// When was this server last reserved
-	SQL_TABLE_PUG_SERVER_ENUM_COUNT
-};
-
-enum {
-	PUGGER_STATE_NEW = 0,
-	PUGGER_STATE_QUEUING,
-	PUGGER_STATE_LIVE,
-	PUGGER_STATE_CONFIRMING,
-	PUGGER_STATE_ACCEPTED,
-	PUGGER_STATE_ENUM_COUNT
-};
-
-Database db = null;
 
 new Handle:g_hCvar_DbConfig;
 
@@ -246,11 +193,8 @@ public Action:Command_CreateTables(client, args)
 
 void Database_AddPugger(client)
 {
-	if (!Client_IsValid(client))
-	{
-		LogError("Database_AddPugger: Attempted to add client from invalid client index %i", client);
-		return;
-	}
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		ThrowError("Invalid client %i", client);
 	
 	new puggerState = Pugger_GetQueuingState(client);
 	
@@ -324,7 +268,7 @@ void Database_AddPugger(client)
 int Pugger_GetQueuingState(client)
 {
 	if (!Client_IsValid(client) || IsFakeClient(client))
-		ThrowError("Invalid client");
+		ThrowError("Invalid client %i", client);
 	
 	Database_Initialize();
 	
@@ -403,11 +347,44 @@ void LookForMatch()
 	Database_Initialize();
 	
 	decl String:sql[MAX_SQL_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = true", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING]);
+	//Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_PickupServers);
 	
 	new Handle:query = SQL_Query(db, sql);
 	
-	PrintDebug("LookForMatch: Found %i results for query", SQL_GetRowCount(query));
+	PrintDebug("LookForMatch: Found %i PUG server(s)", SQL_GetRowCount(query));
+	
+	decl String:name[128];
+	decl String:ip[128];
+	decl String:password[128];
+	decl String:reservee[128];
+	decl String:reservation_timestamp[128];
+	new port;
+	new status;
+	
+	// Loop PUG servers info
+	while (SQL_FetchRow(query))
+	{	
+		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));
+		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_CONNECT_IP, ip, sizeof(ip));
+		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, password, sizeof(password));
+		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_RESERVEE, reservee, sizeof(reservee));
+		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_RESERVATION_TIMESTAMP, reservation_timestamp, sizeof(reservation_timestamp));
+		
+		port = SQL_FetchInt(query, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
+		status = SQL_FetchInt(query, SQL_TABLE_PUG_SERVER_STATUS);
+		
+		PrintDebug("\n- - -\n\
+						Server info: %s\n\
+						%s:%i\n\
+						password: %s\n\
+						status: %i\n\
+						reservee: %s\n\
+						reservation timestamp: %s\n\
+						- - -",
+						name, ip, port, password, status, reservee, reservation_timestamp
+		);
+	}
 	
 	CloseHandle(query);
 }

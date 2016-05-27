@@ -15,44 +15,7 @@ new Handle:g_hCvar_DbConfig;
 
 new bool:g_isDatabaseDown;
 
-new const String:g_sqlTable_Organizers[] = "organizers";
-new const String:g_sqlTable_PickupServers[] = "pickup_servers";
-new const String:g_sqlTable_Puggers[] = "puggers";
 new const String:g_tag[] = "[PUG]";
-
-new const String:g_sqlRow_Organizers[SQL_TABLE_ORG_ENUM_COUNT][] = {
-	"id",
-	"timestamp",
-	"unique_name",
-	"is_reserving",
-	"reserving_timestamp",
-};
-
-new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
-	"id",
-	"timestamp",
-	"steamid",
-	"state",
-	"server_connect_ip",
-	"server_connect_port",
-	"match_id",
-	"match_timestamp",
-	"match_organizer_id",
-	"invites_ignored",
-	"invites_ignored_timestamp"
-};
-
-new const String:g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ENUM_COUNT][] = {
-	"id",
-	"timestamp",
-	"vanity_name",
-	"connect_ip",
-	"connect_port",
-	"connect_password",
-	"status",
-	"reservee",
-	"reservation_timestamp"
-};
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",

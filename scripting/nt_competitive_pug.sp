@@ -8,6 +8,9 @@
 #define DEBUG_SQL 1
 #define PLUGIN_VERSION "0.1"
 
+#define MAX_CVAR_LENGTH 64
+#define MAX_STEAMID_LENGTH 44
+
 new Handle:g_hCvar_DbConfig;
 
 new bool:g_isDatabaseDown;

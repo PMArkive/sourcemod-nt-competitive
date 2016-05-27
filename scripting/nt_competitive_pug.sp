@@ -5,24 +5,30 @@
 #include "nt_competitive/nt_competitive_sql"
 
 #define DEBUG 1
-#define DEBUG_SQL 1
+#define DEBUG_SQL 1 // Make sure this is set to 0 unless you really want to debug the SQL as it disables some safety checks
 #define PLUGIN_VERSION "0.1"
 
 #define MAX_CVAR_LENGTH 64
 #define MAX_STEAMID_LENGTH 44
 
+#define DESIRED_PLAYERCOUNT 10 // This could be non-hardcoded later
+
 new Handle:g_hCvar_DbConfig;
+
+new Handle:g_hTimer_FindMatch = INVALID_HANDLE;
 
 new bool:g_isDatabaseDown;
 
 new const String:g_tag[] = "[PUG]";
 
+new String:g_identifier[128]; // Set this to something uniquely identifying if the plugin fails to retrieve your IP.
+
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",
 	description =  "",
-	author = "",
+	author = "Rain",
 	version = PLUGIN_VERSION,
-	url = ""
+	url = "https://github.com/Rainyan/sourcemod-nt-competitive"
 };
 
 public OnPluginStart()
@@ -41,6 +47,89 @@ public OnPluginStart()
 public OnConfigsExecuted()
 {
 	Database_Initialize();
+	GenerateIdentifier_This();
+	Organizers_Update_This();
+	
+	if (g_hTimer_FindMatch == INVALID_HANDLE)
+		CreateTimer(30.0, Timer_FindMatch, _, TIMER_REPEAT);
+}
+
+public Action:Timer_FindMatch(Handle:timer)
+{
+	FindMatch();
+	return Plugin_Continue;
+}
+
+// Purpose: Add this server into the organizers database table
+void Organizers_Update_This()
+{
+	PrintDebug("Organizers_Update_This()");
+	
+	Database_Initialize();
+	
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+	
+	PrintDebug(sql);
+	
+	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	SQL_BindParamString(stmt_Select, 0, g_identifier, false);
+	SQL_Execute(stmt_Select);
+	
+	if (stmt_Select == INVALID_HANDLE)
+		ThrowError(error);
+	
+	new results = SQL_GetRowCount(stmt_Select);
+	PrintDebug("Results: %i", results);
+	
+	CloseHandle(stmt_Select);
+	
+	// Delete duplicate records
+	if (results > 1)
+	{
+		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+		
+		PrintDebug("SQL: \n%s", sql);
+		
+		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Delete == INVALID_HANDLE)
+			ThrowError(error);
+		
+		SQL_BindParamString(stmt_Delete, 0, g_identifier, false);
+		SQL_Execute(stmt_Delete);
+		CloseHandle(stmt_Delete);
+	}
+	// No record, insert new one
+	if (results > 1 || results == 0)
+	{
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, false)", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME], g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING]);
+		
+		PrintDebug("SQL: \n%s", sql);
+		
+		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Insert == INVALID_HANDLE)
+			ThrowError(error);
+		
+		SQL_BindParamString(stmt_Insert, 0, g_identifier, false);
+		SQL_Execute(stmt_Insert);
+		CloseHandle(stmt_Insert);
+	}
+	// Record already exists, just update
+	else
+	{
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = false WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+		
+		PrintDebug("SQL: \n%s", sql);
+		
+		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Update == INVALID_HANDLE)
+			ThrowError(error);
+		
+		SQL_BindParamString(stmt_Update, 0, g_identifier, false);
+		SQL_Execute(stmt_Update);
+		CloseHandle(stmt_Update);
+	}
 }
 
 public Action:Command_Pug(client, args)
@@ -54,12 +143,12 @@ public Action:Command_Pug(client, args)
 	
 	if (client == 0)
 	{
-		ReplyToCommand(client, "This command cannot be executed from server console.");
+		ReplyToCommand(client, "This command cannot be executed from the server console.");
 		return Plugin_Stop;
 	}
 	
 	Database_AddPugger(client);
-	LookForMatch();
+	FindMatch();
 	
 	return Plugin_Handled;
 }
@@ -293,9 +382,11 @@ int Puggers_GetCountPerState(state)
 	return results;
 }
 
-void LookForMatch()
+void FindMatch()
 {
-	PrintDebug("Puggers queued: %i", Puggers_GetCountPerState(PUGGER_STATE_QUEUING));
+	PrintDebug("FindMatch()");
+	
+	PrintDebug("Puggers queued: %i (%i wanted per match)", Puggers_GetCountPerState(PUGGER_STATE_QUEUING), DESIRED_PLAYERCOUNT);
 	
 	// Offer match if enough players available
 	
@@ -313,12 +404,12 @@ void LookForMatch()
 	Database_Initialize();
 	
 	decl String:sql[MAX_SQL_LENGTH];
-	//Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
+	
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_PickupServers);
 	
-	new Handle:query = SQL_Query(db, sql);
+	new Handle:query_Pugs = SQL_Query(db, sql);
 	
-	PrintDebug("LookForMatch: Found %i PUG server(s)", SQL_GetRowCount(query));
+	PrintDebug("FindMatch: Found %i PUG server(s)", SQL_GetRowCount(query_Pugs));
 	
 	decl String:name[128];
 	decl String:ip[128];
@@ -329,16 +420,16 @@ void LookForMatch()
 	new status;
 	
 	// Loop PUG servers info
-	while (SQL_FetchRow(query))
+	while (SQL_FetchRow(query_Pugs))
 	{	
-		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));
-		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_CONNECT_IP, ip, sizeof(ip));
-		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, password, sizeof(password));
-		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_RESERVEE, reservee, sizeof(reservee));
-		SQL_FetchString(query, SQL_TABLE_PUG_SERVER_RESERVATION_TIMESTAMP, reservation_timestamp, sizeof(reservation_timestamp));
+		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));
+		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_IP, ip, sizeof(ip));
+		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, password, sizeof(password));
+		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_RESERVEE, reservee, sizeof(reservee));
+		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_RESERVATION_TIMESTAMP, reservation_timestamp, sizeof(reservation_timestamp));
 		
-		port = SQL_FetchInt(query, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
-		status = SQL_FetchInt(query, SQL_TABLE_PUG_SERVER_STATUS);
+		port = SQL_FetchInt(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
+		status = SQL_FetchInt(query_Pugs, SQL_TABLE_PUG_SERVER_STATUS);
 		
 		PrintDebug("\n- - -\n\
 						Server info: %s\n\
@@ -349,6 +440,38 @@ void LookForMatch()
 						reservation timestamp: %s\n\
 						- - -",
 						name, ip, port, password, status, reservee, reservation_timestamp
+		);
+	}
+	
+	CloseHandle(query_Pugs);
+	
+	// Loop organizers info
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
+	
+	new Handle:query = SQL_Query(db, sql);
+	
+	PrintDebug("FindMatch: Found %i organizer(s)", SQL_GetRowCount(query));
+	
+	decl String:timestamp[128];
+	decl String:reserving_timestamp[128];
+	new isReserving;
+	
+	// Loop PUG servers info
+	while (SQL_FetchRow(query))
+	{	
+		SQL_FetchString(query, SQL_TABLE_ORG_NAME, name, sizeof(name));
+		SQL_FetchString(query, SQL_TABLE_ORG_TIMESTAMP, timestamp, sizeof(timestamp));
+		SQL_FetchString(query, SQL_TABLE_ORG_RESERVING_TIMESTAMP, reserving_timestamp, sizeof(reserving_timestamp));
+		
+		isReserving = SQL_FetchInt(query, SQL_TABLE_ORG_RESERVING);
+		
+		PrintDebug("\n- - -\n\
+						Organizer info: %s\n\
+						timestamp: %s\n\
+						reserving: %i\n\
+						reserving timestamp: %s\n\
+						- - -",
+						name, timestamp, isReserving, reserving_timestamp
 		);
 	}
 	
@@ -363,7 +486,7 @@ void Database_Initialize()
 	decl String:configName[MAX_CVAR_LENGTH];
 	GetConVarString(g_hCvar_DbConfig, configName, sizeof(configName));
 	
-	db = SQL_Connect(configName, true, error, sizeof(error));
+	db = SQL_Connect(configName, true, error, sizeof(error)); // Persistent connection
 	
 	if (db == null)
 	{
@@ -383,6 +506,35 @@ void PrintDebug(const String:message[], any ...)
 	VFormat(formatMsg, sizeof(formatMsg), message, 2);
 	
 	PrintToServer(formatMsg);
+#endif
+}
+
+// Purpose: Generate a unique identifier for recognizing this server in the database, based on ip:port
+void GenerateIdentifier_This()
+{
+	if (!StrEqual(g_identifier, ""))
+		return;
+	
+	decl String:ipAddress[46];
+	decl String:port[6];
+	
+	new Handle:cvarIP = FindConVar("ip");
+	GetConVarString(cvarIP, ipAddress, sizeof(ipAddress));
+	CloseHandle(cvarIP);
+	
+#if DEBUG_SQL == 0
+	if (StrEqual(ipAddress, "localhost") || StrEqual(ipAddress, "127.0.0.1") || StrContains(ipAddress, "192.168.") == 0)
+		SetFailState("Could not get real IP address, returned \"%s\" instead. This can't be used for uniquely identifying the server. You can declare g_identifier value at the beginning of source code to manually circumvent this problem.", ipAddress);
+#endif
+	
+	new Handle:cvarPort = FindConVar("hostport");
+	GetConVarString(cvarPort, port, sizeof(port));
+	CloseHandle(cvarPort);
+	
+	Format(g_identifier, sizeof(g_identifier), "%s:%s", ipAddress, port);
+	
+#if DEBUG
+	PrintDebug("GenerateIdentifier_This(): %s", g_identifier);
 #endif
 }
 

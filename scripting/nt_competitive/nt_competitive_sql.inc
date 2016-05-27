@@ -1,3 +1,9 @@
+// Double-include prevention
+#if defined _sql_included_
+	#endinput
+#endif
+#define _sql_included_
+
 #define MAX_SQL_LENGTH 512
 #define MAX_SQL_ERROR_LENGTH 512
 
@@ -18,13 +24,13 @@ enum {
 	SQL_TABLE_PUGGER_IGNORED_TIMESTAMP,				// When did the player last ignore a match invite? Ignores reset after set time.
 	SQL_TABLE_PUGGER_ENUM_COUNT
 };
-// This table holds PUG organizer information
+// This table holds PUG organizer (public gameserver, chatbot, etc.) information
 enum {
 	SQL_TABLE_ORG_ID = 0,										// Auto incremented database id
 	SQL_TABLE_ORG_TIMESTAMP,								// Timestamp of last update
 	SQL_TABLE_ORG_NAME,										// Unique string identifier for this organizer, for example their IP address
-	SQL_TABLE_ORG_RESERVING,									// Only one organizer is allowed to reserve a match at a time. This boolean determines whose turn it is.
-	SQL_TABLE_ORG_RESERVING_TIMESTAMP,				// When did this organizer last get permission to reserve a match
+	SQL_TABLE_ORG_RESERVING,									// Only one organizer is allowed to reserve a match at a time to avoid double-booking. This boolean determines whose turn it is.
+	SQL_TABLE_ORG_RESERVING_TIMESTAMP,				// When did this organizer last gain permission to reserve a match
 	SQL_TABLE_ORG_ENUM_COUNT
 };
 // This table holds PUG game server information

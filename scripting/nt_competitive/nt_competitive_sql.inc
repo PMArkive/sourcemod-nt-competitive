@@ -6,6 +6,7 @@
 
 #define MAX_SQL_LENGTH 512
 #define MAX_SQL_ERROR_LENGTH 512
+#define MAX_SQL_TIMESTAMP_LENGTH 20
 
 Database db = null;
 

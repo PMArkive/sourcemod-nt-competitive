@@ -527,6 +527,9 @@ void FindMatch()
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = false WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 		
 		new Handle:stmt_Release = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Release == INVALID_HANDLE)
+			ThrowError(error);
+		
 		SQL_BindParamString(stmt_Release, 0, g_identifier, false);
 		SQL_Execute(stmt_Release);
 		CloseHandle(stmt_Release);
@@ -540,12 +543,51 @@ void FindMatch()
 
 void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, const String:serverPassword[])
 {
-	PrintDebug("OfferMatch(%s, %s, %i, %s", serverName, serverIP, serverPort, serverPassword);
+	PrintDebug("OfferMatch(%s, %s, %i, %s)", serverName, serverIP, serverPort, serverPassword);
 	
 	/*
 		- Get players info, determine priority, offer match
 		- Release organizers reservation
 	*/
+	
+	Database_Initialize();
+	
+	decl String:sql[MAX_SQL_LENGTH];
+	//decl String:error[MAX_SQL_ERROR_LENGTH];
+	
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING);
+	
+	new Handle:query = SQL_Query(db, sql);
+	
+	new results = SQL_GetRowCount(query);
+	PrintDebug("Results: %i", results);
+	
+	// Declare 2D arrays of current PUG queuers
+	new String:puggers_SteamID[results][MAX_STEAMID_LENGTH];
+	new String:puggers_Timestamp[results][MAX_SQL_TIMESTAMP_LENGTH];
+	new String:puggers_ignoredTimestamp[results][MAX_SQL_TIMESTAMP_LENGTH];
+	new puggers_ignoredInvites[results];
+	
+	// Populate queuer arrays
+	new i;
+	while (SQL_FetchRow(query))
+	{
+		SQL_FetchString(query, SQL_TABLE_PUGGER_STEAMID, puggers_SteamID[i], MAX_STEAMID_LENGTH);
+		SQL_FetchString(query, SQL_TABLE_PUGGER_TIMESTAMP, puggers_Timestamp[i], MAX_SQL_TIMESTAMP_LENGTH);
+		SQL_FetchString(query, SQL_TABLE_PUGGER_IGNORED_TIMESTAMP, puggers_ignoredTimestamp[i], MAX_SQL_TIMESTAMP_LENGTH);
+		puggers_ignoredInvites[i] = SQL_FetchInt(query, SQL_TABLE_PUGGER_IGNORED_INVITES);
+		i++;
+	}
+	CloseHandle(query);
+	
+	// Loop of viable puggers to offer match for.
+	
+	// Todo 1: Set up basic match announce system based on who queued first
+	// Todo 2: Set up logic to take queueing time and player's "afk-ness" into account determining their priority in PUG queue (basically avoid offering matches to AFK players over and over without excluding them altogether)
+	for (i = 0; i < results; i++)
+	{
+		PrintDebug("Pugger info %i: %s, %s, %s, %i", i, puggers_SteamID[i], puggers_Timestamp[i], puggers_ignoredTimestamp[i], puggers_ignoredInvites[i]);
+	}
 }
 
 void Database_Initialize()

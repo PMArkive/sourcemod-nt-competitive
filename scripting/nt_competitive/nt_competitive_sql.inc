@@ -56,6 +56,15 @@ enum {
 	PUGGER_STATE_ENUM_COUNT
 };
 
+enum {
+	PUG_SERVER_STATUS_ERROR = 0,
+	PUG_SERVER_STATUS_BUSY,
+	PUG_SERVER_STATUS_AVAILABLE,
+	PUG_SERVER_STATUS_RESERVED,
+	PUG_SERVER_STATUS_WAITING_PLAYERS,
+	PUG_SERVER_STATUS_LIVE
+};
+
 new const String:g_sqlTable_Organizers[] = "organizers";
 new const String:g_sqlTable_PickupServers[] = "pickup_servers";
 new const String:g_sqlTable_Puggers[] = "puggers";

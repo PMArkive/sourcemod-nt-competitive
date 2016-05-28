@@ -71,7 +71,7 @@ void Organizers_Update_This()
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 	
-	PrintDebug(sql);
+	//PrintDebug(sql);
 	
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, g_identifier, false);
@@ -90,7 +90,7 @@ void Organizers_Update_This()
 	{
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 		
-		PrintDebug("SQL: \n%s", sql);
+		//PrintDebug("SQL: \n%s", sql);
 		
 		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
@@ -105,7 +105,7 @@ void Organizers_Update_This()
 	{
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, false)", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME], g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING]);
 		
-		PrintDebug("SQL: \n%s", sql);
+		//PrintDebug("SQL: \n%s", sql);
 		
 		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
@@ -120,7 +120,7 @@ void Organizers_Update_This()
 	{
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = false WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 		
-		PrintDebug("SQL: \n%s", sql);
+		//PrintDebug("SQL: \n%s", sql);
 		
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
@@ -404,12 +404,7 @@ void FindMatch()
 	Database_Initialize();
 	
 	decl String:sql[MAX_SQL_LENGTH];
-	
-	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_PickupServers);
-	
-	new Handle:query_Pugs = SQL_Query(db, sql);
-	
-	PrintDebug("FindMatch: Found %i PUG server(s)", SQL_GetRowCount(query_Pugs));
+	decl String:error[MAX_SQL_ERROR_LENGTH];
 	
 	decl String:name[128];
 	decl String:ip[128];
@@ -419,9 +414,80 @@ void FindMatch()
 	new port;
 	new status;
 	
+	// Loop organizers info
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
+	
+	new Handle:query_Organizers = SQL_Query(db, sql);
+	
+	PrintDebug("FindMatch: Found %i organizer(s)", SQL_GetRowCount(query_Organizers));
+	
+	decl String:timestamp[128];
+	decl String:reserving_timestamp[128];
+	new isReserving;
+	
+	// First query pass, make sure nobody else is already reserving a match
+	while (SQL_FetchRow(query_Organizers))
+	{
+		// todo: proper error handling
+		if (isReserving)
+			ThrowError("Multiple organizers report themselves reserving match simultaneously.");
+		
+		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_NAME, name, sizeof(name));
+		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_TIMESTAMP, timestamp, sizeof(timestamp));
+		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_RESERVING_TIMESTAMP, reserving_timestamp, sizeof(reserving_timestamp));
+		
+		isReserving = SQL_FetchInt(query_Organizers, SQL_TABLE_ORG_RESERVING);
+		
+		PrintDebug("\n- - -\n\
+						Organizer info: %s\n\
+						timestamp: %s\n\
+						reserving: %i\n\
+						reserving timestamp: %s\n\
+						- - -",
+						name, timestamp, isReserving, reserving_timestamp
+		);
+		
+		if (isReserving)
+		{
+			// Someone else is currently reserving a match, stop and try again later.
+			if (!StrEqual(name, g_identifier))
+			{
+				PrintDebug("Another server with identifier %s is currently reserving a match.", name);
+				return;
+			}
+			else
+			{
+				// todo: proper error handling
+				LogError("This organizer had already been set to reserving status at %s without clearing it.", timestamp);
+			}
+		}
+	}
+	CloseHandle(query_Organizers);
+	
+	// Reserve match organizing
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = true WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+	
+	new Handle:stmt_Reserve = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	SQL_BindParamString(stmt_Reserve, 0, g_identifier, false);
+	SQL_Execute(stmt_Reserve);
+	CloseHandle(stmt_Reserve);
+	
 	// Loop PUG servers info
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_PickupServers);
+	
+	new Handle:query_Pugs = SQL_Query(db, sql);
+	
+	PrintDebug("FindMatch: Found %i PUG server(s)", SQL_GetRowCount(query_Pugs));
+	
+	new serversAvailable;
+	
+	decl String:reservedServer_Name[128];
+	decl String:reservedServer_IP[46];
+	decl String:reservedServer_Password[MAX_CVAR_LENGTH];
+	new reservedServer_Port;
+	
 	while (SQL_FetchRow(query_Pugs))
-	{	
+	{
 		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));
 		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_IP, ip, sizeof(ip));
 		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, password, sizeof(password));
@@ -441,41 +507,45 @@ void FindMatch()
 						- - -",
 						name, ip, port, password, status, reservee, reservation_timestamp
 		);
+		
+		if (status == PUG_SERVER_STATUS_AVAILABLE)
+		{
+			serversAvailable++;
+			
+			strcopy(reservedServer_Name, sizeof(reservedServer_Name), name);
+			strcopy(reservedServer_IP, sizeof(reservedServer_IP), ip);
+			strcopy(reservedServer_Password, sizeof(reservedServer_Password), password);
+			reservedServer_Port = port;
+		}
 	}
-	
 	CloseHandle(query_Pugs);
 	
-	// Loop organizers info
-	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
-	
-	new Handle:query = SQL_Query(db, sql);
-	
-	PrintDebug("FindMatch: Found %i organizer(s)", SQL_GetRowCount(query));
-	
-	decl String:timestamp[128];
-	decl String:reserving_timestamp[128];
-	new isReserving;
-	
-	// Loop PUG servers info
-	while (SQL_FetchRow(query))
-	{	
-		SQL_FetchString(query, SQL_TABLE_ORG_NAME, name, sizeof(name));
-		SQL_FetchString(query, SQL_TABLE_ORG_TIMESTAMP, timestamp, sizeof(timestamp));
-		SQL_FetchString(query, SQL_TABLE_ORG_RESERVING_TIMESTAMP, reserving_timestamp, sizeof(reserving_timestamp));
+	// There are no PUG servers available right now, try again later
+	if (serversAvailable == 0)
+	{
+		// Release match organizing
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = false WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 		
-		isReserving = SQL_FetchInt(query, SQL_TABLE_ORG_RESERVING);
+		new Handle:stmt_Release = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		SQL_BindParamString(stmt_Release, 0, g_identifier, false);
+		SQL_Execute(stmt_Release);
+		CloseHandle(stmt_Release);
 		
-		PrintDebug("\n- - -\n\
-						Organizer info: %s\n\
-						timestamp: %s\n\
-						reserving: %i\n\
-						reserving timestamp: %s\n\
-						- - -",
-						name, timestamp, isReserving, reserving_timestamp
-		);
+		return;
 	}
 	
-	CloseHandle(query);
+	// Passed all checks, can offer a PUG match to the players in queue
+	OfferMatch(reservedServer_Name, reservedServer_IP, reservedServer_Port, reservedServer_Password);
+}
+
+void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, const String:serverPassword[])
+{
+	PrintDebug("OfferMatch(%s, %s, %i, %s", serverName, serverIP, serverPort, serverPassword);
+	
+	/*
+		- Get players info, determine priority, offer match
+		- Release organizers reservation
+	*/
 }
 
 void Database_Initialize()
@@ -516,8 +586,6 @@ void GenerateIdentifier_This()
 		return;
 	
 	decl String:ipAddress[46];
-	decl String:port[6];
-	
 	new Handle:cvarIP = FindConVar("ip");
 	GetConVarString(cvarIP, ipAddress, sizeof(ipAddress));
 	CloseHandle(cvarIP);
@@ -528,10 +596,10 @@ void GenerateIdentifier_This()
 #endif
 	
 	new Handle:cvarPort = FindConVar("hostport");
-	GetConVarString(cvarPort, port, sizeof(port));
+	new port = GetConVarInt(cvarPort);
 	CloseHandle(cvarPort);
 	
-	Format(g_identifier, sizeof(g_identifier), "%s:%s", ipAddress, port);
+	Format(g_identifier, sizeof(g_identifier), "%s:%i", ipAddress, port);
 	
 #if DEBUG
 	PrintDebug("GenerateIdentifier_This(): %s", g_identifier);

@@ -11,7 +11,7 @@
 #define MAX_CVAR_LENGTH 64
 #define MAX_STEAMID_LENGTH 44
 
-#define DESIRED_PLAYERCOUNT 10 // This could be non-hardcoded later
+#define DESIRED_PLAYERCOUNT 2 // This could be non-hardcoded later
 
 new Handle:g_hCvar_DbConfig;
 
@@ -170,6 +170,7 @@ public Action:Command_CreateTables(client, args)
 									%s INT, \
 									%s VARCHAR(45), \
 									%s INT, \
+									%s VARCHAR(%i), \
 									%s INT, \
 									%s TIMESTAMP, \
 									%s VARCHAR(128), \
@@ -183,6 +184,7 @@ public Action:Command_CreateTables(client, args)
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
+									g_sqlRow_Puggers[arrayIndex--], MAX_CVAR_LENGTH,
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
@@ -553,14 +555,22 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 	Database_Initialize();
 	
 	decl String:sql[MAX_SQL_LENGTH];
-	//decl String:error[MAX_SQL_ERROR_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
 	
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i ORDER BY %s", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
 	
 	new Handle:query = SQL_Query(db, sql);
 	
 	new results = SQL_GetRowCount(query);
 	PrintDebug("Results: %i", results);
+	
+	if (results < DESIRED_PLAYERCOUNT)
+	{
+		CloseHandle(query);
+		PrintToServer("There are not enough queuing players to offer a match.");
+		PrintToChatAll("There are not enough queuing players to offer a match.");
+		return;
+	}
 	
 	// Declare 2D arrays of current PUG queuers
 	new String:puggers_SteamID[results][MAX_STEAMID_LENGTH];
@@ -584,10 +594,121 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 	
 	// Todo 1: Set up basic match announce system based on who queued first
 	// Todo 2: Set up logic to take queueing time and player's "afk-ness" into account determining their priority in PUG queue (basically avoid offering matches to AFK players over and over without excluding them altogether)
-	for (i = 0; i < results; i++)
+	
+	// FIXME: make sure results >= DESIRED_PLAYERCOUNT is checked already before calling this
+	for (i = 0; i < DESIRED_PLAYERCOUNT; i++)
 	{
 		PrintDebug("Pugger info %i: %s, %s, %s, %i", i, puggers_SteamID[i], puggers_Timestamp[i], puggers_ignoredTimestamp[i], puggers_ignoredInvites[i]);
+		
+		// Set pugger's invite rows in database
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ?, %s = ?, %s = ?",
+		g_sqlTable_Puggers,
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_PASSWORD]
+		);
+		
+		PrintDebug("UPDATE SQL:\n%s", sql);
+		
+		new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt == INVALID_HANDLE)
+			ThrowError(error);
+		
+		new paramIndex;
+		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_CONFIRMING);
+		PrintDebug("Param %i: %i", paramIndex, PUGGER_STATE_CONFIRMING);
+		
+		SQL_BindParamString(stmt, paramIndex++, serverIP, false);
+		PrintDebug("Param %i: %s", paramIndex, serverIP);
+		
+		SQL_BindParamInt(stmt, paramIndex++, serverPort);
+		PrintDebug("Param %i: %i", paramIndex, serverPort);
+		
+		SQL_BindParamString(stmt, paramIndex++, serverPassword, false);
+		PrintDebug("Param %i: %s", paramIndex, serverPassword);
+		
+		SQL_Execute(stmt);
+		CloseHandle(stmt);
+		
+		new client = GetClientOfAuthId(puggers_SteamID[i]);
+		// Client is not present on this server
+		if (client == 0)
+			continue;
+		
+		Pugger_SendMatchOffer(client);
 	}
+}
+
+void Pugger_SendMatchOffer(client)
+{
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		ThrowError("Invalid client %i", client);
+	
+	Database_Initialize();
+	
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+	
+	decl String:offer_ServerIP[45];
+	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
+	new offer_ServerPort;
+	
+	// Get info of server this player is being invited into
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+	
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+	
+	SQL_BindParamString(stmt, 0, steamID, false);
+	SQL_Execute(stmt);
+	
+	new results;
+	while (SQL_FetchRow(stmt))
+	{
+		results++;
+		if (results > 1)
+		{	
+			LogError("Pugger_SendMatchOffer(%i): Found multiple pugger records from database for SteamID %s, expected to find 1.", steamID, client);
+			break;
+		}
+		
+		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP, offer_ServerIP, sizeof(offer_ServerIP));
+		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_PASSWORD, offer_ServerPassword, sizeof(offer_ServerPassword));
+		offer_ServerPort = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
+	}
+	
+	if (results == 0)
+	{
+		CloseHandle(stmt);
+		ThrowError("Pugger_SendMatchOffer(%i): Found 0 pugger records from database for SteamID %s, expected to find 1.", steamID, client);
+	}
+	
+	PrintToChat(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
+	PrintToConsole(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
+	PrintDebug("Client %i Invite: %s:%i:%s", client, offer_ServerIP, offer_ServerPort, offer_ServerPassword);
+	
+	CloseHandle(stmt);
+}
+
+int GetClientOfAuthId(const String:steamID[])
+{
+	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];
+	for (new i = 1; i < MaxClients; i++)
+	{
+		if (!Client_IsValid(i) || IsFakeClient(i))
+			continue;
+		
+		GetClientAuthId(i, AuthId_Steam2, buffer_SteamID, sizeof(buffer_SteamID));
+		
+		if (StrEqual(steamID, buffer_SteamID))
+			return i;
+	}
+	return 0;
 }
 
 void Database_Initialize()

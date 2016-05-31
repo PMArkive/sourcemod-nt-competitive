@@ -18,6 +18,7 @@ enum {
 	SQL_TABLE_PUGGER_STATE,									// Current state of pugger, eg. queuing, confirming, playing a match
 	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,		// If playing, which server IP is player currently invited to play on
 	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT,	// If playing, which server port is player currently invited to play on
+	SQL_TABLE_PUGGER_GAMESERVER_PASSWORD,
 	SQL_TABLE_PUGGER_MATCH_ID,								// If playing, what's the match id of the current match
 	SQL_TABLE_PUGGER_MATCH_TIMESTAMP,				// If playing, when did the match begin
 	SQL_TABLE_PUGGER_MATCH_ORGANIZER,					// If playing, who created the match (unique string id of a pub server, chat bot etc. for example their ip)
@@ -85,6 +86,7 @@ new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
 	"state",
 	"server_connect_ip",
 	"server_connect_port",
+	"server_connect_password",
 	"match_id",
 	"match_timestamp",
 	"match_organizer_id",

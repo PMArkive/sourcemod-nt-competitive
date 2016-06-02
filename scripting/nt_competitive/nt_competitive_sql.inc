@@ -86,7 +86,7 @@ new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
 	"state",
 	"server_connect_ip",
 	"server_connect_port",
-	"server_connect_password",
+	"server_connect_password", // todo: add server's "vanity name"
 	"match_id",
 	"match_timestamp",
 	"match_organizer_id",

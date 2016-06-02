@@ -10,6 +10,7 @@
 
 #define MAX_CVAR_LENGTH 64
 #define MAX_STEAMID_LENGTH 44
+#define PUG_INVITE_TIME 60
 
 #define DESIRED_PLAYERCOUNT 2 // This could be non-hardcoded later
 
@@ -50,8 +51,10 @@ public OnConfigsExecuted()
 	GenerateIdentifier_This();
 	Organizers_Update_This();
 	
+	/*
 	if (g_hTimer_FindMatch == INVALID_HANDLE)
 		CreateTimer(30.0, Timer_FindMatch, _, TIMER_REPEAT);
+	*/
 }
 
 public Action:Timer_FindMatch(Handle:timer)
@@ -192,6 +195,9 @@ public Action:Command_CreateTables(client, args)
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
 	);
+	
+	PrintDebug("SQL: %s", sql);
+	
 	new Handle:query_CreatePuggers = SQL_Query(db, sql);
 	CloseHandle(query_CreatePuggers);
 	
@@ -525,12 +531,17 @@ void FindMatch()
 	// There are no PUG servers available right now, try again later
 	if (serversAvailable == 0)
 	{
+		PrintDebug("No PUG servers available right now");
+		
 		// Release match organizing
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = false WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 		
 		new Handle:stmt_Release = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Release == INVALID_HANDLE)
 			ThrowError(error);
+		
+		//PrintDebug("SQL is: %s", sql);
+		//PrintDebug("My identifier is: %s", g_identifier);
 		
 		SQL_BindParamString(stmt_Release, 0, g_identifier, false);
 		SQL_Execute(stmt_Release);
@@ -656,6 +667,7 @@ void Pugger_SendMatchOffer(client)
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
 	new offer_ServerPort;
+	new id;
 	
 	// Get info of server this player is being invited into
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
@@ -673,32 +685,78 @@ void Pugger_SendMatchOffer(client)
 		results++;
 		if (results > 1)
 		{	
-			LogError("Pugger_SendMatchOffer(%i): Found multiple pugger records from database for SteamID %s, expected to find 1.", steamID, client);
+			LogError("Pugger_SendMatchOffer(%i): Found multiple pugger records from database for SteamID %s, expected to find 1.", client, steamID);
 			break;
 		}
 		
 		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP, offer_ServerIP, sizeof(offer_ServerIP));
 		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_PASSWORD, offer_ServerPassword, sizeof(offer_ServerPassword));
 		offer_ServerPort = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
+		id = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_ID);
 	}
 	
 	if (results == 0)
 	{
 		CloseHandle(stmt);
-		ThrowError("Pugger_SendMatchOffer(%i): Found 0 pugger records from database for SteamID %s, expected to find 1.", steamID, client);
+		ThrowError("Pugger_SendMatchOffer(%i): Found 0 pugger records from database for SteamID %s, expected to find 1.", client, steamID);
 	}
+	
+	CloseHandle(stmt);
+	
+	// Return Unix timestamp of when the player queued
+	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(%s) FROM %s WHERE %s = ?", g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP], g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
+	
+	new Handle:stmt_Epoch_Queued = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_Epoch_Queued == INVALID_HANDLE)
+		ThrowError(error);
+	
+	SQL_BindParamInt(stmt_Epoch_Queued, 0, id);
+	SQL_Execute(stmt_Epoch_Queued);
+	
+	PrintDebug("SQL: %s", sql);
+	PrintDebug("ID: %i", id);
+	
+	new epoch_PlayerQueuedTime;
+	while (SQL_FetchRow(stmt_Epoch_Queued))
+	{
+		epoch_PlayerQueuedTime = SQL_FetchInt(stmt_Epoch_Queued, 0);
+		PrintDebug("Epoch: %i", epoch_PlayerQueuedTime);
+	}
+	CloseHandle(stmt_Epoch_Queued);
 	
 	PrintToChat(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 	PrintToConsole(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 	PrintDebug("Client %i Invite: %s:%i:%s", client, offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 	
-	CloseHandle(stmt);
+	new Handle:panel = CreatePanel();
+	
+	SetPanelTitle(panel, "Match is ready");
+	DrawPanelText(panel, " ");
+	
+	DrawPanelText(panel, "Timer here");
+	DrawPanelText(panel, "X/X players ready");
+	
+	DrawPanelText(panel, " ");
+	DrawPanelText(panel, "Type !join to accept and join the match,");
+	DrawPanelText(panel, "type !unpug to leave the queue.");
+	
+	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
+	CloseHandle(panel);
+	
+	// TODO: Test SQL Unix epoch auto update
+	// SELECT UNIX_TIMESTAMP(`timestamp`) FROM `organizers` WHERE `id` = 1
+	
+}
+
+public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client, choice)
+{
+	return;
 }
 
 int GetClientOfAuthId(const String:steamID[])
 {
 	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];
-	for (new i = 1; i < MaxClients; i++)
+	for (new i = 1; i <= MaxClients; i++)
 	{
 		if (!Client_IsValid(i) || IsFakeClient(i))
 			continue;
@@ -738,6 +796,7 @@ void PrintDebug(const String:message[], any ...)
 	decl String:formatMsg[512];
 	VFormat(formatMsg, sizeof(formatMsg), message, 2);
 	
+	// Todo: Print to debug logfile
 	PrintToServer(formatMsg);
 #endif
 }

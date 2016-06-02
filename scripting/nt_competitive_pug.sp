@@ -377,25 +377,55 @@ void Database_RemovePugger(client)
 	SQL_Execute(stmt);
 	
 	new results = SQL_GetRowCount(stmt);
-	if (results > 1)
-		LogError("Database_RemovePugger(%i): Found %i results for steamID \"%s\", expected to find 1 or 0.", client, results, steamID);
+	CloseHandle(stmt);
 	
-	while (SQL_FetchRow(stmt))
+	if (results > 1)
 	{
+		LogError("Database_RemovePugger(%i): Found %i results for steamID \"%s\", expected to find 1 or 0.", client, results, steamID);
+		
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 		
 		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
-		{
-			LogError("Database_RemovePugger(%i): %s", client, error);
-			break;
-		}
-		SQL_BindParamString(stmt, 0, steamID, false);
-		SQL_Execute(stmt);
+			ThrowError(error);
+		
+		SQL_BindParamString(stmt_Delete, 0, steamID, false);
+		SQL_Execute(stmt_Delete);
 		CloseHandle(stmt_Delete);
 	}
-	
-	CloseHandle(stmt);
+	if (results > 1 || results == 0)
+	{
+		if (results == 0)
+		{
+			LogError("Database_RemovePugger(%i): Found 0 results for SteamID \"%s\", inserting a row with PUGGER_STATE_INACTIVE to database", client, steamID);
+		}
+		
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+		
+		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Insert == INVALID_HANDLE)
+			ThrowError(error);
+		
+		new paramIndex;
+		SQL_BindParamString(stmt_Insert, paramIndex++, steamID, false);
+		SQL_BindParamInt(stmt_Insert, paramIndex++, PUGGER_STATE_INACTIVE);
+		SQL_Execute(stmt_Insert);
+		CloseHandle(stmt_Insert);
+	}
+	else if (results == 1)
+	{
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		
+		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Update == INVALID_HANDLE)
+			ThrowError(error);
+		
+		new paramIndex;
+		SQL_BindParamInt(stmt_Update, paramIndex++, PUGGER_STATE_INACTIVE);
+		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
+		SQL_Execute(stmt_Update);
+		CloseHandle(stmt_Update);
+	}
 }
 
 int Pugger_GetQueuingState(client)

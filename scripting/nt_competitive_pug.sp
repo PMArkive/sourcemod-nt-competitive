@@ -381,7 +381,7 @@ void Database_RemovePugger(client)
 	
 	if (results > 1)
 	{
-		LogError("Database_RemovePugger(%i): Found %i results for steamID \"%s\", expected to find 1 or 0.", client, results, steamID);
+		LogError("Database_RemovePugger(%i): Found %i results for SteamID \"%s\" in database, expected to find 1. Deleting duplicates.", client, results, steamID);
 		
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 		
@@ -397,7 +397,7 @@ void Database_RemovePugger(client)
 	{
 		if (results == 0)
 		{
-			LogError("Database_RemovePugger(%i): Found 0 results for SteamID \"%s\", inserting a row with PUGGER_STATE_INACTIVE to database", client, steamID);
+			LogError("Database_RemovePugger(%i): Found 0 results for SteamID \"%s\" in database, inserting a row with PUGGER_STATE_INACTIVE", client, steamID);
 		}
 		
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);

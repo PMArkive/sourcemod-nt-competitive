@@ -23,7 +23,7 @@ enum {
 	SQL_TABLE_PUGGER_MATCH_TIMESTAMP,				// If playing, when did the match begin
 	SQL_TABLE_PUGGER_MATCH_ORGANIZER,					// If playing, who created the match (unique string id of a pub server, chat bot etc. for example their ip)
 	SQL_TABLE_PUGGER_IGNORED_INVITES,					// How many match invites has the player ignored? Used to determine placing in match queue.
-	SQL_TABLE_PUGGER_IGNORED_TIMESTAMP,				// When did the player last ignore a match invite? Ignores reset after set time.
+	SQL_TABLE_PUGGER_IGNORED_TIMESTAMP,				// When did the player last ignore a match invite? Ignores reset after set time, or after accepting a match.
 	SQL_TABLE_PUGGER_ENUM_COUNT
 };
 // This table holds PUG organizer (public gameserver, chatbot, etc.) information
@@ -50,21 +50,21 @@ enum {
 };
 
 enum {
-	PUGGER_STATE_NEW = 0,
-	PUGGER_STATE_QUEUING,
-	PUGGER_STATE_LIVE,
-	PUGGER_STATE_CONFIRMING,
-	PUGGER_STATE_ACCEPTED,
+	PUGGER_STATE_INACTIVE = 0,								// This pugger is not currently queuing or playing at all
+	PUGGER_STATE_QUEUING,										// Queuing for a match
+	PUGGER_STATE_CONFIRMING,								// Match has been offered, waiting for this pugger to accept
+	PUGGER_STATE_ACCEPTED,									// Pugger has accepted a match, preparing to go live
+	PUGGER_STATE_LIVE,											// Currently playing
 	PUGGER_STATE_ENUM_COUNT
 };
 
 enum {
-	PUG_SERVER_STATUS_ERROR = 0,
-	PUG_SERVER_STATUS_BUSY,
-	PUG_SERVER_STATUS_AVAILABLE,
-	PUG_SERVER_STATUS_RESERVED,
-	PUG_SERVER_STATUS_WAITING_PLAYERS,
-	PUG_SERVER_STATUS_LIVE
+	PUG_SERVER_STATUS_ERROR = 0,							// Something is wrong with this server, unavailable for PUG
+	PUG_SERVER_STATUS_BUSY,									// Server is preoccupied by some organized event etc.
+	PUG_SERVER_STATUS_AVAILABLE,							// Server is available for pugging
+	PUG_SERVER_STATUS_RESERVED,							// An organizer has reserved this server for a pug match
+	PUG_SERVER_STATUS_AWAITING_PLAYERS,				// All puggers accepted, waiting for players to join to start a match
+	PUG_SERVER_STATUS_LIVE									// Match is live
 };
 
 new const String:g_sqlTable_Organizers[] = "organizers";

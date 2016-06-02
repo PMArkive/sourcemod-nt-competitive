@@ -22,7 +22,7 @@ new bool:g_isDatabaseDown;
 
 new const String:g_tag[] = "[PUG]";
 
-new String:g_identifier[128]; // Set this to something uniquely identifying if the plugin fails to retrieve your IP.
+new String:g_identifier[52]; // Set this to something uniquely identifying if the plugin fails to retrieve your IP.
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",
@@ -37,6 +37,7 @@ public OnPluginStart()
 	CheckSQLConstants();
 	
 	RegConsoleCmd("sm_pug", Command_Pug);
+	RegConsoleCmd("sm_unpug", Command_UnPug);
 	
 #if DEBUG_SQL
 	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_GENERIC, "Create PUG tables in database. Debug command.");
@@ -150,8 +151,44 @@ public Action:Command_Pug(client, args)
 		return Plugin_Stop;
 	}
 	
+	new puggerState = Pugger_GetQueuingState(client);
+	
+	if (puggerState == PUGGER_STATE_QUEUING)
+	{
+		ReplyToCommand(client, "%s You are already queuing. Use !unpug to leave the queue.", g_tag);
+		return Plugin_Stop;
+	}
+	else if (puggerState == PUGGER_STATE_LIVE)
+	{
+		ReplyToCommand(client, "%s You already have a match live. Use !join to rejoin your match.", g_tag);
+		return Plugin_Stop;
+	}
+	
 	Database_AddPugger(client);
+	ReplyToCommand(client, "%s You have joined the PUG queue.", g_tag);
+	
 	FindMatch();
+	
+	return Plugin_Handled;
+}
+
+public Action:Command_UnPug(client, args)
+{
+	if (g_isDatabaseDown)
+	{
+			ReplyToCommand(client, "%s Command failed due to database error.", g_tag);
+			ReplyToCommand(client, "Please contact server admins for help.");
+			return Plugin_Stop;
+	}
+	
+	if (client == 0)
+	{
+		ReplyToCommand(client, "This command cannot be executed from the server console.");
+		return Plugin_Stop;
+	}
+	
+	Database_RemovePugger(client);
+	ReplyToCommand(client, "%s You have left the PUG queue.", g_tag);
 	
 	return Plugin_Handled;
 }
@@ -259,19 +296,6 @@ void Database_AddPugger(client)
 	if (!Client_IsValid(client) || IsFakeClient(client))
 		ThrowError("Invalid client %i", client);
 	
-	new puggerState = Pugger_GetQueuingState(client);
-	
-	if (puggerState == PUGGER_STATE_QUEUING)
-	{
-		ReplyToCommand(client, "%s You are already queuing. Use !unpug to leave the queue.", g_tag);
-		return;
-	}
-	else if (puggerState == PUGGER_STATE_LIVE)
-	{
-		ReplyToCommand(client, "%s You already have a match live. Use !join to rejoin your match.", g_tag);
-		return;
-	}
-	
 	Database_Initialize();
 	
 	decl String:steamID[MAX_STEAMID_LENGTH];
@@ -283,6 +307,8 @@ void Database_AddPugger(client)
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable_Puggers);
 	
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
 	
 	SQL_BindParamString(stmt, 0, steamID, false);
 	SQL_Execute(stmt);
@@ -328,6 +354,50 @@ void Database_AddPugger(client)
 	CloseHandle(stmt);
 }
 
+void Database_RemovePugger(client)
+{
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		ThrowError("Invalid client %i", client);
+	
+	Database_Initialize();
+	
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+	
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable_Puggers);
+	
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+	
+	SQL_BindParamString(stmt, 0, steamID, false);
+	SQL_Execute(stmt);
+	
+	new results = SQL_GetRowCount(stmt);
+	if (results > 1)
+		LogError("Database_RemovePugger(%i): Found %i results for steamID \"%s\", expected to find 1 or 0.", client, results, steamID);
+	
+	while (SQL_FetchRow(stmt))
+	{
+		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		
+		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Delete == INVALID_HANDLE)
+		{
+			LogError("Database_RemovePugger(%i): %s", client, error);
+			break;
+		}
+		SQL_BindParamString(stmt, 0, steamID, false);
+		SQL_Execute(stmt);
+		CloseHandle(stmt_Delete);
+	}
+	
+	CloseHandle(stmt);
+}
+
 int Pugger_GetQueuingState(client)
 {
 	if (!Client_IsValid(client) || IsFakeClient(client))
@@ -348,7 +418,7 @@ int Pugger_GetQueuingState(client)
 	SQL_BindParamString(stmt, 0, steamID, false);
 	SQL_Execute(stmt);
 	
-	new state = PUGGER_STATE_NEW;
+	new state = PUGGER_STATE_INACTIVE;
 	while (SQL_FetchRow(stmt))
 	{
 		state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
@@ -737,7 +807,7 @@ void Pugger_SendMatchOffer(client)
 	DrawPanelText(panel, "X/X players ready");
 	
 	DrawPanelText(panel, " ");
-	DrawPanelText(panel, "Type !join to accept and join the match,");
+	DrawPanelText(panel, "Type !join to accept and join the match, or");
 	DrawPanelText(panel, "type !unpug to leave the queue.");
 	
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);

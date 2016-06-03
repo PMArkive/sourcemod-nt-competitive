@@ -17,6 +17,7 @@
 new Handle:g_hCvar_DbConfig;
 
 new Handle:g_hTimer_FindMatch = INVALID_HANDLE;
+new Handle:g_hTimer_InviteExpiration = INVALID_HANDLE;
 
 new bool:g_isDatabaseDown;
 
@@ -749,6 +750,83 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 		
 		Pugger_SendMatchOffer(client);
 	}
+	
+	if (g_hTimer_InviteExpiration != INVALID_HANDLE)
+	{
+		KillTimer(g_hTimer_InviteExpiration);
+		g_hTimer_InviteExpiration = INVALID_HANDLE;
+	}
+	
+	g_hTimer_InviteExpiration = CreateTimer(IntToFloat(PUG_INVITE_TIME), Timer_InviteExpiration);
+}
+
+float IntToFloat(integer)
+{
+	return integer * 1.0;
+}
+
+public Action:Timer_InviteExpiration(Handle:timer)
+{
+	// Max invite time has passed, cancel current invitation if it hasn't passed
+	PrintDebug("Max invite time has passed, cancel current invitation if it hasn't passed");
+	
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Puggers);
+	
+	new Handle:query = SQL_Query(db, sql);
+	if (query == INVALID_HANDLE)
+	{
+		LogError("Timer_InviteExpiration(): SQL error while executing: \"%s\"", sql);
+		return Plugin_Stop;
+	}
+	
+	new results_AcceptedMatch;			// How many players accepted match invite
+	new results_IgnoredMatch;			// How many players ignored match invite
+	new results_AvailableAlternatives;	// How many extra players are available in case some didn't accept
+	new results_Total;						// How many players were found total, with any state
+	
+	while (SQL_FetchRow(query))
+	{
+		switch (SQL_FetchInt(query, SQL_TABLE_PUGGER_STATE))
+		{
+			case PUGGER_STATE_ACCEPTED:
+				results_AcceptedMatch++;
+			
+			case PUGGER_STATE_IGNORED:
+				results_IgnoredMatch++;
+			
+			case PUGGER_STATE_QUEUING:
+				results_AvailableAlternatives++;
+		}
+		results_Total++;
+	}
+	CloseHandle(query);
+	
+	PrintDebug("Invite results:\nAccepted: %i\nIgnored: %i\nAvailable extras: %i\nTotal amount: %i", results_AcceptedMatch, results_IgnoredMatch, results_AvailableAlternatives, results_Total);
+	
+	// Everyone accepted the match.
+	if (results_AcceptedMatch == DESIRED_PLAYERCOUNT)
+	{
+		// TODO: Finish and pass on responsibility to the PUG server.
+	}
+	// Everyone didn't accept, however there are enough replacement players.
+	else if (results_IgnoredMatch <= results_AvailableAlternatives)
+	{
+		// TODO: Offer this match to others queued as required and try again.
+	}
+	// Everyone didn't accept, and there aren't enough replacements.
+	else
+	{
+		// TODO: Give up, and release organizing again.
+	}
+	
+	// This should never happen.
+	if (results_AcceptedMatch > DESIRED_PLAYERCOUNT)
+	{
+		LogError("Timer_InviteExpiration(): results_AcceptedMatch (%i) > DESIRED_PLAYERCOUNT (%i)", results_AcceptedMatch, DESIRED_PLAYERCOUNT);
+	}
+	
+	return Plugin_Stop;
 }
 
 void Pugger_SendMatchOffer(client)

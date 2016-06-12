@@ -4,7 +4,7 @@
 #endif
 #define _sql_included_
 
-#define MAX_SQL_LENGTH 512
+#define MAX_SQL_LENGTH 768
 #define MAX_SQL_ERROR_LENGTH 512
 #define MAX_SQL_TIMESTAMP_LENGTH 20
 
@@ -53,6 +53,7 @@ enum {
 	PUGGER_STATE_INACTIVE = 0,								// This pugger is not currently queuing or playing at all
 	PUGGER_STATE_QUEUING,										// Queuing for a match
 	PUGGER_STATE_CONFIRMING,								// Match has been offered, waiting for this pugger to accept
+	PUGGER_STATE_IGNORED,										// Pugger has ignored a match, use for temporarily excluding players from invite pool
 	PUGGER_STATE_ACCEPTED,									// Pugger has accepted a match, preparing to go live
 	PUGGER_STATE_LIVE,											// Currently playing
 	PUGGER_STATE_ENUM_COUNT

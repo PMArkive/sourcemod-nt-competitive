@@ -207,16 +207,16 @@ public Action:Command_CreateTables(client, args)
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
 									%s INT NOT NULL AUTO_INCREMENT, \
 									%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
-									%s VARCHAR(%i), \
-									%s INT, \
-									%s VARCHAR(45), \
-									%s INT, \
-									%s VARCHAR(%i), \
-									%s INT, \
-									%s TIMESTAMP, \
-									%s VARCHAR(128), \
-									%s INT, \
-									%s TIMESTAMP, \
+									%s VARCHAR(%i) NOT NULL, \
+									%s INT NOT NULL, \
+									%s VARCHAR(45) NOT NULL, \
+									%s INT NOT NULL, \
+									%s VARCHAR(%i) NOT NULL, \
+									%s INT NOT NULL, \
+									%s TIMESTAMP NOT NULL, \
+									%s VARCHAR(128) NOT NULL, \
+									%s INT NOT NULL, \
+									%s TIMESTAMP NOT NULL, \
 									PRIMARY KEY (%s)) CHARACTER SET=utf8",
 									g_sqlTable_Puggers,
 									g_sqlRow_Puggers[arrayIndex--],
@@ -243,9 +243,9 @@ public Action:Command_CreateTables(client, args)
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
 									%s INT NOT NULL AUTO_INCREMENT, \
 									%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
-									%s VARCHAR(128), \
-									%s BOOL, \
-									%s TIMESTAMP, \
+									%s VARCHAR(128) NOT NULL, \
+									%s BOOL NOT NULL, \
+									%s TIMESTAMP NOT NULL, \
 									PRIMARY KEY (%s)) CHARACTER SET=utf8",
 									g_sqlTable_Organizers,
 									g_sqlRow_Organizers[arrayIndex--],
@@ -262,13 +262,13 @@ public Action:Command_CreateTables(client, args)
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
 									%s INT NOT NULL AUTO_INCREMENT, \
 									%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
-									%s VARCHAR(128), \
-									%s VARCHAR (45), \
-									%s INT, \
-									%s VARCHAR(%i), \
-									%s INT, \
-									%s VARCHAR(128), \
-									%s TIMESTAMP, \
+									%s VARCHAR(128) NOT NULL, \
+									%s VARCHAR (45) NOT NULL, \
+									%s INT NOT NULL, \
+									%s VARCHAR(%i) NOT NULL, \
+									%s INT NOT NULL, \
+									%s VARCHAR(128) NOT NULL, \
+									%s TIMESTAMP NOT NULL, \
 									PRIMARY KEY (%s)) CHARACTER SET=utf8",
 									g_sqlTable_PickupServers,
 									g_sqlRow_PickupServers[arrayIndex--],
@@ -651,6 +651,19 @@ void FindMatch()
 		return;
 	}
 	
+	Format(sql, sizeof(sql), "UPDATE %s SET %s=? WHERE %s=? AND %s=?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
+	
+	new Handle:stmt_UpdateState = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_UpdateState == INVALID_HANDLE)
+		ThrowError(error);
+	
+	new paramIndex;
+	SQL_BindParamInt(stmt_UpdateState, paramIndex++, PUG_SERVER_STATUS_RESERVED);
+	SQL_BindParamString(stmt_UpdateState, paramIndex++, reservedServer_IP, false);
+	SQL_BindParamInt(stmt_UpdateState, paramIndex++, reservedServer_Port);
+	SQL_Execute(stmt_UpdateState);
+	CloseHandle(stmt_UpdateState);
+	
 	// Passed all checks, can offer a PUG match to the players in queue
 	OfferMatch(reservedServer_Name, reservedServer_IP, reservedServer_Port, reservedServer_Password);
 }
@@ -706,8 +719,9 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 	
 	// Todo 1: Set up basic match announce system based on who queued first
 	// Todo 2: Set up logic to take queueing time and player's "afk-ness" into account determining their priority in PUG queue (basically avoid offering matches to AFK players over and over without excluding them altogether)
+	if (results < DESIRED_PLAYERCOUNT)
+		ThrowError("results (%i) < DESIRED_PLAYERCOUNT (%i)", results, DESIRED_PLAYERCOUNT);
 	
-	// FIXME: make sure results >= DESIRED_PLAYERCOUNT is checked already before calling this
 	for (i = 0; i < DESIRED_PLAYERCOUNT; i++)
 	{
 		PrintDebug("Pugger info %i: %s, %s, %s, %i", i, puggers_SteamID[i], puggers_Timestamp[i], puggers_ignoredTimestamp[i], puggers_ignoredInvites[i]);
@@ -750,14 +764,14 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 		
 		Pugger_SendMatchOffer(client);
 	}
+		
+	DataPack serverData = new DataPack();
+	serverData.WriteString(serverName);
+	serverData.WriteString(serverIP);
+	serverData.WriteString(serverPassword);
+	serverData.WriteCell(serverPort);
 	
-	if (g_hTimer_InviteExpiration != INVALID_HANDLE)
-	{
-		KillTimer(g_hTimer_InviteExpiration);
-		g_hTimer_InviteExpiration = INVALID_HANDLE;
-	}
-	
-	g_hTimer_InviteExpiration = CreateTimer(IntToFloat(PUG_INVITE_TIME), Timer_InviteExpiration);
+	g_hTimer_InviteExpiration = CreateTimer(IntToFloat(PUG_INVITE_TIME), Timer_InviteExpiration, serverData);
 }
 
 float IntToFloat(integer)
@@ -765,18 +779,20 @@ float IntToFloat(integer)
 	return integer * 1.0;
 }
 
-public Action:Timer_InviteExpiration(Handle:timer)
+public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 {
 	// Max invite time has passed, cancel current invitation if it hasn't passed
 	PrintDebug("Max invite time has passed, cancel current invitation if it hasn't passed");
 	
 	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Puggers);
 	
 	new Handle:query = SQL_Query(db, sql);
 	if (query == INVALID_HANDLE)
 	{
 		LogError("Timer_InviteExpiration(): SQL error while executing: \"%s\"", sql);
+		CloseHandle(serverData);
 		return Plugin_Stop;
 	}
 	
@@ -804,10 +820,102 @@ public Action:Timer_InviteExpiration(Handle:timer)
 	
 	PrintDebug("Invite results:\nAccepted: %i\nIgnored: %i\nAvailable extras: %i\nTotal amount: %i", results_AcceptedMatch, results_IgnoredMatch, results_AvailableAlternatives, results_Total);
 	
+	new String:serverName[128];
+	new String:serverIP[46];
+	new String:serverPassword[MAX_CVAR_LENGTH];
+	new serverPort;
+	
+	// Retrieve PUG server info from datapack
+	serverData.Reset();
+	serverData.ReadString(serverName, sizeof(serverName));
+	serverData.ReadString(serverIP, sizeof(serverIP));
+	serverData.ReadString(serverPassword, sizeof(serverPassword));
+	serverPort = serverData.ReadCell();
+	CloseHandle(serverData);
+	// TODO: confirm variables are properly populated
+	
+	PrintDebug("Server data: %s %s : %i : %s", serverName, serverIP, serverPort, serverPassword);
+	
 	// Everyone accepted the match.
 	if (results_AcceptedMatch == DESIRED_PLAYERCOUNT)
 	{
-		// TODO: Finish and pass on responsibility to the PUG server.
+		// Find the PUG server in database
+		Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s=? AND %s=?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
+		
+		new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt == INVALID_HANDLE)
+		{
+			LogError("Timer_InviteExpiration(): %s", error);
+			return Plugin_Stop;
+		}
+		
+		new paramIndex;
+		SQL_BindParamString(stmt, paramIndex++, serverIP, false);
+		SQL_BindParamInt(stmt, paramIndex++, serverPort);
+		SQL_Execute(stmt);
+		PrintDebug("SQL: %s", sql);
+		PrintDebug("Params: %s, %i", serverIP, serverPort);
+		
+		new rows = SQL_GetRowCount(stmt);
+		if (rows < 1)
+		{
+			LogError("Timer_InviteExpiration(): Could not find the PUG server %s:%i that was supposed to be reserved for this match.", serverIP, serverPort);
+			CloseHandle(stmt);
+			return Plugin_Stop;
+		}
+		if (rows > 1)
+		{
+			LogError("Timer_InviteExpiration(): Found %i results for PUG server %s:%i that was supposed to be reserved for this match, expected to find 1 result.", rows, serverIP, serverPort);
+			CloseHandle(stmt);
+			return Plugin_Stop;
+		}
+		
+		new status;
+		new String:serverPassword_Db[MAX_CVAR_LENGTH];
+		while (SQL_FetchRow(stmt))
+		{
+			status = SQL_FetchInt(stmt, SQL_TABLE_PUG_SERVER_STATUS);
+			//SQL_FetchString(stmt, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, serverPassword_Db, sizeof(serverPassword_Db));
+		}
+		
+		// TODO: Make sure this never happens
+		if (!StrEqual(serverPassword, serverPassword_Db))
+		{
+			LogError("Timer_InviteExpiration(): Current server password (\"%s\") is different from the one offered to the PUG players (\"%s\")", serverPassword_Db, serverPassword);
+			
+			PrintDebug("serverPassword length: %i, serverPassword_Db length: %i", strlen(serverPassword), strlen(serverPassword_Db));
+			
+			CloseHandle(stmt);
+			return Plugin_Stop;
+		}
+		
+		if (status == PUG_SERVER_STATUS_ERROR || status == PUG_SERVER_STATUS_BUSY)
+		{
+			LogError("Timer_InviteExpiration(): Expected PUG server is returning an incompatible status %i. Expected PUG_SERVER_STATUS_RESERVED (%i), PUG_SERVER_STATUS_AWAITING_PLAYERS(%i) or PUG_SERVER_STATUS_LIVE(%i)", status, PUG_SERVER_STATUS_RESERVED, PUG_SERVER_STATUS_AWAITING_PLAYERS, PUG_SERVER_STATUS_LIVE);
+			CloseHandle(stmt);
+			return Plugin_Stop;
+		}
+		// Update server status to "awaiting players" if it isn't already and the match isn't live yet
+		if (status == PUG_SERVER_STATUS_RESERVED)
+		{
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
+			
+			new Handle:stmt_UpdateState = SQL_PrepareQuery(db, sql, error, sizeof(error));
+			if (stmt_UpdateState == INVALID_HANDLE)
+			{
+				LogError("Timer_InviteExpiration(): %s", error);
+				CloseHandle(stmt);
+				return Plugin_Stop;
+			}
+			
+			paramIndex = 0;
+			SQL_BindParamInt(stmt_UpdateState, paramIndex++, PUG_SERVER_STATUS_AWAITING_PLAYERS);
+			SQL_BindParamString(stmt_UpdateState, paramIndex++, serverIP, false);
+			SQL_BindParamInt(stmt_UpdateState, paramIndex++, serverPort);
+			SQL_Execute(stmt_UpdateState);
+			
+			CloseHandle(stmt_UpdateState);
+		}
 	}
 	// Everyone didn't accept, however there are enough replacement players.
 	else if (results_IgnoredMatch <= results_AvailableAlternatives)
@@ -844,8 +952,8 @@ void Pugger_SendMatchOffer(client)
 	
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
-	new offer_ServerPort;
 	new id;
+	new offer_ServerPort;
 	
 	// Get info of server this player is being invited into
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
@@ -869,8 +977,8 @@ void Pugger_SendMatchOffer(client)
 		
 		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP, offer_ServerIP, sizeof(offer_ServerIP));
 		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_PASSWORD, offer_ServerPassword, sizeof(offer_ServerPassword));
-		offer_ServerPort = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
 		id = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_ID);
+		offer_ServerPort = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
 	}
 	
 	if (results == 0)
@@ -912,18 +1020,14 @@ void Pugger_SendMatchOffer(client)
 	DrawPanelText(panel, " ");
 	
 	DrawPanelText(panel, "Timer here");
-	DrawPanelText(panel, "X/X players ready");
+	DrawPanelText(panel, "X/10 players ready");
 	
 	DrawPanelText(panel, " ");
 	DrawPanelText(panel, "Type !join to accept and join the match, or");
 	DrawPanelText(panel, "type !unpug to leave the queue.");
 	
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
-	CloseHandle(panel);
-	
-	// TODO: Test SQL Unix epoch auto update
-	// SELECT UNIX_TIMESTAMP(`timestamp`) FROM `organizers` WHERE `id` = 1
-	
+	CloseHandle(panel);	
 }
 
 public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client, choice)
@@ -971,7 +1075,7 @@ void Database_Initialize()
 void PrintDebug(const String:message[], any ...)
 {
 #if DEBUG
-	decl String:formatMsg[512];
+	decl String:formatMsg[768];
 	VFormat(formatMsg, sizeof(formatMsg), message, 2);
 	
 	// Todo: Print to debug logfile
@@ -990,7 +1094,7 @@ void GenerateIdentifier_This()
 	GetConVarString(cvarIP, ipAddress, sizeof(ipAddress));
 	CloseHandle(cvarIP);
 	
-#if DEBUG_SQL == 0
+#if DEBUG_SQL < 1
 	if (StrEqual(ipAddress, "localhost") || StrEqual(ipAddress, "127.0.0.1") || StrContains(ipAddress, "192.168.") == 0)
 		SetFailState("Could not get real IP address, returned \"%s\" instead. This can't be used for uniquely identifying the server. You can declare g_identifier value at the beginning of source code to manually circumvent this problem.", ipAddress);
 #endif

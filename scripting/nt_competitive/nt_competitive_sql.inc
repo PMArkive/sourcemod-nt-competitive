@@ -31,7 +31,7 @@ enum {
 	SQL_TABLE_ORG_ID = 0,										// Auto incremented database id
 	SQL_TABLE_ORG_TIMESTAMP,								// Timestamp of last update
 	SQL_TABLE_ORG_NAME,										// Unique string identifier for this organizer, for example their IP address
-	SQL_TABLE_ORG_RESERVING,									// Only one organizer is allowed to reserve a match at a time to avoid double-booking. This boolean determines whose turn it is.
+	SQL_TABLE_ORG_RESERVING,									// Only one organizer is allowed to reserve a match at a time to avoid double-booking. This int determines who is currently allowed to edit.
 	SQL_TABLE_ORG_RESERVING_TIMESTAMP,				// When did this organizer last gain permission to reserve a match
 	SQL_TABLE_ORG_ENUM_COUNT
 };
@@ -53,7 +53,6 @@ enum {
 	PUGGER_STATE_INACTIVE = 0,								// This pugger is not currently queuing or playing at all
 	PUGGER_STATE_QUEUING,										// Queuing for a match
 	PUGGER_STATE_CONFIRMING,								// Match has been offered, waiting for this pugger to accept
-	PUGGER_STATE_IGNORED,										// Pugger has ignored a match, use for temporarily excluding players from invite pool
 	PUGGER_STATE_ACCEPTED,									// Pugger has accepted a match, preparing to go live
 	PUGGER_STATE_LIVE,											// Currently playing
 	PUGGER_STATE_ENUM_COUNT
@@ -66,6 +65,12 @@ enum {
 	PUG_SERVER_STATUS_RESERVED,							// An organizer has reserved this server for a pug match
 	PUG_SERVER_STATUS_AWAITING_PLAYERS,				// All puggers accepted, waiting for players to join to start a match
 	PUG_SERVER_STATUS_LIVE									// Match is live
+};
+// Avoid double booking games and other conflicts
+enum {
+	SERVER_DB_INACTIVE = 0,									// This server is not editing the SQL database
+	SERVER_DB_RESERVED,											// This server has reserved the right to edit the SQL database
+	SERVER_DB_PASSING_ON										// This server has finished editing the SQL database, but wants to pass on that right to a specific other server
 };
 
 new const String:g_sqlTable_Organizers[] = "organizers";

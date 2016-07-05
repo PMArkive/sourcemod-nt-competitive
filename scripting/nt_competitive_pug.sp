@@ -37,12 +37,11 @@ public Plugin:myinfo = {
 
 public OnPluginStart()
 {
-	CheckSQLConstants();
-	
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 	
 #if DEBUG_SQL
+	CheckSQLConstants();
 	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_GENERIC, "Create PUG tables in database. Debug command.");
 #endif
 	
@@ -1009,6 +1008,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 		LogError("Timer_InviteExpiration(): results_AcceptedMatch (%i) > DESIRED_PLAYERCOUNT (%i)", results_AcceptedMatch, DESIRED_PLAYERCOUNT);
 	}
 	
+	// TODO: Make this loopable instead of a one time check when accept time ends
 	return Plugin_Stop;
 }
 
@@ -1171,11 +1171,15 @@ void PrintDebug(const String:message[], any ...)
 // Purpose: Generate a unique identifier for recognizing this server in the database, based on ip:port
 void GenerateIdentifier_This()
 {
+	// The identifier has been manually set before compiling, no need to generate one
 	if (!StrEqual(g_identifier, ""))
 		return;
 	
-	decl String:ipAddress[46];
 	new Handle:cvarIP = FindConVar("ip");
+	if (cvarIP == INVALID_HANDLE)
+		SetFailState("Could not find cvar \"ip\"");
+	
+	decl String:ipAddress[46];
 	GetConVarString(cvarIP, ipAddress, sizeof(ipAddress));
 	CloseHandle(cvarIP);
 	
@@ -1185,6 +1189,9 @@ void GenerateIdentifier_This()
 #endif
 	
 	new Handle:cvarPort = FindConVar("hostport");
+	if (cvarPort == INVALID_HANDLE)
+		SetFailState("Could not find cvar \"hostport\"");
+	
 	new port = GetConVarInt(cvarPort);
 	CloseHandle(cvarPort);
 	
@@ -1195,6 +1202,7 @@ void GenerateIdentifier_This()
 #endif
 }
 
+#if DEBUG_SQL
 void CheckSQLConstants()
 {
 	CheckForSpookiness(g_sqlTable_Organizers);
@@ -1210,3 +1218,4 @@ void CheckForSpookiness(const String:haystack[])
 	if (StrContains(haystack, "\"") != -1 || StrContains(haystack, ";") != -1)
 		SetFailState("Found potentially dangerous characters \" or ; inside the plugin's SQL string constants, which could result to incorrect SQL statements. Check your plugin source code for errors.");
 }
+#endif

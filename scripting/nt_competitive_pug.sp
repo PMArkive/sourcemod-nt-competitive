@@ -318,6 +318,8 @@ public Action:Command_CreateTables(client, args)
 
 int Database_GetRowCountForTableName(const String:tableName[])
 {
+	CheckForSpookiness(tableName);
+	
 	Database_Initialize();
 	decl String:sql[MAX_SQL_LENGTH];
 	
@@ -1246,6 +1248,6 @@ void CheckSQLConstants()
 void CheckForSpookiness(const String:haystack[])
 {
 	if (StrContains(haystack, "\"") != -1 || StrContains(haystack, ";") != -1)
-		SetFailState("Found potentially dangerous characters \" or ; inside the plugin's SQL string constants, which could result to incorrect SQL statements. Check your plugin source code for errors.");
+		SetFailState("Found potentially dangerous characters \" or ; inside the plugin's SQL string, which could result to incorrect SQL statements. Check your plugin source code for errors. String contents: \"%s\"", haystack);
 }
 #endif

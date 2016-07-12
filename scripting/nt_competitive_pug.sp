@@ -1,12 +1,3 @@
-
-/*
-	Remember to push Linux laptop edits before continuing!!!
-*/
-
-
-
-
-
 #pragma semicolon 1
 
 #include <sourcemod>
@@ -51,7 +42,7 @@ public OnPluginStart()
 	
 #if DEBUG_SQL
 	CheckSQLConstants();
-	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_GENERIC, "Create PUG tables in database. Debug command.");
+	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_RCON, "Create PUG tables in database. Debug command.");
 #endif
 	
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug", "Database config entry name", FCVAR_PROTECTED);
@@ -208,14 +199,36 @@ public Action:Command_UnPug(client, args)
 
 #if DEBUG_SQL
 // Create all the necessary tables in the database
+// TODO: Always log this command to a logfile
 public Action:Command_CreateTables(client, args)
-{
-	Database_Initialize();
+{	
+	new rows = -1; // Start nonzero to recognize if Database_GetRowCountForTableName() fails
+	rows = Database_GetRowCountForTableName(g_sqlTable_Puggers);
+	rows += Database_GetRowCountForTableName(g_sqlTable_Organizers);
+	rows += Database_GetRowCountForTableName(g_sqlTable_PickupServers);
 	
+	if (rows < 0)
+	{
+		ReplyToCommand(client, "%s Table creation failed, check error logs.", g_tag); // Database_Initialize() should throw an error if this happens
+		return Plugin_Stop;
+	}
+	else if (rows > 0)
+	{
+		ReplyToCommand(client, "%s Database returned %i already existing PUG rows!", g_tag, rows);
+		ReplyToCommand(client, "Make sure no PUG tables exist before running this command.");
+		ReplyToCommand(client, "No new tables were created by this command.");
+		
+		decl String:clientName[MAX_NAME_LENGTH];
+		GetClientName(client, clientName, sizeof(clientName));
+		LogError("Client %i (\"%s\") attempted to run Command_CreateTables while %i PUG rows already exist. Command was aborted. PUG plugin debug level: %i. SQL debug level: %i", client, clientName, rows, DEBUG, DEBUG_SQL);
+		return Plugin_Stop;
+	}
+	
+	Database_Initialize();
 	decl String:sql[MAX_SQL_LENGTH];
 	
 	// todo: optimise INT sizes
-	new arrayIndex = SQL_TABLE_PUGGER_ENUM_COUNT-1; // Reverse array index for Format()
+	new arrayIndex = SQL_TABLE_PUGGER_ENUM_COUNT-1; // Reversed array index for Format() order of operations
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
 									%s INT NOT NULL AUTO_INCREMENT, \
 									%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
@@ -251,7 +264,7 @@ public Action:Command_CreateTables(client, args)
 	new Handle:query_CreatePuggers = SQL_Query(db, sql);
 	CloseHandle(query_CreatePuggers);
 	
-	arrayIndex = SQL_TABLE_ORG_ENUM_COUNT-1; // Reverse array index for Format()
+	arrayIndex = SQL_TABLE_ORG_ENUM_COUNT-1; // Reversed array index for Format() order of operations
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
 									%s INT NOT NULL AUTO_INCREMENT, \
 									%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
@@ -270,7 +283,7 @@ public Action:Command_CreateTables(client, args)
 	new Handle:query_CreateOrganizers = SQL_Query(db, sql);
 	CloseHandle(query_CreateOrganizers);
 	
-	arrayIndex = SQL_TABLE_PUG_SERVER_ENUM_COUNT-1; // Reverse array index for Format()
+	arrayIndex = SQL_TABLE_PUG_SERVER_ENUM_COUNT-1; // Reversed array index for Format() order of operations
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
 									%s INT NOT NULL AUTO_INCREMENT, \
 									%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
@@ -301,6 +314,19 @@ public Action:Command_CreateTables(client, args)
 	//PrintDebug("SQL:\n%s", sql);
 	
 	return Plugin_Handled;
+}
+
+int Database_GetRowCountForTableName(const String:tableName[])
+{
+	Database_Initialize();
+	decl String:sql[MAX_SQL_LENGTH];
+	
+	Format(sql, sizeof(sql), "SELECT * FROM %s", tableName);
+	new Handle:query = SQL_Query(db, sql);
+	new rows = SQL_GetRowCount(query);
+	CloseHandle(query);
+	
+	return rows;
 }
 #endif
 
@@ -1144,7 +1170,7 @@ void Database_Initialize()
 	if (!SQL_CheckConfig(configName))
 	{
 		g_isDatabaseDown = true;
-		ThrowError("Could not find a config called \"%s\". Please check your databases.cfg", configName);
+		ThrowError("Could not find a config named \"%s\". Please check your databases.cfg", configName);
 	}
 	
 	decl String:error[MAX_SQL_ERROR_LENGTH];

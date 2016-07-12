@@ -1,3 +1,12 @@
+
+/*
+	Remember to push Linux laptop edits before continuing!!!
+*/
+
+
+
+
+
 #pragma semicolon 1
 
 #include <sourcemod>
@@ -910,13 +919,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 		PrintDebug("Params: %s, %i", serverIP, serverPort);
 		
 		new rows = SQL_GetRowCount(stmt);
-		if (rows < 1)
-		{
-			LogError("Timer_InviteExpiration(): Could not find the PUG server %s:%i that was supposed to be reserved for this match.", serverIP, serverPort);
-			CloseHandle(stmt);
-			return Plugin_Stop;
-		}
-		if (rows > 1)
+		if (rows != 1)
 		{
 			LogError("Timer_InviteExpiration(): Found %i results for PUG server %s:%i that was supposed to be reserved for this match, expected to find 1 result.", rows, serverIP, serverPort);
 			CloseHandle(stmt);
@@ -987,7 +990,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 			SQL_Execute(stmt_UpdateOrgState);
 			CloseHandle(stmt_UpdateOrgState);
 			
-			// TODO: Loop timer here to make sure the PUG server takes over properly, and
+			// TODO: Loop timer here (or higher up, eg. should this timer callback loop?) to make sure the PUG server takes over properly, and
 			// gracefully handle any errors so database editing won't ever get blocked
 		}
 	}
@@ -1077,6 +1080,7 @@ void Pugger_SendMatchOffer(client)
 	PrintDebug("SQL: %s", sql);
 	PrintDebug("ID: %i", id);
 	
+	// TODO: Is this needed?
 	new epoch_PlayerQueuedTime;
 	while (SQL_FetchRow(stmt_Epoch_Queued))
 	{

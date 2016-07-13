@@ -477,7 +477,9 @@ void Database_RemovePugger(client)
 			else if (state == PUGGER_STATE_CONFIRMING)
 			{
 				ReplyToCommand(client, "%s You have left the PUG queue. Declining offered match.", g_tag);
+				
 				Database_LogIgnore(client);
+				Pugger_CloseMatchOfferMenu(client);
 			}
 			else if (state == PUGGER_STATE_ACCEPTED)
 			{
@@ -866,6 +868,7 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 	serverData.WriteCell(serverPort);
 	
 	g_hTimer_InviteExpiration = CreateTimer(IntToFloat(PUG_INVITE_TIME), Timer_InviteExpiration, serverData);
+	delete serverData;
 }
 
 float IntToFloat(integer)
@@ -921,7 +924,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 	serverData.ReadString(serverIP, sizeof(serverIP));
 	serverData.ReadString(serverPassword, sizeof(serverPassword));
 	serverPort = serverData.ReadCell();
-	CloseHandle(serverData);
+	delete serverData;
 	// TODO: confirm variables are properly populated
 	
 	PrintDebug("Server data: %s %s : %i : %s", serverName, serverIP, serverPort, serverPassword);
@@ -1043,6 +1046,56 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 	return Plugin_Stop;
 }
 
+void Pugger_ShowMatchOfferMenu(client, DataPack:invitePack)
+{
+	decl String:offer_ServerIP[45];
+	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
+	new offer_ServerPort;
+	
+	invitePack.Reset();
+	invitePack.ReadString(offer_ServerIP, sizeof(offer_ServerIP));
+	offer_ServerPort = invitePack.ReadCell();
+	invitePack.ReadString(offer_ServerPassword, sizeof(offer_ServerPassword));
+	delete invitePack;
+	
+	PrintToChat(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
+	PrintToConsole(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
+	PrintDebug("Client %i Invite: %s:%i:%s", client, offer_ServerIP, offer_ServerPort, offer_ServerPassword);
+	
+	new Handle:panel = CreatePanel();
+	
+	SetPanelTitle(panel, "Match is ready");
+	DrawPanelText(panel, " ");
+	
+	decl String:text_TimeToAccept[24];
+	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", g_acceptTimeRemaining);
+	DrawPanelText(panel, text_TimeToAccept);
+	
+	decl String:text_PlayersReady[24];
+	Format(text_PlayersReady, sizeof(text_PlayersReady), "%i / %i players ready", Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED), DESIRED_PLAYERCOUNT);
+	DrawPanelText(panel, text_PlayersReady);
+	
+	DrawPanelText(panel, " ");
+	DrawPanelText(panel, "Type !join to accept and join the match, or");
+	DrawPanelText(panel, "type !unpug to leave the queue.");
+	
+	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
+	CloseHandle(panel);
+}
+
+void Pugger_CloseMatchOfferMenu(client)
+{
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		return;
+	
+	new Handle:panel = CreatePanel();
+	SetPanelTitle(panel, "Your PUG invite has expired...");
+	
+	new displayTime = 2;
+	SendPanelToClient(panel, client, PanelHandler_Pugger_CloseMatchOfferMenu, displayTime);
+	CloseHandle(panel);
+}
+
 void Pugger_SendMatchOffer(client)
 {
 	if (!Client_IsValid(client) || IsFakeClient(client))
@@ -1117,32 +1170,21 @@ void Pugger_SendMatchOffer(client)
 	}
 	CloseHandle(stmt_Epoch_Queued);
 	
-	PrintToChat(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
-	PrintToConsole(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
-	PrintDebug("Client %i Invite: %s:%i:%s", client, offer_ServerIP, offer_ServerPort, offer_ServerPassword);
+	DataPack inviteData = new DataPack();
+	inviteData.WriteString(offer_ServerIP);
+	inviteData.WriteCell(offer_ServerPort);
+	inviteData.WriteString(offer_ServerPassword);
 	
-	new Handle:panel = CreatePanel();
-	
-	SetPanelTitle(panel, "Match is ready");
-	DrawPanelText(panel, " ");
-	
-	decl String:text_TimeToAccept[24];
-	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", g_acceptTimeRemaining);
-	DrawPanelText(panel, text_TimeToAccept);
-	
-	decl String:text_PlayersReady[24];
-	Format(text_PlayersReady, sizeof(text_PlayersReady), "%i / %i players ready", Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED), DESIRED_PLAYERCOUNT);
-	DrawPanelText(panel, text_PlayersReady);
-	
-	DrawPanelText(panel, " ");
-	DrawPanelText(panel, "Type !join to accept and join the match, or");
-	DrawPanelText(panel, "type !unpug to leave the queue.");
-	
-	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
-	CloseHandle(panel);	
+	Pugger_ShowMatchOfferMenu(client, inviteData);
+	delete inviteData;
 }
 
 public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client, choice)
+{
+	return;
+}
+
+public PanelHandler_Pugger_CloseMatchOfferMenu(Handle:menu, MenuAction:action, client, choice)
 {
 	return;
 }
@@ -1215,9 +1257,9 @@ void GenerateIdentifier_This()
 	GetConVarString(cvarIP, ipAddress, sizeof(ipAddress));
 	CloseHandle(cvarIP);
 	
-#if DEBUG_SQL < 1
+#if DEBUG_SQL == 0 // Skip this check when debugging
 	if (StrEqual(ipAddress, "localhost") || StrEqual(ipAddress, "127.0.0.1") || StrContains(ipAddress, "192.168.") == 0)
-		SetFailState("Could not get real external IP address, returned a local address \"%s\" instead. This can't be used for uniquely identifying the server. You can declare g_identifier value at the beginning of source code to manually circumvent this problem.", ipAddress);
+		SetFailState("Could not get real external IP address, returned a local address \"%s\" instead. This can't be used for uniquely identifying the server. You can declare a unique g_identifier value near the beginning of the plugin source code to manually circumvent this problem.", ipAddress);
 #endif
 	
 	new Handle:cvarPort = FindConVar("hostport");

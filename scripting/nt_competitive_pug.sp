@@ -668,7 +668,7 @@ void FindMatch()
 	decl String:reserving_timestamp[128];
 	new reserveStatus;
 
-	// First query pass, make sure nobody else is already reserving a match
+	// Make sure nobody else is reserving a match. We do this to avoid double-booking players to multiple games.
 	while (SQL_FetchRow(query_Organizers))
 	{
 		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_NAME, name, sizeof(name));
@@ -686,32 +686,38 @@ void FindMatch()
 						name, timestamp, reserveStatus, reserving_timestamp
 		);
 
+		// This server isn't currently doing anything that would interfere.
 		if (reserveStatus == SERVER_DB_INACTIVE)
 		{
 			continue;
 		}
+		// This server is reserving a match, we have to wait and try again later.
 		else if (reserveStatus == SERVER_DB_RESERVED)
 		{
-			// Someone else is currently reserving a match, stop and try again later.
 			if (!StrEqual(name, g_identifier))
 			{
 				PrintDebug("Another server with identifier %s is currently reserving a match.", name);
+				CloseHandle(query_Organizers);
 				return;
 			}
 			else
 			{
-				// This should never happen
-				LogError("This organizer had already been set to reserving status at %s without clearing it.", timestamp);
+				// This should never happen.
+				LogError("FindMatch(): This organizer %s had already been set to reserving status (%i) at %s without clearing it.", name, SERVER_DB_RESERVED, timestamp);
+				continue;
 			}
 		}
+		// This server is prompting a PUG server to take over and create a match; we should wait for this to finish.
 		else if (reserveStatus == SERVER_DB_PASSING_ON)
 		{
 			PrintDebug("Server with identifier %s is currently wanting to pass on command to a PUG server.", name);
+			CloseHandle(query_Organizers);
 			return;
 		}
 		else
 		{
-			LogError("Unknown reserve status %i", reserveStatus);
+			LogError("Server with identifier %s is returning an unknown reserve status %i", name, reserveStatus);
+			CloseHandle(query_Organizers);
 			return;
 		}
 	}
@@ -721,6 +727,8 @@ void FindMatch()
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 	new Handle:stmt_Reserve = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_Reserve == INVALID_HANDLE)
+		ThrowError(error);
 
 	new paramIndex;
 	SQL_BindParamInt(stmt_Reserve, paramIndex++, SERVER_DB_RESERVED);

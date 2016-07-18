@@ -94,6 +94,8 @@ void Organizers_Update_This()
 	// Delete duplicate records
 	if (results > 1)
 	{
+		LogError("Organizers_Update_This(): Found %i results from database for organizer \"%s\", expected 0 or 1.", results, g_identifier);
+
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 		//PrintDebug("SQL: \n%s", sql);
@@ -614,6 +616,47 @@ void FindMatch()
 	new port;
 	new status;
 
+	Organizers_Update_This(); // Make sure we are a valid organizer
+
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+
+	new Handle:stmt_ThisOrganizer = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_ThisOrganizer == INVALID_HANDLE)
+		ThrowError(error);
+
+	SQL_BindParamString(stmt_ThisOrganizer, 0, g_identifier, false);
+	SQL_Execute(stmt_ThisOrganizer);
+
+	new rows;
+	while (SQL_FetchRow(stmt_ThisOrganizer))
+	{
+		rows++;
+		if (rows > 1)
+		{
+			CloseHandle(stmt_ThisOrganizer);
+			ThrowError("Found multiple results for organizer \"%s\"", g_identifier);
+		}
+
+		new reserveStatus = SQL_FetchInt(stmt_ThisOrganizer, SQL_TABLE_ORG_RESERVING);
+		if (reserveStatus == 1)
+		{
+			LogError("FindMatch(): This organizer \"%s\" is already returning reserve status %i. Reverting status back to %i.", g_identifier, reserveStatus, SERVER_DB_INACTIVE);
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+
+			new Handle:stmt_ThisOrganizer_FixReserved = SQL_PrepareQuery(db, sql, error, sizeof(error));
+			if (stmt_ThisOrganizer_FixReserved == INVALID_HANDLE)
+			{
+				CloseHandle(stmt_ThisOrganizer);
+				ThrowError(error);
+			}
+			new paramIndex;
+			SQL_BindParamInt(stmt_ThisOrganizer_FixReserved, paramIndex++, SERVER_DB_INACTIVE);
+			SQL_BindParamString(stmt_ThisOrganizer_FixReserved, paramIndex++, g_identifier, false);
+			SQL_Execute(stmt_ThisOrganizer_FixReserved);
+			CloseHandle(stmt_ThisOrganizer_FixReserved);
+		}
+	}
+
 	// Loop organizers info
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
 
@@ -623,31 +666,31 @@ void FindMatch()
 
 	decl String:timestamp[128];
 	decl String:reserving_timestamp[128];
-	new isReserving;
+	new reserveStatus;
 
 	// First query pass, make sure nobody else is already reserving a match
 	while (SQL_FetchRow(query_Organizers))
 	{
-		// todo: proper error handling
-		if (isReserving)
-			ThrowError("Multiple organizers report themselves reserving match simultaneously.");
-
 		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_NAME, name, sizeof(name));
 		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_TIMESTAMP, timestamp, sizeof(timestamp));
 		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_RESERVING_TIMESTAMP, reserving_timestamp, sizeof(reserving_timestamp));
 
-		isReserving = SQL_FetchInt(query_Organizers, SQL_TABLE_ORG_RESERVING);
+		reserveStatus = SQL_FetchInt(query_Organizers, SQL_TABLE_ORG_RESERVING);
 
 		PrintDebug("\n- - -\n\
 						Organizer info: %s\n\
 						timestamp: %s\n\
-						reserving: %i\n\
+						reserve status: %i\n\
 						reserving timestamp: %s\n\
 						- - -",
-						name, timestamp, isReserving, reserving_timestamp
+						name, timestamp, reserveStatus, reserving_timestamp
 		);
 
-		if (isReserving > 0)
+		if (reserveStatus == 0)
+		{
+			continue;
+		}
+		else if (reserveStatus == 1)
 		{
 			// Someone else is currently reserving a match, stop and try again later.
 			if (!StrEqual(name, g_identifier))
@@ -657,9 +700,19 @@ void FindMatch()
 			}
 			else
 			{
-				// todo: proper error handling
+				// This should never happen
 				LogError("This organizer had already been set to reserving status at %s without clearing it.", timestamp);
 			}
+		}
+		else if (reserveStatus == 2)
+		{
+			PrintDebug("Server with identifier %s is currently wanting to pass on command to a PUG server.", name);
+			return;
+		}
+		else
+		{
+			LogError("Unknown reserve status %i", reserveStatus);
+			return;
 		}
 	}
 	CloseHandle(query_Organizers);
@@ -982,8 +1035,11 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 			CloseHandle(stmt);
 			return Plugin_Stop;
 		}
-
-		if (status == PUG_SERVER_STATUS_RESERVED)
+		else if (status == PUG_SERVER_STATUS_LIVE)
+		{
+			// TODO
+		}
+		else if (status == PUG_SERVER_STATUS_RESERVED)
 		{
 			// Update server status to "awaiting players" if it isn't already and the match isn't live yet
 			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
@@ -1004,7 +1060,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 
 			CloseHandle(stmt_UpdateState);
 
-			// Pass on database command to the receiving PUG server
+			// Mark this server as wishing to pass on command to the PUG server
 			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 			new Handle:stmt_UpdateOrgState = SQL_PrepareQuery(db, sql, error, sizeof(error));
@@ -1025,8 +1081,15 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 			// gracefully handle any errors so database editing won't ever get blocked
 		}
 	}
+
+	// This should never happen.
+	if (results_AcceptedMatch > DESIRED_PLAYERCOUNT)
+	{
+		LogError("Timer_InviteExpiration(): results_AcceptedMatch (%i) > DESIRED_PLAYERCOUNT (%i)", results_AcceptedMatch, DESIRED_PLAYERCOUNT);
+	}
+
 	// Everyone didn't accept, however there are enough replacement players.
-	else if (DESIRED_PLAYERCOUNT - results_AcceptedMatch <= results_AvailableAlternatives)
+	if (DESIRED_PLAYERCOUNT - results_AcceptedMatch <= results_AvailableAlternatives)
 	{
 		// TODO: Offer this match to others queued as required and try again.
 	}
@@ -1036,13 +1099,6 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 		// TODO: Give up, and release organizing again.
 	}
 
-	// This should never happen.
-	if (results_AcceptedMatch > DESIRED_PLAYERCOUNT)
-	{
-		LogError("Timer_InviteExpiration(): results_AcceptedMatch (%i) > DESIRED_PLAYERCOUNT (%i)", results_AcceptedMatch, DESIRED_PLAYERCOUNT);
-	}
-
-	// TODO: Make this loopable instead of a one time check when accept time ends
 	return Plugin_Stop;
 }
 

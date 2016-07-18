@@ -686,11 +686,11 @@ void FindMatch()
 						name, timestamp, reserveStatus, reserving_timestamp
 		);
 
-		if (reserveStatus == 0)
+		if (reserveStatus == SERVER_DB_INACTIVE)
 		{
 			continue;
 		}
-		else if (reserveStatus == 1)
+		else if (reserveStatus == SERVER_DB_RESERVED)
 		{
 			// Someone else is currently reserving a match, stop and try again later.
 			if (!StrEqual(name, g_identifier))
@@ -704,7 +704,7 @@ void FindMatch()
 				LogError("This organizer had already been set to reserving status at %s without clearing it.", timestamp);
 			}
 		}
-		else if (reserveStatus == 2)
+		else if (reserveStatus == SERVER_DB_PASSING_ON)
 		{
 			PrintDebug("Server with identifier %s is currently wanting to pass on command to a PUG server.", name);
 			return;

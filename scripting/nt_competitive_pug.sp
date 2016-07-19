@@ -74,7 +74,7 @@ public Action:Timer_FindMatch(Handle:timer)
 	return Plugin_Continue;
 }
 
-// Purpose: Add this server into the organizers database table
+// Purpose: Add this server into the organizers database table, and set its reserve status.
 void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 {
 	PrintDebug("Organizers_Update_This()");
@@ -87,7 +87,6 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-
 	//PrintDebug(sql);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
@@ -530,6 +529,7 @@ void Database_RemovePugger(client)
 
 void Database_LogIgnore(client)
 {
+	//TODO
 	PrintDebug("Database_LogIgnore(%i)", client);
 }
 
@@ -735,17 +735,7 @@ void FindMatch()
 	CloseHandle(query_Organizers);
 
 	// Reserve match organizing
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-
-	new Handle:stmt_Reserve = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt_Reserve == INVALID_HANDLE)
-		ThrowError(error);
-
-	new paramIndex;
-	SQL_BindParamInt(stmt_Reserve, paramIndex++, SERVER_DB_RESERVED);
-	SQL_BindParamString(stmt_Reserve, paramIndex++, g_identifier, false);
-	SQL_Execute(stmt_Reserve);
-	CloseHandle(stmt_Reserve);
+	Organizers_Update_This(SERVER_DB_RESERVED);
 
 	// Loop PUG servers info
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_PickupServers);
@@ -760,7 +750,8 @@ void FindMatch()
 	decl String:reservedServer_IP[46];
 	decl String:reservedServer_Password[MAX_CVAR_LENGTH];
 	new reservedServer_Port;
-
+	new paramIndex;
+	
 	while (SQL_FetchRow(query_Pugs))
 	{
 		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));
@@ -857,7 +848,7 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 		CloseHandle(query);
 		PrintToServer("There are not enough queuing players to offer a match.");
 		PrintToChatAll("There are not enough queuing players to offer a match.");
-		//TODO: Release
+		Organizers_Update_This();
 		return;
 	}
 
@@ -1076,21 +1067,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 			CloseHandle(stmt_UpdateState);
 
 			// Mark this server as wishing to pass on command to the PUG server
-			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-
-			new Handle:stmt_UpdateOrgState = SQL_PrepareQuery(db, sql, error, sizeof(error));
-			if (stmt_UpdateOrgState == INVALID_HANDLE)
-			{
-				LogError("Timer_InviteExpiration(): %s", error);
-				CloseHandle(stmt);
-				return Plugin_Stop;
-			}
-
-			paramIndex = 0;
-			SQL_BindParamInt(stmt_UpdateOrgState, paramIndex++, SERVER_DB_PASSING_ON);
-			SQL_BindParamString(stmt_UpdateOrgState, paramIndex++, g_identifier, false);
-			SQL_Execute(stmt_UpdateOrgState);
-			CloseHandle(stmt_UpdateOrgState);
+			Organizers_Update_This(SERVER_DB_PASSING_ON);
 
 			// TODO: Loop timer here (or higher up, eg. should this timer callback loop?) to make sure the PUG server takes over properly, and
 			// gracefully handle any errors so database editing won't ever get blocked

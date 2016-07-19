@@ -28,6 +28,7 @@ new bool:g_isJustLoaded = true;
 
 new const String:g_tag[] = "[PUG]";
 
+// TODO: automate fallback
 new String:g_identifier[52]; // Set this to something uniquely identifying if the plugin fails to retrieve your external IP.
 
 public Plugin:myinfo = {
@@ -75,6 +76,7 @@ public Action:Timer_FindMatch(Handle:timer)
 }
 
 // Purpose: Add this server into the organizers database table, and set its reserve status.
+// FIXME: Need to take others' status into consideration when setting status other than default
 void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 {
 	PrintDebug("Organizers_Update_This()");
@@ -87,7 +89,6 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-	//PrintDebug(sql);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, g_identifier, false);
@@ -104,11 +105,10 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	// Delete duplicate records
 	if (results > 1)
 	{
+		//FIXME: Maybe should not expect 0 rows (Command_CreateTables)
 		LogError("Organizers_Update_This(): Found %i results from database for organizer \"%s\", expected 0 or 1.", results, g_identifier);
 
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-
-		//PrintDebug("SQL: \n%s", sql);
 
 		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
@@ -122,8 +122,6 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	if (results > 1 || results == 0)
 	{
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME], g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING]);
-
-		//PrintDebug("SQL: \n%s", sql);
 
 		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
@@ -139,8 +137,6 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	else
 	{
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-
-		//PrintDebug("SQL: \n%s", sql);
 
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
@@ -271,7 +267,7 @@ public Action:Command_CreateTables(client, args)
 									g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
 	);
 
-	PrintDebug("SQL: %s", sql);
+	//PrintDebug("SQL: %s", sql);
 
 	new Handle:query_CreatePuggers = SQL_Query(db, sql);
 	CloseHandle(query_CreatePuggers);
@@ -331,15 +327,15 @@ public Action:Command_CreateTables(client, args)
 int Database_GetRowCountForTableName(const String:tableName[])
 {
 	CheckForSpookiness(tableName);
-
 	Database_Initialize();
-	decl String:sql[MAX_SQL_LENGTH];
 
+	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", tableName);
+
 	new Handle:query = SQL_Query(db, sql);
 	new rows = SQL_GetRowCount(query);
-	CloseHandle(query);
 
+	CloseHandle(query);
 	return rows;
 }
 #endif
@@ -751,7 +747,7 @@ void FindMatch()
 	decl String:reservedServer_Password[MAX_CVAR_LENGTH];
 	new reservedServer_Port;
 	new paramIndex;
-	
+
 	while (SQL_FetchRow(query_Pugs))
 	{
 		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));

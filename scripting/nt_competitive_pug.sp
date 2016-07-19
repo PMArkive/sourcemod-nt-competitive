@@ -59,6 +59,7 @@ public OnConfigsExecuted()
 		Database_Initialize();
 		GenerateIdentifier_This();
 		Organizers_Update_This();
+#if DEBUG_SQL
 		CheckSQLConstants();
 #endif
 		g_isJustLoaded = false;

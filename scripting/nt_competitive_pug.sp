@@ -45,7 +45,6 @@ public OnPluginStart()
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 
 #if DEBUG_SQL
-	CheckSQLConstants();
 	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_RCON, "Create PUG tables in database. Debug command.");
 #endif
 
@@ -60,6 +59,8 @@ public OnConfigsExecuted()
 		Database_Initialize();
 		GenerateIdentifier_This();
 		Organizers_Update_This();
+		CheckSQLConstants();
+#endif
 		g_isJustLoaded = false;
 	}
 
@@ -1323,6 +1324,7 @@ void GenerateIdentifier_This()
 #if DEBUG_SQL
 void CheckSQLConstants()
 {
+	CheckForSpookiness(g_identifier);
 	CheckForSpookiness(g_sqlTable_Organizers);
 	CheckForSpookiness(g_sqlTable_PickupServers);
 	CheckForSpookiness(g_sqlTable_Puggers);

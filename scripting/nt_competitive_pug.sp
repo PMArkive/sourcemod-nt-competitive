@@ -43,6 +43,7 @@ public OnPluginStart()
 {
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
+	RegConsoleCmd("sm_join", Command_Accept);
 
 #if DEBUG_SQL
 	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_RCON, "Create PUG tables in database. Debug command.");
@@ -152,6 +153,39 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	}
 }
 
+int Organizers_Get_Status_This()
+{
+	PrintDebug("Organizers_Get_Status_This()");
+	Database_Initialize();
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+
+	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	SQL_BindParamString(stmt_Select, 0, g_identifier, false);
+	SQL_Execute(stmt_Select);
+
+	if (stmt_Select == INVALID_HANDLE)
+		ThrowError(error);
+
+	new results;
+	new status;
+	while (SQL_FetchRow(stmt_Select))
+	{
+		status = SQL_FetchInt(stmt_Select, SQL_TABLE_ORG_RESERVING);
+		results++;
+	}
+	if (0 >= results > 1 )
+	{
+		CloseHandle(stmt_Select);
+		ThrowError("Found %i results for identifier %s, expected 1.", results, g_identifier);
+	}
+
+	CloseHandle(stmt_Select);
+	return status;
+}
+
 public Action:Command_Pug(client, args)
 {
 	if (g_isDatabaseDown)
@@ -205,6 +239,47 @@ public Action:Command_UnPug(client, args)
 	Database_RemovePugger(client);
 
 	return Plugin_Handled;
+}
+
+public Action:Command_Accept(client, args)
+{
+	switch (Pugger_GetQueuingState(client))
+	{
+		case PUGGER_STATE_INACTIVE:
+		{
+			ReplyToCommand(client, "%s You are not in the PUG queue!", g_tag);
+		}
+		case PUGGER_STATE_QUEUING:
+		{
+			ReplyToCommand(client, "%s You are currently not invited to a match.", g_tag);
+		}
+		case PUGGER_STATE_CONFIRMING:
+		{
+			AcceptMatch(client);
+		}
+		case PUGGER_STATE_ACCEPTED:
+		{
+			ReplyToCommand(client, "%s You've already accepted the match. Check your console for join details.", g_tag);
+			// TODO: join details
+		}
+		case PUGGER_STATE_LIVE:
+		{
+			ReplyToCommand(client, "%s You already have a match live! Check your console for join details.", g_tag);
+			// TODO: join details
+		}
+	}
+	return Plugin_Handled;
+}
+
+void AcceptMatch(client)
+{
+	PrintDebug("AcceptMatch()");
+
+	if (Organizers_Get_Status_This() != SERVER_DB_RESERVED)
+	{
+		ReplyToCommand(client, "%s Joining time has ended.", g_tag);
+		return;
+	}
 }
 
 #if DEBUG_SQL
@@ -1122,7 +1197,7 @@ void Pugger_ShowMatchOfferMenu(client, DataPack:invitePack) //FIXME: global vars
 	DrawPanelText(panel, text_PlayersReady);
 
 	DrawPanelText(panel, " ");
-	DrawPanelText(panel, "Type !join to accept and join the match, or");
+	DrawPanelText(panel, "Type !join to accept the match, or");
 	DrawPanelText(panel, "type !unpug to leave the queue.");
 
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);

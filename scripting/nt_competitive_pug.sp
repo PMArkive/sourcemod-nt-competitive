@@ -1,3 +1,5 @@
+//TODO: Abstract more sql operations
+
 #pragma semicolon 1
 
 #include <sourcemod>
@@ -12,7 +14,7 @@
 #define MAX_STEAMID_LENGTH 44
 #define PUG_INVITE_TIME 60
 
-#define DESIRED_PLAYERCOUNT 2 // This could be non-hardcoded later
+#define DESIRED_PLAYERCOUNT 2 // TODO: Move to database
 
 new Handle:g_hCvar_DbConfig;
 
@@ -22,6 +24,7 @@ new Handle:g_hTimer_InviteExpiration = INVALID_HANDLE;
 new g_acceptTimeRemaining;
 
 new bool:g_isDatabaseDown;
+new bool:g_isJustLoaded = true;
 
 new const String:g_tag[] = "[PUG]";
 
@@ -50,9 +53,14 @@ public OnPluginStart()
 
 public OnConfigsExecuted()
 {
-	Database_Initialize();
-	GenerateIdentifier_This();
-	Organizers_Update_This();
+	// Just do this once
+	if (g_isJustLoaded)
+	{
+		Database_Initialize();
+		GenerateIdentifier_This();
+		Organizers_Update_This();
+		g_isJustLoaded = false;
+	}
 
 	/*
 	if (g_hTimer_FindMatch == INVALID_HANDLE)
@@ -67,9 +75,12 @@ public Action:Timer_FindMatch(Handle:timer)
 }
 
 // Purpose: Add this server into the organizers database table
-void Organizers_Update_This()
+void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 {
 	PrintDebug("Organizers_Update_This()");
+
+	if (SERVER_DB_INACTIVE > reserveStatus > SERVER_DB_ENUM_COUNT)
+		ThrowError("Invalid reserve status %i. Expected status between %i and %i", reserveStatus, SERVER_DB_INACTIVE, SERVER_DB_ENUM_COUNT-1);
 
 	Database_Initialize();
 
@@ -121,7 +132,7 @@ void Organizers_Update_This()
 
 		new paramIndex;
 		SQL_BindParamString(stmt_Insert, paramIndex++, g_identifier, false);
-		SQL_BindParamInt(stmt_Insert, paramIndex++, SERVER_DB_INACTIVE);
+		SQL_BindParamInt(stmt_Insert, paramIndex++, reserveStatus);
 		SQL_Execute(stmt_Insert);
 		CloseHandle(stmt_Insert);
 	}
@@ -137,7 +148,7 @@ void Organizers_Update_This()
 			ThrowError(error);
 
 		new paramIndex;
-		SQL_BindParamInt(stmt_Update, paramIndex++, SERVER_DB_INACTIVE);
+		SQL_BindParamInt(stmt_Update, paramIndex++, reserveStatus);
 		SQL_BindParamString(stmt_Update, paramIndex++, g_identifier, false);
 		SQL_Execute(stmt_Update);
 		CloseHandle(stmt_Update);
@@ -829,11 +840,6 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 {
 	PrintDebug("OfferMatch(%s, %s, %i, %s)", serverName, serverIP, serverPort, serverPassword);
 
-	/*
-		- Get players info, determine priority, offer match
-		- Release organizers reservation
-	*/
-
 	Database_Initialize();
 
 	decl String:sql[MAX_SQL_LENGTH];
@@ -851,10 +857,11 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 		CloseHandle(query);
 		PrintToServer("There are not enough queuing players to offer a match.");
 		PrintToChatAll("There are not enough queuing players to offer a match.");
+		//TODO: Release
 		return;
 	}
 
-	// Declare 2D arrays of current PUG queuers
+	// Declare arrays of current PUG queuers
 	new String:puggers_SteamID[results][MAX_STEAMID_LENGTH];
 	new String:puggers_Timestamp[results][MAX_SQL_TIMESTAMP_LENGTH];
 	new String:puggers_ignoredTimestamp[results][MAX_SQL_TIMESTAMP_LENGTH];
@@ -1110,7 +1117,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 	return Plugin_Stop;
 }
 
-void Pugger_ShowMatchOfferMenu(client, DataPack:invitePack)
+void Pugger_ShowMatchOfferMenu(client, DataPack:invitePack) //FIXME: global vars are probably more flexible for this (or set datapack pos handles)
 {
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];

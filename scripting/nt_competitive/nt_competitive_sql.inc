@@ -70,7 +70,8 @@ enum {
 enum {
 	SERVER_DB_INACTIVE = 0,									// This server is not editing the SQL database
 	SERVER_DB_RESERVED,											// This server has reserved the right to edit the SQL database
-	SERVER_DB_PASSING_ON										// This server has finished editing the SQL database, but wants to pass on that right to a specific other server
+	SERVER_DB_PASSING_ON,										// This server has finished editing the SQL database, but wants to pass on that right to a specific other server
+	SERVER_DB_ENUM_COUNT
 };
 
 new const String:g_sqlTable_Organizers[] = "organizers";

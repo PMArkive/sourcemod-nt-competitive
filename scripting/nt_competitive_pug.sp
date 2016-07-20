@@ -10,6 +10,8 @@
 #define DEBUG_SQL 1 // Make sure this is set to 0 unless you really want to debug the SQL as it disables some safety checks
 #define PLUGIN_VERSION "0.1"
 
+#define MAX_IDENTIFIER_LENGTH 52
+#define MAX_IP_LENGTH 46
 #define MAX_CVAR_LENGTH 64
 #define MAX_STEAMID_LENGTH 44
 #define PUG_INVITE_TIME 60
@@ -29,7 +31,7 @@ new bool:g_isJustLoaded = true;
 new const String:g_tag[] = "[PUG]";
 
 // TODO: automate fallback
-new String:g_identifier[52]; // Set this to something uniquely identifying if the plugin fails to retrieve your external IP.
+new String:g_identifier[MAX_IDENTIFIER_LENGTH]; // Set this to something uniquely identifying if the plugin fails to retrieve your external IP.
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",
@@ -682,10 +684,10 @@ void FindMatch()
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
-	decl String:name[128];
-	decl String:ip[128];
-	decl String:password[128];
-	decl String:reservee[128];
+	decl String:name[MAX_CVAR_LENGTH];
+	decl String:ip[MAX_IP_LENGTH];
+	decl String:password[MAX_CVAR_LENGTH];
+	decl String:reservee[MAX_IDENTIFIER_LENGTH];
 	decl String:reservation_timestamp[128];
 	new port;
 	new status;
@@ -805,8 +807,8 @@ void FindMatch()
 
 	PrintDebug("FindMatch: Found %i PUG server(s)", SQL_GetRowCount(query_Pugs));
 
-	decl String:reservedServer_Name[128];
-	decl String:reservedServer_IP[46];
+	decl String:reservedServer_Name[MAX_CVAR_LENGTH];
+	decl String:reservedServer_IP[MAX_IP_LENGTH];
 	decl String:reservedServer_Password[MAX_CVAR_LENGTH];
 	new reservedServer_Port;
 	new paramIndex;
@@ -1032,8 +1034,8 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 
 	PrintDebug("Invite results:\nAccepted: %i\nAvailable extras: %i\nTotal amount: %i", results_AcceptedMatch, results_AvailableAlternatives, results_Total);
 
-	new String:serverName[128];
-	new String:serverIP[46];
+	new String:serverName[MAX_IDENTIFIER_LENGTH];
+	new String:serverIP[MAX_IP_LENGTH];
 	new String:serverPassword[MAX_CVAR_LENGTH];
 	new serverPort;
 
@@ -1211,58 +1213,16 @@ void Pugger_SendMatchOffer(client)
 
 	Database_Initialize();
 
+	// Return Unix timestamp of when the player queued
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-
-	decl String:offer_ServerIP[45];
-	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
-	new id;
-	new offer_ServerPort;
-
-	// Get info of server this player is being invited into
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
-
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt == INVALID_HANDLE)
-		ThrowError(error);
-
-	SQL_BindParamString(stmt, 0, steamID, false);
-	SQL_Execute(stmt);
-
-	new results;
-	while (SQL_FetchRow(stmt))
-	{
-		results++;
-		if (results > 1)
-		{
-			LogError("Pugger_SendMatchOffer(%i): Found multiple pugger records from database for SteamID %s, expected to find 1.", client, steamID);
-			break;
-		}
-
-		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP, offer_ServerIP, sizeof(offer_ServerIP));
-		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_PASSWORD, offer_ServerPassword, sizeof(offer_ServerPassword));
-		id = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_ID);
-		offer_ServerPort = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
-	}
-
-	if (results == 0)
-	{
-		CloseHandle(stmt);
-		ThrowError("Pugger_SendMatchOffer(%i): Found 0 pugger records from database for SteamID %s, expected to find 1.", client, steamID);
-	}
-
-	CloseHandle(stmt);
-
-	// Return Unix timestamp of when the player queued
 	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(%s) FROM %s WHERE %s = ?", g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP], g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
 
 	new Handle:stmt_Epoch_Queued = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Epoch_Queued == INVALID_HANDLE)
 		ThrowError(error);
 
+	new id;
 	SQL_BindParamInt(stmt_Epoch_Queued, 0, id);
 	SQL_Execute(stmt_Epoch_Queued);
 
@@ -1278,11 +1238,7 @@ void Pugger_SendMatchOffer(client)
 	}
 	CloseHandle(stmt_Epoch_Queued);
 
-	DataPack inviteData = new DataPack();
-	inviteData.WriteString(offer_ServerIP);
-	inviteData.WriteCell(offer_ServerPort);
-	inviteData.WriteString(offer_ServerPassword);
-
+	DataPack inviteData = GetClientInvite(client);
 	Pugger_ShowMatchOfferMenu(client, inviteData);
 	delete inviteData;
 }
@@ -1361,7 +1317,7 @@ void GenerateIdentifier_This()
 	if (cvarIP == INVALID_HANDLE)
 		SetFailState("Could not find cvar \"ip\"");
 
-	decl String:ipAddress[46];
+	decl String:ipAddress[MAX_IP_LENGTH];
 	GetConVarString(cvarIP, ipAddress, sizeof(ipAddress));
 	CloseHandle(cvarIP);
 
@@ -1402,3 +1358,54 @@ void CheckForSpookiness(const String:haystack[])
 		SetFailState("Found potentially dangerous characters \" or ; inside the plugin's SQL string, which could result to incorrect SQL statements. Check your plugin source code for errors. String contents: \"%s\"", haystack);
 }
 #endif
+
+DataPack GetClientInvite(client)
+{
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		ThrowError("Invalid or fake client %i");
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_Select == INVALID_HANDLE)
+		ThrowError(error);
+
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+
+	SQL_BindParamString(stmt_Select, 0, steamID, false);
+	SQL_Execute(stmt_Select);
+
+//	decl String:inviteName[MAX_CVAR_LENGTH];
+	decl String:inviteIP[MAX_IP_LENGTH];
+	decl String:invitePassword[MAX_CVAR_LENGTH];
+	new invitePort;
+
+	new rows;
+	while (SQL_FetchRow(stmt_Select))
+	{
+		rows++;
+		if (rows > 1)
+		{
+			CloseHandle(stmt_Select);
+			ThrowError("Found multiple database entries for SteamID %s", steamID);
+		}
+
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP, inviteIP, sizeof(inviteIP));
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_GAMESERVER_PASSWORD, invitePassword, sizeof(invitePassword));
+		SQL_FetchInt(stmt_Select, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
+	}
+	CloseHandle(stmt_Select);
+
+	if (rows == 0)
+		ThrowError("Found %i database entries for SteamID %s", rows, steamID);
+
+	DataPack inviteData = new DataPack();
+	inviteData.WriteString(inviteIP);
+	inviteData.WriteCell(invitePort);
+	inviteData.WriteString(invitePassword);
+
+	return inviteData;
+}

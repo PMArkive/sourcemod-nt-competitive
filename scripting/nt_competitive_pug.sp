@@ -74,9 +74,9 @@ public OnConfigsExecuted()
 	*/
 }
 
-public Action:Timer_FindMatch(Handle:timer)
+public Action:Timer_FindMatch(Handle:timer, DataPack:inviteData)
 {
-	FindMatch();
+	OfferMatch(inviteData);
 	return Plugin_Continue;
 }
 
@@ -879,15 +879,38 @@ void FindMatch()
 	SQL_Execute(stmt_UpdateState);
 	CloseHandle(stmt_UpdateState);
 
+	DataPack reservedPack = new DataPack();
+	reservedPack.WriteString(reservedServer_Name);
+	reservedPack.WriteString(reservedServer_IP);
+	reservedPack.WriteCell(reservedServer_Port);
+	reservedPack.WriteString(reservedServer_Password);
+
 	// Passed all checks, can offer a PUG match to the players in queue
-	OfferMatch(reservedServer_Name, reservedServer_IP, reservedServer_Port, reservedServer_Password);
+	g_hTimer_FindMatch = CreateTimer(5.0, Timer_FindMatch, reservedPack, TIMER_REPEAT);
+	delete reservedPack;
 }
 
-void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, const String:serverPassword[])
+void OfferMatch(DataPack:reservedPack)
 {
-	PrintDebug("OfferMatch(%s, %s, %i, %s)", serverName, serverIP, serverPort, serverPassword);
-
 	Database_Initialize();
+
+	// !!!FIXME!!!
+	// Need a set group of players to keep checking in the timer loop
+	// until all have accepted or time runs out.
+	// Currently, this just finds any matching players unconsistently.
+
+	decl String:serverName[MAX_CVAR_LENGTH];
+	decl String:serverIP[MAX_IP_LENGTH];
+	decl String:serverPassword[MAX_CVAR_LENGTH];
+	new serverPort;
+
+	reservedPack.Reset();
+	reservedPack.ReadString(serverName, sizeof(serverName));
+	reservedPack.ReadString(serverIP, sizeof(serverIP));
+	serverPort = reservedPack.ReadCell();
+	reservedPack.ReadString(serverPassword, sizeof(serverPassword));
+
+	PrintDebug("OfferMatch(%s, %s, %i, %s)", serverName, serverIP, serverPort, serverPassword);
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];

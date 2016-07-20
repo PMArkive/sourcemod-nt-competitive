@@ -1240,7 +1240,6 @@ void Pugger_SendMatchOffer(client)
 
 	DataPack inviteData = GetClientInvite(client);
 	Pugger_ShowMatchOfferMenu(client, inviteData);
-	delete inviteData;
 }
 
 public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client, choice)

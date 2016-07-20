@@ -491,17 +491,16 @@ void Database_RemovePugger(client)
 
 	Database_Initialize();
 
-	decl String:steamID[MAX_STEAMID_LENGTH];
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable_Puggers);
 
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
+
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
 
 	SQL_BindParamString(stmt, 0, steamID, false);
 	SQL_Execute(stmt);

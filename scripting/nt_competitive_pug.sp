@@ -1156,12 +1156,13 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 	return Plugin_Stop;
 }
 
-void Pugger_ShowMatchOfferMenu(client, DataPack:invitePack) //FIXME: global vars are probably more flexible for this (or set datapack pos handles)
+void Pugger_ShowMatchOfferMenu(client)
 {
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
 	new offer_ServerPort;
 
+	DataPack invitePack = GetClientInvite(client);
 	invitePack.Reset();
 	invitePack.ReadString(offer_ServerIP, sizeof(offer_ServerIP));
 	offer_ServerPort = invitePack.ReadCell();
@@ -1238,8 +1239,7 @@ void Pugger_SendMatchOffer(client)
 	}
 	CloseHandle(stmt_Epoch_Queued);
 
-	DataPack inviteData = GetClientInvite(client);
-	Pugger_ShowMatchOfferMenu(client, inviteData);
+	Pugger_ShowMatchOfferMenu(client);
 }
 
 public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client, choice)
@@ -1406,5 +1406,6 @@ DataPack GetClientInvite(client)
 	inviteData.WriteCell(invitePort);
 	inviteData.WriteString(invitePassword);
 
+	// FIXME: Check if player is actually invited right now (SQL_TABLE_PUGGER_STATE)
 	return inviteData;
 }

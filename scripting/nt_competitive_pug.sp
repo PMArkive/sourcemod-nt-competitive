@@ -281,6 +281,9 @@ void AcceptMatch(client)
 {
 	PrintDebug("AcceptMatch()");
 
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		ThrowError("Invalid or fake client %i", client);
+
 	if (Organizers_Get_Status_This() != SERVER_DB_RESERVED)
 	{
 		ReplyToCommand(client, "%s Joining time has ended.", g_tag);
@@ -293,17 +296,12 @@ void AcceptMatch(client)
 // TODO: Always log this command to a logfile
 public Action:Command_CreateTables(client, args)
 {
-	new rows = -1; // Start nonzero to recognize if Database_GetRowCountForTableName() fails
-	rows = Database_GetRowCountForTableName(g_sqlTable_Puggers);
+	new rows;
+	rows += Database_GetRowCountForTableName(g_sqlTable_Puggers);
 	rows += Database_GetRowCountForTableName(g_sqlTable_Organizers);
 	rows += Database_GetRowCountForTableName(g_sqlTable_PickupServers);
 
-	if (rows < 0)
-	{
-		ReplyToCommand(client, "%s Table creation failed, check error logs.", g_tag); // Database_Initialize() should throw an error if this happens
-		return Plugin_Stop;
-	}
-	else if (rows > 0)
+	if (rows > 0)
 	{
 		ReplyToCommand(client, "%s Database returned %i already existing PUG rows!", g_tag, rows);
 		ReplyToCommand(client, "Make sure no PUG tables exist before running this command.");
@@ -859,9 +857,6 @@ void FindMatch()
 		new Handle:stmt_Release = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Release == INVALID_HANDLE)
 			ThrowError(error);
-
-		//PrintDebug("SQL is: %s", sql);
-		//PrintDebug("My identifier is: %s", g_identifier);
 
 		paramIndex = 0;
 		SQL_BindParamInt(stmt_Release, paramIndex++, SERVER_DB_INACTIVE);

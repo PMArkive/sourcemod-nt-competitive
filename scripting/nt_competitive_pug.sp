@@ -153,6 +153,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	}
 }
 
+// Purpose: Return reserve status int enum of this org server
 int Organizers_Get_Status_This()
 {
 	PrintDebug("Organizers_Get_Status_This()");
@@ -176,13 +177,16 @@ int Organizers_Get_Status_This()
 		status = SQL_FetchInt(stmt_Select, SQL_TABLE_ORG_RESERVING);
 		results++;
 	}
-	if (0 >= results > 1 )
+	if (results != 1)
 	{
 		CloseHandle(stmt_Select);
 		ThrowError("Found %i results for identifier %s, expected 1.", results, g_identifier);
 	}
-
 	CloseHandle(stmt_Select);
+
+	if (SERVER_DB_INACTIVE > status >= SERVER_DB_ENUM_COUNT)
+		ThrowError("Status %i is out of enum bounds %i - %i", status, SERVER_DB_INACTIVE, SERVER_DB_ENUM_COUNT-1);
+
 	return status;
 }
 
@@ -637,7 +641,6 @@ int Pugger_GetQueuingState(client)
 			break;
 		}
 	}
-
 	CloseHandle(stmt);
 
 	return state;
@@ -671,23 +674,10 @@ int Puggers_GetCountPerState(state)
 void FindMatch()
 {
 	PrintDebug("FindMatch()");
-
 	PrintDebug("Puggers queued: %i (%i wanted per match)", Puggers_GetCountPerState(PUGGER_STATE_QUEUING), DESIRED_PLAYERCOUNT);
 
-	// Offer match if enough players available
-
-	/*
-		- Is match creation currently open?
-		- Are there pug servers currently available?
-		- Reserve match creation
-		- Who have queued for longest?
-		- Are they not afk?
-		- Prepare game server
-		- Set states in pugger table
-		- Release match creation
-	*/
-
 	Database_Initialize();
+	Organizers_Update_This(); // Make sure we are a valid organizer
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -699,8 +689,6 @@ void FindMatch()
 	decl String:reservation_timestamp[128];
 	new port;
 	new status;
-
-	Organizers_Update_This(); // Make sure we are a valid organizer
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
@@ -817,14 +805,13 @@ void FindMatch()
 
 	PrintDebug("FindMatch: Found %i PUG server(s)", SQL_GetRowCount(query_Pugs));
 
-	new serversAvailable;
-
 	decl String:reservedServer_Name[128];
 	decl String:reservedServer_IP[46];
 	decl String:reservedServer_Password[MAX_CVAR_LENGTH];
 	new reservedServer_Port;
 	new paramIndex;
 
+	new serversAvailable;
 	while (SQL_FetchRow(query_Pugs))
 	{
 		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));
@@ -945,8 +932,8 @@ void OfferMatch(const String:serverName[], const String:serverIP[], serverPort, 
 
 	// Loop of viable puggers to offer match for.
 
-	// Todo 1: Set up basic match announce system based on who queued first
-	// Todo 2: Set up logic to take queueing time and player's "afk-ness" into account determining their priority in PUG queue (basically avoid offering matches to AFK players over and over without excluding them altogether)
+	// TODO 1: Set up basic match announce system based on who queued first
+	// TODO 2: Set up logic to take queueing time and player's "afk-ness" into account determining their priority in PUG queue (basically avoid offering matches to AFK players over and over without excluding them altogether)
 	if (results < DESIRED_PLAYERCOUNT)
 		ThrowError("results (%i) < DESIRED_PLAYERCOUNT (%i)", results, DESIRED_PLAYERCOUNT);
 

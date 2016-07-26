@@ -285,7 +285,7 @@ void FindNewMatch()
 		return;
 
 	// Are there any available PUG servers?
-	if (Database_GetRowCountForTableName(g_sqlTable_PickupServers) < 1)
+	if (Database_GetRowCountForTableName(g_sqlTable_PickupServers) < 1) // BUG / FIXME: This is row count regardless of state, need PUG_SERVER_STATUS_AVAILABLE specifically!
 		return;
 
 	// Are there enough queued puggers available?

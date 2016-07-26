@@ -51,27 +51,27 @@ enum {
 
 enum {
 	PUGGER_STATE_INACTIVE = 0,								// This pugger is not currently queuing or playing at all
-	PUGGER_STATE_QUEUING,										// Queuing for a match
-	PUGGER_STATE_CONFIRMING,								// Match has been offered, waiting for this pugger to accept
-	PUGGER_STATE_ACCEPTED,									// Pugger has accepted a match, preparing to go live
-	PUGGER_STATE_LIVE,											// Currently playing
-	PUGGER_STATE_ENUM_COUNT
+	PUGGER_STATE_QUEUING = 1,										// Queuing for a match
+	PUGGER_STATE_CONFIRMING = 2,								// Match has been offered, waiting for this pugger to accept
+	PUGGER_STATE_ACCEPTED = 3,									// Pugger has accepted a match, preparing to go live
+	PUGGER_STATE_LIVE = 4,											// Currently playing
+	PUGGER_STATE_ENUM_COUNT = 5
 };
 
 enum {
 	PUG_SERVER_STATUS_ERROR = 0,							// Something is wrong with this server, unavailable for PUG
-	PUG_SERVER_STATUS_BUSY,									// Server is preoccupied by some organized event etc.
-	PUG_SERVER_STATUS_AVAILABLE,							// Server is available for pugging
-	PUG_SERVER_STATUS_RESERVED,							// An organizer has reserved this server for a pug match
-	PUG_SERVER_STATUS_AWAITING_PLAYERS,				// All puggers accepted, waiting for players to join to start a match
-	PUG_SERVER_STATUS_LIVE									// Match is live
+	PUG_SERVER_STATUS_BUSY = 1,									// Server is preoccupied by some organized event etc.
+	PUG_SERVER_STATUS_AVAILABLE = 2,							// Server is available for pugging
+	PUG_SERVER_STATUS_RESERVED = 3,							// An organizer has reserved this server for a pug match
+	PUG_SERVER_STATUS_AWAITING_PLAYERS = 4,				// All puggers accepted, waiting for players to join to start a match
+	PUG_SERVER_STATUS_LIVE = 5									// Match is live
 };
 // Avoid double booking games and other conflicts
 enum {
 	SERVER_DB_INACTIVE = 0,									// This server is not editing the SQL database
-	SERVER_DB_RESERVED,											// This server has reserved the right to edit the SQL database
-	SERVER_DB_PASSING_ON,										// This server has finished editing the SQL database, but wants to pass on that right to a specific other server
-	SERVER_DB_ENUM_COUNT
+	SERVER_DB_RESERVED = 1,											// This server has reserved the right to edit the SQL database
+	SERVER_DB_PASSING_ON = 2,										// This server has finished editing the SQL database, but wants to pass on that right to a specific other server
+	SERVER_DB_ENUM_COUNT = 3
 };
 
 new const String:g_sqlTable_Organizers[] = "organizers";

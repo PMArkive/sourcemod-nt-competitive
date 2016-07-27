@@ -62,20 +62,7 @@ public OnConfigsExecuted()
 #endif
 		g_isJustLoaded = false;
 	}
-
-	/*
-	if (g_hTimer_FindMatch == INVALID_HANDLE)
-		CreateTimer(30.0, Timer_FindMatch, _, TIMER_REPEAT);
-	*/
 }
-
-/*
-public Action:Timer_FindMatch(Handle:timer, DataPack:inviteData)
-{
-	OfferMatch(inviteData);
-	return Plugin_Continue;
-}
-*/
 
 // Purpose: Add this server into the organizers database table, and set its reserve status.
 // FIXME: Need to take others' status into consideration when setting status other than default
@@ -220,8 +207,6 @@ public Action:Command_Pug(client, args)
 
 	Database_AddPugger(client);
 	ReplyToCommand(client, "%s You have joined the PUG queue.", g_tag);
-
-//	FindMatch();
 
 	FindNewMatch();
 
@@ -747,16 +732,6 @@ int Puggers_GetCountPerState(state)
 	return results;
 }
 
-/*
-Datapack:
-	- PUG server IP
-	- PUG server port
-	- PUG server password
-	* for loop
-	- player SteamID
-	- player name
-*/
-
 void PugServer_Reserve()
 {
 	Database_Initialize();
@@ -858,164 +833,6 @@ float IntToFloat(integer)
 	return integer * 1.0;
 }
 */
-public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
-{
-	// Max invite time has passed, cancel current invitation if it hasn't passed
-	PrintDebug("Max invite time has passed, cancel current invitation if it hasn't passed");
-
-	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Puggers);
-
-	new Handle:query = SQL_Query(db, sql);
-	if (query == INVALID_HANDLE)
-	{
-		LogError("Timer_InviteExpiration(): SQL error while executing: \"%s\"", sql);
-		CloseHandle(serverData);
-		return Plugin_Stop;
-	}
-
-	new results_AcceptedMatch;			// How many players accepted match invite
-	new results_AvailableAlternatives;	// How many extra players are available in case some didn't accept
-	new results_Total;						// How many players were found total, with any state
-
-	while (SQL_FetchRow(query))
-	{
-		switch (SQL_FetchInt(query, SQL_TABLE_PUGGER_STATE))
-		{
-			case PUGGER_STATE_ACCEPTED:
-				results_AcceptedMatch++;
-
-			case PUGGER_STATE_QUEUING:
-				results_AvailableAlternatives++;
-		}
-		results_Total++;
-	}
-	CloseHandle(query);
-
-	PrintDebug("Invite results:\nAccepted: %i\nAvailable extras: %i\nTotal amount: %i", results_AcceptedMatch, results_AvailableAlternatives, results_Total);
-
-	new String:serverName[MAX_IDENTIFIER_LENGTH];
-	new String:serverIP[MAX_IP_LENGTH];
-	new String:serverPassword[MAX_CVAR_LENGTH];
-	new serverPort;
-
-	// Retrieve PUG server info from datapack
-	serverData.Reset();
-	serverData.ReadString(serverName, sizeof(serverName));
-	serverData.ReadString(serverIP, sizeof(serverIP));
-	serverData.ReadString(serverPassword, sizeof(serverPassword));
-	serverPort = serverData.ReadCell();
-	delete serverData;
-	// TODO: confirm variables are properly populated
-
-	PrintDebug("Server data: %s %s : %i : %s", serverName, serverIP, serverPort, serverPassword);
-
-	// Everyone accepted the match.
-	if (results_AcceptedMatch == DESIRED_PLAYERCOUNT)
-	{
-		// Find the PUG server in database
-		Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s=? AND %s=?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
-
-		new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-		if (stmt == INVALID_HANDLE)
-		{
-			LogError("Timer_InviteExpiration(): %s", error);
-			return Plugin_Stop;
-		}
-
-		new paramIndex;
-		SQL_BindParamString(stmt, paramIndex++, serverIP, false);
-		SQL_BindParamInt(stmt, paramIndex++, serverPort);
-		SQL_Execute(stmt);
-		PrintDebug("SQL: %s", sql);
-		PrintDebug("Params: %s, %i", serverIP, serverPort);
-
-		new rows = SQL_GetRowCount(stmt);
-		if (rows != 1)
-		{
-			LogError("Timer_InviteExpiration(): Found %i results for PUG server %s:%i that was supposed to be reserved for this match, expected to find 1 result.", rows, serverIP, serverPort);
-			CloseHandle(stmt);
-			return Plugin_Stop;
-		}
-
-		new status;
-		new String:serverPassword_Db[MAX_CVAR_LENGTH];
-		while (SQL_FetchRow(stmt))
-		{
-			status = SQL_FetchInt(stmt, SQL_TABLE_PUG_SERVER_STATUS);
-			//SQL_FetchString(stmt, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, serverPassword_Db, sizeof(serverPassword_Db));
-		}
-
-		// TODO: Make sure this never happens
-		if (!StrEqual(serverPassword, serverPassword_Db))
-		{
-			LogError("Timer_InviteExpiration(): Current server password (\"%s\") is different from the one offered to the PUG players (\"%s\")", serverPassword_Db, serverPassword);
-
-			PrintDebug("serverPassword length: %i, serverPassword_Db length: %i", strlen(serverPassword), strlen(serverPassword_Db));
-
-			CloseHandle(stmt);
-			return Plugin_Stop;
-		}
-
-		if (status == PUG_SERVER_STATUS_ERROR || status == PUG_SERVER_STATUS_BUSY)
-		{
-			LogError("Timer_InviteExpiration(): Expected PUG server is returning an incompatible status %i. Expected PUG_SERVER_STATUS_RESERVED (%i), PUG_SERVER_STATUS_AWAITING_PLAYERS(%i) or PUG_SERVER_STATUS_LIVE(%i)", status, PUG_SERVER_STATUS_RESERVED, PUG_SERVER_STATUS_AWAITING_PLAYERS, PUG_SERVER_STATUS_LIVE);
-			CloseHandle(stmt);
-			return Plugin_Stop;
-		}
-		else if (status == PUG_SERVER_STATUS_LIVE)
-		{
-			// TODO
-		}
-		else if (status == PUG_SERVER_STATUS_RESERVED)
-		{
-			// Update server status to "awaiting players" if it isn't already and the match isn't live yet
-			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
-
-			new Handle:stmt_UpdateState = SQL_PrepareQuery(db, sql, error, sizeof(error));
-			if (stmt_UpdateState == INVALID_HANDLE)
-			{
-				LogError("Timer_InviteExpiration(): %s", error);
-				CloseHandle(stmt);
-				return Plugin_Stop;
-			}
-
-			paramIndex = 0;
-			SQL_BindParamInt(stmt_UpdateState, paramIndex++, PUG_SERVER_STATUS_AWAITING_PLAYERS);
-			SQL_BindParamString(stmt_UpdateState, paramIndex++, serverIP, false);
-			SQL_BindParamInt(stmt_UpdateState, paramIndex++, serverPort);
-			SQL_Execute(stmt_UpdateState);
-
-			CloseHandle(stmt_UpdateState);
-
-			// Mark this server as wishing to pass on command to the PUG server
-			Organizers_Update_This(SERVER_DB_PASSING_ON);
-
-			// TODO: Loop timer here (or higher up, eg. should this timer callback loop?) to make sure the PUG server takes over properly, and
-			// gracefully handle any errors so database editing won't ever get blocked
-		}
-	}
-
-	// This should never happen.
-	if (results_AcceptedMatch > DESIRED_PLAYERCOUNT)
-	{
-		LogError("Timer_InviteExpiration(): results_AcceptedMatch (%i) > DESIRED_PLAYERCOUNT (%i)", results_AcceptedMatch, DESIRED_PLAYERCOUNT);
-	}
-
-	// Everyone didn't accept, however there are enough replacement players.
-	if (DESIRED_PLAYERCOUNT - results_AcceptedMatch <= results_AvailableAlternatives)
-	{
-		// TODO: Offer this match to others queued as required and try again.
-	}
-	// Everyone didn't accept, and there aren't enough replacements.
-	else
-	{
-		// TODO: Give up, and release organizing again.
-	}
-
-	return Plugin_Stop;
-}
 
 /*
 void Pugger_ShowMatchOfferMenu(client)
@@ -1069,42 +886,7 @@ void Pugger_CloseMatchOfferMenu(client)
 	SendPanelToClient(panel, client, PanelHandler_Pugger_CloseMatchOfferMenu, displayTime);
 	CloseHandle(panel);
 }
-/*
-void Pugger_SendMatchOffer(client)
-{
-	if (!Client_IsValid(client) || IsFakeClient(client))
-		ThrowError("Invalid client %i", client);
 
-	Database_Initialize();
-
-	// Return Unix timestamp of when the player queued
-	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(%s) FROM %s WHERE %s = ?", g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP], g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
-
-	new Handle:stmt_Epoch_Queued = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt_Epoch_Queued == INVALID_HANDLE)
-		ThrowError(error);
-
-	new id;
-	SQL_BindParamInt(stmt_Epoch_Queued, 0, id);
-	SQL_Execute(stmt_Epoch_Queued);
-
-	PrintDebug("SQL: %s", sql);
-	PrintDebug("ID: %i", id);
-
-	// TODO: Is this needed?
-	new epoch_PlayerQueuedTime;
-	while (SQL_FetchRow(stmt_Epoch_Queued))
-	{
-		epoch_PlayerQueuedTime = SQL_FetchInt(stmt_Epoch_Queued, 0);
-		PrintDebug("Epoch: %i", epoch_PlayerQueuedTime);
-	}
-	CloseHandle(stmt_Epoch_Queued);
-
-	Pugger_ShowMatchOfferMenu(client);
-}
-*/
 public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client, choice)
 {
 	return;
@@ -1221,56 +1003,3 @@ void CheckForSpookiness(const String:haystack[])
 		SetFailState("Found potentially dangerous characters \" or ; inside the plugin's SQL string, which could result to incorrect SQL statements. Check your plugin source code for errors. String contents: \"%s\"", haystack);
 }
 #endif
-/*
-DataPack GetClientInvite(client)
-{
-	if (!Client_IsValid(client) || IsFakeClient(client))
-		ThrowError("Invalid or fake client %i");
-
-	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
-
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt_Select == INVALID_HANDLE)
-		ThrowError(error);
-
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-
-	SQL_BindParamString(stmt_Select, 0, steamID, false);
-	SQL_Execute(stmt_Select);
-
-//	decl String:inviteName[MAX_CVAR_LENGTH];
-	decl String:inviteIP[MAX_IP_LENGTH];
-	decl String:invitePassword[MAX_CVAR_LENGTH];
-	new invitePort;
-
-	new rows;
-	while (SQL_FetchRow(stmt_Select))
-	{
-		rows++;
-		if (rows > 1)
-		{
-			CloseHandle(stmt_Select);
-			ThrowError("Found multiple database entries for SteamID %s", steamID);
-		}
-
-		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP, inviteIP, sizeof(inviteIP));
-		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_GAMESERVER_PASSWORD, invitePassword, sizeof(invitePassword));
-		SQL_FetchInt(stmt_Select, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
-	}
-	CloseHandle(stmt_Select);
-
-	if (rows == 0)
-		ThrowError("Found %i database entries for SteamID %s", rows, steamID);
-
-	DataPack inviteData = new DataPack();
-	inviteData.WriteString(inviteIP);
-	inviteData.WriteCell(invitePort);
-	inviteData.WriteString(invitePassword);
-
-	// FIXME: Check if player is actually invited right now (SQL_TABLE_PUGGER_STATE)
-	return inviteData;
-}
-*/

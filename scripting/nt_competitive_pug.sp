@@ -26,9 +26,9 @@ new bool:g_isDatabaseDown;
 new bool:g_isJustLoaded = true;
 new bool:g_isQueueActive;
 
-new Float:g_queueTimer = 1.0;
-new Float:g_inactiveTimer = 30.0;
-new Float:g_inactiveDelta;
+new Float:g_queueTimer_Interval = 1.0;
+new Float:g_queueTimer_Inactive = 30.0;
+new Float:g_queueTimer_DeltaTime;
 
 new const String:g_tag[] = "[PUG]";
 
@@ -44,8 +44,6 @@ public Plugin:myinfo = {
 
 public OnPluginStart()
 {
-	g_inactiveDelta = g_inactiveTimer;
-
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 	RegConsoleCmd("sm_join", Command_Accept);
@@ -56,7 +54,8 @@ public OnPluginStart()
 
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug", "Database config entry name", FCVAR_PROTECTED);
 
-	g_hTimer_CheckQueue = CreateTimer(g_queueTimer, Timer_CheckQueue, _, TIMER_REPEAT);
+	g_hTimer_CheckQueue = CreateTimer(g_queueTimer_Interval, Timer_CheckQueue, _, TIMER_REPEAT);
+	g_queueTimer_DeltaTime = g_queueTimer_Inactive;
 }
 
 public OnConfigsExecuted()
@@ -76,16 +75,21 @@ public OnConfigsExecuted()
 
 public Action:Timer_CheckQueue(Handle:timer)
 {
+	// This is called once per interval, so it represents time elapsed
+	g_queueTimer_DeltaTime -= g_queueTimer_Interval;
+
 	if (!g_isQueueActive)
 	{
-		g_inactiveDelta -= g_queueTimer;
-		if (g_inactiveDelta > 0)
+		// Loop timer's inactive period isn't over yet, stop here.
+		// We do this to avoid database spam when there is no active match preparations.
+		if (g_queueTimer_DeltaTime > 0)
 		{
 			return Plugin_Continue;
 		}
+		// Inactive period has elapsed, reset delta variable and continue execution.
 		else
 		{
-			g_inactiveDelta = g_inactiveTimer;
+			g_queueTimer_DeltaTime = g_queueTimer_Inactive;
 		}
 	}
 
@@ -94,9 +98,8 @@ public Action:Timer_CheckQueue(Handle:timer)
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	{
+	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
-	}
 
 	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_CONFIRMING);
 	SQL_Execute(stmt_Select);
@@ -113,8 +116,12 @@ public Action:Timer_CheckQueue(Handle:timer)
 	}
 	CloseHandle(stmt_Select);
 
+	// There are puggers waiting to confirm their match, mark queue as active
 	if (rows > 0)
 		g_isQueueActive = true;
+	// Pugger queue is not active right now
+	else
+		g_isQueueActive = false;
 
 	return Plugin_Continue;
 }
@@ -277,6 +284,8 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
+
+	SQL_Execute(stmt_Select);
 
 	decl String:identifier[sizeof(g_identifier)];
 	new dbState;
@@ -892,6 +901,9 @@ float IntToFloat(integer)
 
 void Pugger_ShowMatchOfferMenu(client)
 {
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		return;
+
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
 	new offer_ServerPort;
@@ -925,7 +937,7 @@ void Pugger_ShowMatchOfferMenu(client)
 	DrawPanelText(panel, " ");
 
 	decl String:text_TimeToAccept[24];
-	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", RoundToNearest(g_inactiveDelta));
+	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", RoundToNearest(g_queueTimer_DeltaTime)); // FIXME: This is wrong. Use another timer entirely inside the timer function for invite expiration instead of the delta global
 	DrawPanelText(panel, text_TimeToAccept);
 
 	decl String:text_PlayersReady[24];

@@ -20,12 +20,18 @@
 
 new Handle:g_hCvar_DbConfig;
 
+new Handle:g_hTimer_CheckQueue = INVALID_HANDLE;
+
 new bool:g_isDatabaseDown;
 new bool:g_isJustLoaded = true;
+new bool:g_isQueueActive;
+
+new Float:g_queueTimer = 1.0;
+new Float:g_inactiveTimer = 30.0;
+new Float:g_inactiveDelta;
 
 new const String:g_tag[] = "[PUG]";
 
-// TODO: automate fallback
 new String:g_identifier[MAX_IDENTIFIER_LENGTH]; // Set this to something uniquely identifying if the plugin fails to retrieve your external IP.
 
 public Plugin:myinfo = {
@@ -38,6 +44,8 @@ public Plugin:myinfo = {
 
 public OnPluginStart()
 {
+	g_inactiveDelta = g_inactiveTimer;
+
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 	RegConsoleCmd("sm_join", Command_Accept);
@@ -47,6 +55,8 @@ public OnPluginStart()
 #endif
 
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug", "Database config entry name", FCVAR_PROTECTED);
+
+	g_hTimer_CheckQueue = CreateTimer(g_queueTimer, Timer_CheckQueue, _, TIMER_REPEAT);
 }
 
 public OnConfigsExecuted()
@@ -62,6 +72,51 @@ public OnConfigsExecuted()
 #endif
 		g_isJustLoaded = false;
 	}
+}
+
+public Action:Timer_CheckQueue(Handle:timer)
+{
+	if (!g_isQueueActive)
+	{
+		g_inactiveDelta -= g_queueTimer;
+		if (g_inactiveDelta > 0)
+		{
+			return Plugin_Continue;
+		}
+		else
+		{
+			g_inactiveDelta = g_inactiveTimer;
+		}
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+
+	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	{
+		ThrowError(error);
+	}
+
+	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_CONFIRMING);
+	SQL_Execute(stmt_Select);
+
+	new rows;
+	while (SQL_FetchRow(stmt_Select))
+	{
+		rows++;
+		decl String:steamID[MAX_STEAMID_LENGTH];
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+
+		new client = GetClientOfAuthId(steamID);
+		Pugger_ShowMatchOfferMenu(client);
+	}
+	CloseHandle(stmt_Select);
+
+	if (rows > 0)
+		g_isQueueActive = true;
+
+	return Plugin_Continue;
 }
 
 // Purpose: Add this server into the organizers database table, and set its reserve status.
@@ -827,6 +882,7 @@ void Puggers_Reserve()
 	if (i != DESIRED_PLAYERCOUNT)
 		ThrowError("Could not find %i desired players, found %i instead. This should never happen.", DESIRED_PLAYERCOUNT, i);
 }
+
 /*
 float IntToFloat(integer)
 {
@@ -834,19 +890,30 @@ float IntToFloat(integer)
 }
 */
 
-/*
 void Pugger_ShowMatchOfferMenu(client)
 {
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
 	new offer_ServerPort;
 
-	DataPack invitePack = GetClientInvite(client);
-	invitePack.Reset();
-	invitePack.ReadString(offer_ServerIP, sizeof(offer_ServerIP));
-	offer_ServerPort = invitePack.ReadCell();
-	invitePack.ReadString(offer_ServerPassword, sizeof(offer_ServerPassword));
-	delete invitePack;
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
+
+	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_Select == INVALID_HANDLE)
+		ThrowError(error);
+
+	SQL_BindParamInt(stmt_Select, 0, PUG_SERVER_STATUS_RESERVED);
+	SQL_Execute(stmt_Select);
+
+	while (SQL_FetchRow(stmt_Select))
+	{
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_IP, offer_ServerIP, sizeof(offer_ServerIP));
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, offer_ServerPassword, sizeof(offer_ServerPassword));
+		offer_ServerPort = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
+	}
+	CloseHandle(stmt_Select);
 
 	PrintToChat(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 	PrintToConsole(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
@@ -858,7 +925,7 @@ void Pugger_ShowMatchOfferMenu(client)
 	DrawPanelText(panel, " ");
 
 	decl String:text_TimeToAccept[24];
-	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", g_acceptTimeRemaining);
+	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", RoundToNearest(g_inactiveDelta));
 	DrawPanelText(panel, text_TimeToAccept);
 
 	decl String:text_PlayersReady[24];
@@ -872,7 +939,6 @@ void Pugger_ShowMatchOfferMenu(client)
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
 	CloseHandle(panel);
 }
-*/
 
 void Pugger_CloseMatchOfferMenu(client)
 {
@@ -896,7 +962,7 @@ public PanelHandler_Pugger_CloseMatchOfferMenu(Handle:menu, MenuAction:action, c
 {
 	return;
 }
-/*
+
 int GetClientOfAuthId(const String:steamID[])
 {
 	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];
@@ -912,7 +978,7 @@ int GetClientOfAuthId(const String:steamID[])
 	}
 	return 0;
 }
-*/
+
 
 void Database_Initialize()
 {

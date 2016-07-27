@@ -20,11 +20,6 @@
 
 new Handle:g_hCvar_DbConfig;
 
-new Handle:g_hTimer_FindMatch = INVALID_HANDLE;
-new Handle:g_hTimer_InviteExpiration = INVALID_HANDLE;
-
-new g_acceptTimeRemaining;
-
 new bool:g_isDatabaseDown;
 new bool:g_isJustLoaded = true;
 
@@ -263,59 +258,40 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 	return false;
 }
 
-void OfferMatch(const DataPack playersData)
-{
-	new serverEntries = 3;
-	SetPackPosition(playersData, serverEntries);
-
-	new client;
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	for (new i = 0; i < DESIRED_PLAYERCOUNT; i++)
-	{
-		playersData.ReadString(steamID, sizeof(steamID));
-		client = GetClientOfAuthId(steamID);
-		Pugger_SendMatchOffer(client);
-	}
-}
-
 void FindNewMatch()
 {
 	// Is anyone (including myself) busy organizing a match with the DB right now?
 	if (Organizers_Is_Anyone_Busy())
+	{
 		return;
+	}
+	// Mark ourselves busy
+	else
+	{
+		Organizers_Update_This(SERVER_DB_RESERVED);
+	}
 
 	// Are there any available PUG servers?
 	if (Database_GetRowCountForTableName(g_sqlTable_PickupServers) < 1) // BUG / FIXME: This is row count regardless of state, need PUG_SERVER_STATUS_AVAILABLE specifically!
+	{
+		Organizers_Update_This(); // Can't offer match, give up db reservation
 		return;
+	}
 
 	// Are there enough queued puggers available?
 	if (Puggers_GetCountPerState(PUGGER_STATE_QUEUING) < DESIRED_PLAYERCOUNT)
+	{
+		Organizers_Update_This(); // Can't offer match, give up db reservation
 		return;
+	}
 
-	DataPack serverData = GetPugServer();
-	DataPack playerData = GetPuggers();
+	OfferMatch();
+}
 
-	OfferMatch(playerData);
-
-	/*
-	try:
-		- is there pug server available
-		- if yes, save info to datapack, pass forward
-
-		- are there enough players available
-		- if yes, save players into datapack, pass forward
-
-	- offer match to players
-	- if players refuse or time runs out, see if enough replacement players
-	- if not enough players accept, give up
-	- if enough players accept, pass forward
-
-	- store match to db
-	- pass on sql to pug server
-	- done
-	*/
-
-
+void OfferMatch()
+{
+	PugServer_Reserve();
+	Puggers_Reserve();
 }
 
 public Action:Command_UnPug(client, args)
@@ -781,324 +757,107 @@ Datapack:
 	- player name
 */
 
-DataPack GetPugServer()
+void PugServer_Reserve()
 {
-	PrintDebug("FindMatch()");
-	PrintDebug("Puggers queued: %i (%i wanted per match)", Puggers_GetCountPerState(PUGGER_STATE_QUEUING), DESIRED_PLAYERCOUNT);
-
 	Database_Initialize();
-	Organizers_Update_This(); // Make sure we are a valid organizer
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-
-	// Loop organizers info
-	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
-
-	new Handle:query_Organizers = SQL_Query(db, sql);
-
-	PrintDebug("FindMatch: Found %i organizer(s)", SQL_GetRowCount(query_Organizers));
-
-	decl String:name[MAX_CVAR_LENGTH];
-	decl String:ip[MAX_IP_LENGTH];
-	decl String:password[MAX_CVAR_LENGTH];
-	decl String:reservee[MAX_IDENTIFIER_LENGTH];
-	decl String:reservation_timestamp[128];
-	new port;
-	new status;
-
-	decl String:timestamp[128];
-	decl String:reserving_timestamp[128];
-	new reserveStatus;
-
-	/*
-	// Make sure nobody else is reserving a match. We do this to avoid double-booking players to multiple games.
-	while (SQL_FetchRow(query_Organizers))
-	{
-		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_NAME, name, sizeof(name));
-		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_TIMESTAMP, timestamp, sizeof(timestamp));
-		SQL_FetchString(query_Organizers, SQL_TABLE_ORG_RESERVING_TIMESTAMP, reserving_timestamp, sizeof(reserving_timestamp));
-
-		reserveStatus = SQL_FetchInt(query_Organizers, SQL_TABLE_ORG_RESERVING);
-
-		PrintDebug("\n- - -\n\
-						Organizer info: %s\n\
-						timestamp: %s\n\
-						reserve status: %i\n\
-						reserving timestamp: %s\n\
-						- - -",
-						name, timestamp, reserveStatus, reserving_timestamp
-		);
-
-		// This server isn't currently doing anything that would interfere.
-		if (reserveStatus == SERVER_DB_INACTIVE)
-		{
-			continue;
-		}
-		// This server is reserving a match, we have to wait and try again later.
-		else if (reserveStatus == SERVER_DB_RESERVED)
-		{
-			if (!StrEqual(name, g_identifier))
-			{
-				PrintDebug("Another server with identifier %s is currently reserving a match.", name);
-				CloseHandle(query_Organizers);
-				return;
-			}
-			else
-			{
-				// This should never happen.
-				LogError("FindMatch(): This organizer %s had already been set to reserving status (%i) at %s without clearing it.", name, SERVER_DB_RESERVED, timestamp);
-				continue;
-			}
-		}
-		// This server is prompting a PUG server to take over and create a match; we should wait for this to finish.
-		else if (reserveStatus == SERVER_DB_PASSING_ON)
-		{
-			PrintDebug("Server with identifier %s is currently wanting to pass on command to a PUG server.", name);
-			CloseHandle(query_Organizers);
-			return;
-		}
-		else
-		{
-			LogError("Server with identifier %s is returning an unknown reserve status %i", name, reserveStatus);
-			CloseHandle(query_Organizers);
-			return;
-		}
-	}
-	CloseHandle(query_Organizers);
-	*/
-
-	// Reserve match organizing
-//	Organizers_Update_This(SERVER_DB_RESERVED);
-
-	// Loop PUG servers info
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_PickupServers);
 
 	new Handle:query_Pugs = SQL_Query(db, sql);
 
-	PrintDebug("FindMatch: Found %i PUG server(s)", SQL_GetRowCount(query_Pugs));
-
-	decl String:reservedServer_Name[MAX_CVAR_LENGTH];
-	decl String:reservedServer_IP[MAX_IP_LENGTH];
-	decl String:reservedServer_Password[MAX_CVAR_LENGTH];
-	new reservedServer_Port;
-	new paramIndex;
-
-	//new serversAvailable;
+	new bool:foundServer;
+	new status;
 	while (SQL_FetchRow(query_Pugs))
 	{
-		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, name, sizeof(name));
-		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_IP, ip, sizeof(ip));
-		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD, password, sizeof(password));
-		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_RESERVEE, reservee, sizeof(reservee));
-		SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_RESERVATION_TIMESTAMP, reservation_timestamp, sizeof(reservation_timestamp));
-
-		port = SQL_FetchInt(query_Pugs, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
 		status = SQL_FetchInt(query_Pugs, SQL_TABLE_PUG_SERVER_STATUS);
-
-		PrintDebug("\n- - -\n\
-						Server info: %s\n\
-						%s:%i\n\
-						password: %s\n\
-						status: %i\n\
-						reservee: %s\n\
-						reservation timestamp: %s\n\
-						- - -",
-						name, ip, port, password, status, reservee, reservation_timestamp
-		);
-
 		if (status == PUG_SERVER_STATUS_AVAILABLE)
 		{
-		//	serversAvailable++;
+			foundServer = true;
 
-			strcopy(reservedServer_Name, sizeof(reservedServer_Name), name);
-			strcopy(reservedServer_IP, sizeof(reservedServer_IP), ip);
-			strcopy(reservedServer_Password, sizeof(reservedServer_Password), password);
-			reservedServer_Port = port;
+			decl String:identifier[MAX_IDENTIFIER_LENGTH];
+			SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, identifier, sizeof(identifier));
+
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
+			new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+			if (stmt_Update == INVALID_HANDLE)
+				ThrowError(error);
+
+			new paramIndex;
+			SQL_BindParamInt(stmt_Update, paramIndex++, PUG_SERVER_STATUS_RESERVED);
+			SQL_BindParamString(stmt_Update, paramIndex++, identifier, false);
+			SQL_Execute(stmt_Update);
+			CloseHandle(stmt_Update);
+
 			break;
 		}
 	}
 	CloseHandle(query_Pugs);
 
-	/*
-	// There are no PUG servers available right now, try again later
-	if (serversAvailable == 0)
+	if (!foundServer)
 	{
-		PrintDebug("No PUG servers available right now");
-
-		// Release match organizing
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-
-		new Handle:stmt_Release = SQL_PrepareQuery(db, sql, error, sizeof(error));
-		if (stmt_Release == INVALID_HANDLE)
-			ThrowError(error);
-
-		paramIndex = 0;
-		SQL_BindParamInt(stmt_Release, paramIndex++, SERVER_DB_INACTIVE);
-		SQL_BindParamString(stmt_Release, paramIndex++, g_identifier, false);
-		SQL_Execute(stmt_Release);
-		CloseHandle(stmt_Release);
-
-		return;
+		Organizers_Update_This();
+		ThrowError("Could not find a PUG server to reserve although one was found earlier. This should never happen.");
 	}
-	*/
-
-	Format(sql, sizeof(sql), "UPDATE %s SET %s=? WHERE %s=? AND %s=?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
-
-	new Handle:stmt_UpdateState = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt_UpdateState == INVALID_HANDLE)
-		ThrowError(error);
-
-	paramIndex = 0;
-	SQL_BindParamInt(stmt_UpdateState, paramIndex++, PUG_SERVER_STATUS_RESERVED);
-	SQL_BindParamString(stmt_UpdateState, paramIndex++, reservedServer_IP, false);
-	SQL_BindParamInt(stmt_UpdateState, paramIndex++, reservedServer_Port);
-	SQL_Execute(stmt_UpdateState);
-	CloseHandle(stmt_UpdateState);
-
-	// Passed all checks, can offer a PUG match to the players in queue
-	DataPack reservedPack = new DataPack();
-	reservedPack.WriteString(reservedServer_Name);
-	reservedPack.WriteString(reservedServer_IP);
-	reservedPack.WriteCell(reservedServer_Port);
-	reservedPack.WriteString(reservedServer_Password);
-
-//	FindPuggers(reservedPack);
-//	delete reservedPack;
-	return reservedPack;
 }
 
-DataPack GetPuggers()
+void Puggers_Reserve()
 {
 	Database_Initialize();
 
-	// !!!FIXME!!!
-	// Need a set group of players to keep checking in the timer loop
-	// until all have accepted or time runs out.
-	// Currently, this just finds any matching players unconsistently.
-
-	decl String:serverName[MAX_CVAR_LENGTH];
-	decl String:serverIP[MAX_IP_LENGTH];
-	decl String:serverPassword[MAX_CVAR_LENGTH];
-	new serverPort;
-/*
-	reservedPack.Reset();
-	reservedPack.ReadString(serverName, sizeof(serverName));
-	reservedPack.ReadString(serverIP, sizeof(serverIP));
-	serverPort = reservedPack.ReadCell();
-	reservedPack.ReadString(serverPassword, sizeof(serverPassword));
-*/
-	PrintDebug("OfferMatch(%s, %s, %i, %s)", serverName, serverIP, serverPort, serverPassword);
-
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i ORDER BY %s", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
 
-	new Handle:query = SQL_Query(db, sql);
+	new Handle:query_Puggers = SQL_Query(db, sql);
 
-
-	new results = SQL_GetRowCount(query);
-	PrintDebug("Results: %i", results);
-
-	if (results < DESIRED_PLAYERCOUNT)
-	{
-		CloseHandle(query);
-		Organizers_Update_This();
-		ThrowError("There are not enough queuing players to offer a match.");
-	}
-
-	// Declare arrays of current PUG queuers
-	new String:puggers_SteamID[results][MAX_STEAMID_LENGTH];
-	new String:puggers_Timestamp[results][MAX_SQL_TIMESTAMP_LENGTH];
-	new String:puggers_ignoredTimestamp[results][MAX_SQL_TIMESTAMP_LENGTH];
-	new puggers_ignoredInvites[results];
-
-	// Populate queuer arrays
 	new i;
-	while (SQL_FetchRow(query))
+	new state;
+	while (SQL_FetchRow(query_Puggers))
 	{
-		SQL_FetchString(query, SQL_TABLE_PUGGER_STEAMID, puggers_SteamID[i], MAX_STEAMID_LENGTH);
-		SQL_FetchString(query, SQL_TABLE_PUGGER_TIMESTAMP, puggers_Timestamp[i], MAX_SQL_TIMESTAMP_LENGTH);
-		SQL_FetchString(query, SQL_TABLE_PUGGER_IGNORED_TIMESTAMP, puggers_ignoredTimestamp[i], MAX_SQL_TIMESTAMP_LENGTH);
-		puggers_ignoredInvites[i] = SQL_FetchInt(query, SQL_TABLE_PUGGER_IGNORED_INVITES);
-		i++;
-	}
-	CloseHandle(query);
+		if (i >= DESIRED_PLAYERCOUNT)
+			break;
 
-	// Loop of viable puggers to offer match for.
-
-	// TODO 1: Set up basic match announce system based on who queued first
-	// TODO 2: Set up logic to take queueing time and player's "afk-ness" into account determining their priority in PUG queue (basically avoid offering matches to AFK players over and over without excluding them altogether)
-	if (results < DESIRED_PLAYERCOUNT)
-		ThrowError("results (%i) < DESIRED_PLAYERCOUNT (%i)", results, DESIRED_PLAYERCOUNT);
-
-	DataPack puggerData = new DataPack();
-
-	for (i = 0; i < DESIRED_PLAYERCOUNT; i++)
-	{
-		puggerData.WriteString(puggers_SteamID[i]);
-
-		PrintDebug("Pugger info %i: %s, %s, %s, %i", i, puggers_SteamID[i], puggers_Timestamp[i], puggers_ignoredTimestamp[i], puggers_ignoredInvites[i]);
-
-		// Set pugger's invite rows in database
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ?, %s = ?, %s = ?",
-		g_sqlTable_Puggers,
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_PASSWORD]
-		);
-
-		PrintDebug("UPDATE SQL:\n%s", sql);
-
-		new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-		if (stmt == INVALID_HANDLE)
-			ThrowError(error);
-
-		new paramIndex;
-		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_CONFIRMING);
-		PrintDebug("Param %i: %i", paramIndex, PUGGER_STATE_CONFIRMING);
-
-		SQL_BindParamString(stmt, paramIndex++, serverIP, false);
-		PrintDebug("Param %i: %s", paramIndex, serverIP);
-
-		SQL_BindParamInt(stmt, paramIndex++, serverPort);
-		PrintDebug("Param %i: %i", paramIndex, serverPort);
-
-		SQL_BindParamString(stmt, paramIndex++, serverPassword, false);
-		PrintDebug("Param %i: %s", paramIndex, serverPassword);
-
-		SQL_Execute(stmt);
-		CloseHandle(stmt);
-/*
-		new client = GetClientOfAuthId(puggers_SteamID[i]);
-		// Client is not present on this server
-		if (client == 0)
+		state = SQL_FetchInt(query_Puggers, SQL_TABLE_PUGGER_STATE);
+		if (state != PUGGER_STATE_QUEUING)
 			continue;
 
-		Pugger_SendMatchOffer(client);
-		*/
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Update == INVALID_HANDLE)
+			ThrowError(error);
+
+		decl String:steamID[MAX_STEAMID_LENGTH];
+		SQL_FetchString(query_Puggers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+
+		new paramIndex;
+		SQL_BindParamInt(stmt_Update, paramIndex++, PUGGER_STATE_CONFIRMING);
+		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
+		SQL_Execute(stmt_Update);
+
+		if (SQL_GetAffectedRows(stmt_Update) != 1)
+		{
+			CloseHandle(stmt_Update);
+			CloseHandle(query_Puggers);
+			Organizers_Update_This();
+			ThrowError("SQL query affected %i rows, expected 1. This shouldn't happen.", SQL_GetAffectedRows(stmt_Update));
+		}
+		CloseHandle(stmt_Update);
+
+		i++;
 	}
+	CloseHandle(query_Puggers);
 
-/*
-	DataPack serverData = new DataPack();
-	serverData.WriteString(serverName);
-	serverData.WriteString(serverIP);
-	serverData.WriteString(serverPassword);
-	serverData.WriteCell(serverPort);
-*/
-	//g_hTimer_FindMatch = CreateTimer(5.0, Timer_FindMatch, reservedPack, TIMER_REPEAT);
-//	g_hTimer_InviteExpiration = CreateTimer(IntToFloat(PUG_INVITE_TIME), Timer_InviteExpiration, puggerData);
-
-	return puggerData;
+	if (i != DESIRED_PLAYERCOUNT)
+		ThrowError("Could not find %i desired players, found %i instead. This should never happen.", DESIRED_PLAYERCOUNT, i);
 }
-
+/*
 float IntToFloat(integer)
 {
 	return integer * 1.0;
 }
-
+*/
 public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 {
 	// Max invite time has passed, cancel current invitation if it hasn't passed
@@ -1258,6 +1017,7 @@ public Action:Timer_InviteExpiration(Handle:timer, DataPack:serverData)
 	return Plugin_Stop;
 }
 
+/*
 void Pugger_ShowMatchOfferMenu(client)
 {
 	decl String:offer_ServerIP[45];
@@ -1295,6 +1055,7 @@ void Pugger_ShowMatchOfferMenu(client)
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
 	CloseHandle(panel);
 }
+*/
 
 void Pugger_CloseMatchOfferMenu(client)
 {
@@ -1308,7 +1069,7 @@ void Pugger_CloseMatchOfferMenu(client)
 	SendPanelToClient(panel, client, PanelHandler_Pugger_CloseMatchOfferMenu, displayTime);
 	CloseHandle(panel);
 }
-
+/*
 void Pugger_SendMatchOffer(client)
 {
 	if (!Client_IsValid(client) || IsFakeClient(client))
@@ -1343,7 +1104,7 @@ void Pugger_SendMatchOffer(client)
 
 	Pugger_ShowMatchOfferMenu(client);
 }
-
+*/
 public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client, choice)
 {
 	return;
@@ -1353,7 +1114,7 @@ public PanelHandler_Pugger_CloseMatchOfferMenu(Handle:menu, MenuAction:action, c
 {
 	return;
 }
-
+/*
 int GetClientOfAuthId(const String:steamID[])
 {
 	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];
@@ -1369,6 +1130,7 @@ int GetClientOfAuthId(const String:steamID[])
 	}
 	return 0;
 }
+*/
 
 void Database_Initialize()
 {
@@ -1459,7 +1221,7 @@ void CheckForSpookiness(const String:haystack[])
 		SetFailState("Found potentially dangerous characters \" or ; inside the plugin's SQL string, which could result to incorrect SQL statements. Check your plugin source code for errors. String contents: \"%s\"", haystack);
 }
 #endif
-
+/*
 DataPack GetClientInvite(client)
 {
 	if (!Client_IsValid(client) || IsFakeClient(client))
@@ -1511,3 +1273,4 @@ DataPack GetClientInvite(client)
 	// FIXME: Check if player is actually invited right now (SQL_TABLE_PUGGER_STATE)
 	return inviteData;
 }
+*/

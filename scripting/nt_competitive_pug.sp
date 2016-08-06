@@ -26,6 +26,8 @@ new bool:g_isDatabaseDown;
 new bool:g_isJustLoaded = true;
 new bool:g_isQueueActive;
 
+new g_InviteTimerDisplay[MAXPLAYERS+1];
+
 new Float:g_queueTimer_Interval = 1.0;
 new Float:g_queueTimer_Inactive = 30.0;
 new Float:g_queueTimer_DeltaTime;
@@ -351,14 +353,8 @@ public Action:Command_UnPug(client, args)
 			ReplyToCommand(client, "Please contact server admins for help.");
 			return Plugin_Stop;
 	}
-	if (client == 0)
-	{
-		ReplyToCommand(client, "This command cannot be executed from the server console.");
-		return Plugin_Stop;
-	}
 
 	Database_RemovePugger(client);
-
 	return Plugin_Handled;
 }
 
@@ -406,6 +402,8 @@ void AcceptMatch(client)
 
 	if (!Client_IsValid(client) || IsFakeClient(client))
 		ThrowError("Invalid or fake client %i", client);
+
+	g_InviteTimerDisplay[client] = 0;
 
 	// FIXME: Add check to avoid this accidentally failing whilst calling Organizers_Update_This() and preparing match accept
 	if (Organizers_Get_Status_This() != SERVER_DB_RESERVED)
@@ -612,8 +610,17 @@ void Database_AddPugger(client)
 
 void Database_RemovePugger(client)
 {
+	if (client == 0)
+	{
+		ReplyToCommand(client, "This command cannot be executed from the server console.");
+		return;
+	}
 	if (!Client_IsValid(client) || IsFakeClient(client))
+	{
 		ThrowError("Invalid client %i", client);
+	}
+
+	g_InviteTimerDisplay[client] = 0;
 
 	Database_Initialize();
 
@@ -904,6 +911,9 @@ void Pugger_ShowMatchOfferMenu(client)
 	if (!Client_IsValid(client) || IsFakeClient(client))
 		return;
 
+	if (g_InviteTimerDisplay[client] <= 0)
+		g_InviteTimerDisplay[client] = PUG_INVITE_TIME;
+
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
 	new offer_ServerPort;
@@ -937,11 +947,11 @@ void Pugger_ShowMatchOfferMenu(client)
 	DrawPanelText(panel, " ");
 
 	decl String:text_TimeToAccept[24];
-	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", RoundToNearest(g_queueTimer_DeltaTime)); // FIXME: This is wrong. Use another timer entirely inside the timer function for invite expiration instead of the delta global
+	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", g_InviteTimerDisplay[client]);
 	DrawPanelText(panel, text_TimeToAccept);
 
 	decl String:text_PlayersReady[24];
-	Format(text_PlayersReady, sizeof(text_PlayersReady), "%i / %i players ready", Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED), DESIRED_PLAYERCOUNT);
+	Format(text_PlayersReady, sizeof(text_PlayersReady), "%i / %i players accepted", Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED), DESIRED_PLAYERCOUNT);
 	DrawPanelText(panel, text_PlayersReady);
 
 	DrawPanelText(panel, " ");
@@ -950,6 +960,8 @@ void Pugger_ShowMatchOfferMenu(client)
 
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
 	CloseHandle(panel);
+
+	g_InviteTimerDisplay[client]--;
 }
 
 void Pugger_CloseMatchOfferMenu(client)

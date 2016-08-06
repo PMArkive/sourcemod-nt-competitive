@@ -15,6 +15,7 @@
 #define MAX_CVAR_LENGTH 64
 #define MAX_STEAMID_LENGTH 44
 #define PUG_INVITE_TIME 60
+#define QUEUE_CHECK_TIMER 30
 
 #define DESIRED_PLAYERCOUNT 2 // TODO: Move to database
 
@@ -29,7 +30,6 @@ new bool:g_isQueueActive;
 new g_InviteTimerDisplay[MAXPLAYERS+1];
 
 new Float:g_queueTimer_Interval = 1.0;
-new Float:g_queueTimer_Inactive = 30.0;
 new Float:g_queueTimer_DeltaTime;
 
 new const String:g_tag[] = "[PUG]";
@@ -57,7 +57,7 @@ public OnPluginStart()
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug", "Database config entry name", FCVAR_PROTECTED);
 
 	g_hTimer_CheckQueue = CreateTimer(g_queueTimer_Interval, Timer_CheckQueue, _, TIMER_REPEAT);
-	g_queueTimer_DeltaTime = g_queueTimer_Inactive;
+	g_queueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
 }
 
 public OnConfigsExecuted()
@@ -91,7 +91,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 		// Inactive period has elapsed, reset delta variable and continue execution.
 		else
 		{
-			g_queueTimer_DeltaTime = g_queueTimer_Inactive;
+			g_queueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
 		}
 	}
 
@@ -899,12 +899,10 @@ void Puggers_Reserve()
 		ThrowError("Could not find %i desired players, found %i instead. This should never happen.", DESIRED_PLAYERCOUNT, i);
 }
 
-/*
 float IntToFloat(integer)
 {
 	return integer * 1.0;
 }
-*/
 
 void Pugger_ShowMatchOfferMenu(client)
 {

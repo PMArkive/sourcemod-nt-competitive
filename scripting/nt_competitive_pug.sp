@@ -1,4 +1,8 @@
-//TODO: Abstract more sql operations
+/*
+	TODO:
+		- Abstract more sql operations
+		- Make accept do things!
+*/
 
 #pragma semicolon 1
 
@@ -402,6 +406,7 @@ void AcceptMatch(client)
 		return;
 	}
 
+	Pugger_SetQueuingState(client, PUGGER_STATE_ACCEPTED);
 	ReplyToCommand(client, "AcceptMatch passed.");
 }
 
@@ -730,6 +735,35 @@ void Database_LogIgnore(client)
 {
 	//TODO
 	PrintDebug("Database_LogIgnore(%i)", client);
+}
+
+void Pugger_SetQueuingState(client, state)
+{
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		ThrowError("Invalid client %i", client);
+
+	if ( 0 > state >= PUGGER_STATE_ENUM_COUNT)
+		ThrowError("Invalid state %i, expected value between 0 and %i.", state, PUGGER_STATE_ENUM_COUNT-1);
+
+	Database_Initialize();
+
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+
+	new paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, state);
+	SQL_BindParamString(stmt, paramIndex++, steamID, false);
+	SQL_Execute(stmt);
+	CloseHandle(stmt);
 }
 
 int Pugger_GetQueuingState(client)

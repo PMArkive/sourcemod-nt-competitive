@@ -75,6 +75,7 @@ public OnConfigsExecuted()
 	}
 }
 
+// Purpose: Check if any puggers are marked "confirming", and display the invite panel for those connected to this server
 public Action:Timer_CheckQueue(Handle:timer)
 {
 	// This is called once per interval, so it represents time elapsed

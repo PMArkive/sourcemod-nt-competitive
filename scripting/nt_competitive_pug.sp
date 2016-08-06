@@ -23,18 +23,18 @@ new Handle:g_hCvar_DbConfig;
 
 new Handle:g_hTimer_CheckQueue = INVALID_HANDLE;
 
-new bool:g_isDatabaseDown;
-new bool:g_isJustLoaded = true;
-new bool:g_isQueueActive;
+new bool:g_bIsDatabaseDown;
+new bool:g_bIsJustLoaded = true;
+new bool:g_bIsQueueActive;
 
-new g_InviteTimerDisplay[MAXPLAYERS+1];
+new g_iInviteTimerDisplay[MAXPLAYERS+1];
 
-new Float:g_queueTimer_Interval = 1.0;
-new Float:g_queueTimer_DeltaTime;
+new Float:g_fQueueTimer_Interval = 1.0;
+new Float:g_fQueueTimer_DeltaTime;
 
-new const String:g_tag[] = "[PUG]";
+new const String:g_sTag[] = "[PUG]";
 
-new String:g_identifier[MAX_IDENTIFIER_LENGTH]; // Set this to something uniquely identifying if the plugin fails to retrieve your external IP.
+new String:g_sIdentifier[MAX_IDENTIFIER_LENGTH]; // Set this to something uniquely identifying if the plugin fails to retrieve your external IP.
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",
@@ -56,14 +56,14 @@ public OnPluginStart()
 
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug", "Database config entry name", FCVAR_PROTECTED);
 
-	g_hTimer_CheckQueue = CreateTimer(g_queueTimer_Interval, Timer_CheckQueue, _, TIMER_REPEAT);
-	g_queueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
+	g_hTimer_CheckQueue = CreateTimer(g_fQueueTimer_Interval, Timer_CheckQueue, _, TIMER_REPEAT);
+	g_fQueueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
 }
 
 public OnConfigsExecuted()
 {
 	// Just do this once
-	if (g_isJustLoaded)
+	if (g_bIsJustLoaded)
 	{
 		Database_Initialize();
 		GenerateIdentifier_This();
@@ -71,27 +71,27 @@ public OnConfigsExecuted()
 #if DEBUG_SQL
 		CheckSQLConstants();
 #endif
-		g_isJustLoaded = false;
+		g_bIsJustLoaded = false;
 	}
 }
 
 public Action:Timer_CheckQueue(Handle:timer)
 {
 	// This is called once per interval, so it represents time elapsed
-	g_queueTimer_DeltaTime -= g_queueTimer_Interval;
+	g_fQueueTimer_DeltaTime -= g_fQueueTimer_Interval;
 
-	if (!g_isQueueActive)
+	if (!g_bIsQueueActive)
 	{
 		// Loop timer's inactive period isn't over yet, stop here.
 		// We do this to avoid database spam when there is no active match preparations.
-		if (g_queueTimer_DeltaTime > 0)
+		if (g_fQueueTimer_DeltaTime > 0)
 		{
 			return Plugin_Continue;
 		}
 		// Inactive period has elapsed, reset delta variable and continue execution.
 		else
 		{
-			g_queueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
+			g_fQueueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
 		}
 	}
 
@@ -120,10 +120,10 @@ public Action:Timer_CheckQueue(Handle:timer)
 
 	// There are puggers waiting to confirm their match, mark queue as active
 	if (rows > 0)
-		g_isQueueActive = true;
+		g_bIsQueueActive = true;
 	// Pugger queue is not active right now
 	else
-		g_isQueueActive = false;
+		g_bIsQueueActive = false;
 
 	return Plugin_Continue;
 }
@@ -144,7 +144,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	SQL_BindParamString(stmt_Select, 0, g_identifier, false);
+	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
 	SQL_Execute(stmt_Select);
 
 	if (stmt_Select == INVALID_HANDLE)
@@ -159,7 +159,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	if (results > 1)
 	{
 		//FIXME: Maybe should not expect 0 rows (Command_CreateTables)
-		LogError("Organizers_Update_This(): Found %i results from database for organizer \"%s\", expected 0 or 1.", results, g_identifier);
+		LogError("Organizers_Update_This(): Found %i results from database for organizer \"%s\", expected 0 or 1.", results, g_sIdentifier);
 
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
@@ -167,7 +167,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		if (stmt_Delete == INVALID_HANDLE)
 			ThrowError(error);
 
-		SQL_BindParamString(stmt_Delete, 0, g_identifier, false);
+		SQL_BindParamString(stmt_Delete, 0, g_sIdentifier, false);
 		SQL_Execute(stmt_Delete);
 		CloseHandle(stmt_Delete);
 	}
@@ -181,7 +181,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 			ThrowError(error);
 
 		new paramIndex;
-		SQL_BindParamString(stmt_Insert, paramIndex++, g_identifier, false);
+		SQL_BindParamString(stmt_Insert, paramIndex++, g_sIdentifier, false);
 		SQL_BindParamInt(stmt_Insert, paramIndex++, reserveStatus);
 		SQL_Execute(stmt_Insert);
 		CloseHandle(stmt_Insert);
@@ -197,7 +197,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 
 		new paramIndex;
 		SQL_BindParamInt(stmt_Update, paramIndex++, reserveStatus);
-		SQL_BindParamString(stmt_Update, paramIndex++, g_identifier, false);
+		SQL_BindParamString(stmt_Update, paramIndex++, g_sIdentifier, false);
 		SQL_Execute(stmt_Update);
 		CloseHandle(stmt_Update);
 	}
@@ -214,7 +214,7 @@ int Organizers_Get_Status_This()
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	SQL_BindParamString(stmt_Select, 0, g_identifier, false);
+	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
 	SQL_Execute(stmt_Select);
 
 	if (stmt_Select == INVALID_HANDLE)
@@ -230,7 +230,7 @@ int Organizers_Get_Status_This()
 	if (results != 1)
 	{
 		CloseHandle(stmt_Select);
-		ThrowError("Found %i results for identifier %s, expected 1.", results, g_identifier);
+		ThrowError("Found %i results for identifier %s, expected 1.", results, g_sIdentifier);
 	}
 	CloseHandle(stmt_Select);
 
@@ -242,9 +242,9 @@ int Organizers_Get_Status_This()
 
 public Action:Command_Pug(client, args)
 {
-	if (g_isDatabaseDown)
+	if (g_bIsDatabaseDown)
 	{
-			ReplyToCommand(client, "%s Command failed due to database error.", g_tag);
+			ReplyToCommand(client, "%s Command failed due to database error.", g_sTag);
 			ReplyToCommand(client, "Please contact server admins for help.");
 			return Plugin_Stop;
 	}
@@ -259,18 +259,18 @@ public Action:Command_Pug(client, args)
 
 	if (puggerState == PUGGER_STATE_QUEUING)
 	{
-		ReplyToCommand(client, "%s You are already queuing. Use !unpug to leave the queue.", g_tag);
+		ReplyToCommand(client, "%s You are already queuing. Use !unpug to leave the queue.", g_sTag);
 		return Plugin_Stop;
 	}
 	else if (puggerState == PUGGER_STATE_LIVE)
 	{
-		ReplyToCommand(client, "%s You already have a match live. Use !join to rejoin your match.", g_tag); // TODO: Use function to display pug server info instead (helps with mapload crashing)
+		ReplyToCommand(client, "%s You already have a match live. Use !join to rejoin your match.", g_sTag); // TODO: Use function to display pug server info instead (helps with mapload crashing)
 		//Pugger_ShowJoinInfo(client);
 		return Plugin_Stop;
 	}
 
 	Database_AddPugger(client);
-	ReplyToCommand(client, "%s You have joined the PUG queue.", g_tag);
+	ReplyToCommand(client, "%s You have joined the PUG queue.", g_sTag);
 
 	FindNewMatch();
 
@@ -289,14 +289,14 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 
 	SQL_Execute(stmt_Select);
 
-	decl String:identifier[sizeof(g_identifier)];
+	decl String:identifier[sizeof(g_sIdentifier)];
 	new dbState;
 	while (SQL_FetchRow(stmt_Select))
 	{
 		if (!includeMyself)
 		{
 			SQL_FetchString(stmt_Select, SQL_TABLE_ORG_NAME, identifier, sizeof(identifier));
-			if (StrEqual(identifier, g_identifier))
+			if (StrEqual(identifier, g_sIdentifier))
 				continue;
 		}
 
@@ -347,9 +347,9 @@ void OfferMatch()
 
 public Action:Command_UnPug(client, args)
 {
-	if (g_isDatabaseDown)
+	if (g_bIsDatabaseDown)
 	{
-			ReplyToCommand(client, "%s Command failed due to database error.", g_tag);
+			ReplyToCommand(client, "%s Command failed due to database error.", g_sTag);
 			ReplyToCommand(client, "Please contact server admins for help.");
 			return Plugin_Stop;
 	}
@@ -370,11 +370,11 @@ public Action:Command_Accept(client, args)
 	{
 		case PUGGER_STATE_INACTIVE:
 		{
-			ReplyToCommand(client, "%s You are not in the PUG queue!", g_tag);
+			ReplyToCommand(client, "%s You are not in the PUG queue!", g_sTag);
 		}
 		case PUGGER_STATE_QUEUING:
 		{
-			ReplyToCommand(client, "%s You are currently not invited to a match.", g_tag);
+			ReplyToCommand(client, "%s You are currently not invited to a match.", g_sTag);
 		}
 		case PUGGER_STATE_CONFIRMING:
 		{
@@ -382,13 +382,13 @@ public Action:Command_Accept(client, args)
 		}
 		case PUGGER_STATE_ACCEPTED:
 		{
-			ReplyToCommand(client, "%s You've already accepted the match. Check your console for join details.", g_tag);
+			ReplyToCommand(client, "%s You've already accepted the match. Check your console for join details.", g_sTag);
 			// TODO: join details
 			//Pugger_ShowJoinInfo(client);
 		}
 		case PUGGER_STATE_LIVE:
 		{
-			ReplyToCommand(client, "%s You already have a match live! Check your console for join details.", g_tag);
+			ReplyToCommand(client, "%s You already have a match live! Check your console for join details.", g_sTag);
 			// TODO: join details
 			//Pugger_ShowJoinInfo(client);
 		}
@@ -403,12 +403,12 @@ void AcceptMatch(client)
 	if (!Client_IsValid(client) || IsFakeClient(client))
 		ThrowError("Invalid or fake client %i", client);
 
-	g_InviteTimerDisplay[client] = 0;
+	g_iInviteTimerDisplay[client] = 0;
 
 	// FIXME: Add check to avoid this accidentally failing whilst calling Organizers_Update_This() and preparing match accept
 	if (Organizers_Get_Status_This() != SERVER_DB_RESERVED)
 	{
-		ReplyToCommand(client, "%s Joining time has ended.", g_tag);
+		ReplyToCommand(client, "%s Joining time has ended.", g_sTag);
 		return;
 	}
 
@@ -427,7 +427,7 @@ public Action:Command_CreateTables(client, args)
 
 	if (rows > 0)
 	{
-		ReplyToCommand(client, "%s Database returned %i already existing PUG rows!", g_tag, rows);
+		ReplyToCommand(client, "%s Database returned %i already existing PUG rows!", g_sTag, rows);
 		ReplyToCommand(client, "Make sure no PUG tables exist before running this command.");
 		ReplyToCommand(client, "No new tables were created by this command.");
 
@@ -620,7 +620,7 @@ void Database_RemovePugger(client)
 		ThrowError("Invalid client %i", client);
 	}
 
-	g_InviteTimerDisplay[client] = 0;
+	g_iInviteTimerDisplay[client] = 0;
 
 	Database_Initialize();
 
@@ -687,30 +687,30 @@ void Database_RemovePugger(client)
 
 			if (state == PUGGER_STATE_INACTIVE)
 			{
-				ReplyToCommand(client, "%s You are not in a PUG queue.", g_tag);
+				ReplyToCommand(client, "%s You are not in a PUG queue.", g_sTag);
 				CloseHandle(stmt);
 				return;
 			}
 			else if (state == PUGGER_STATE_QUEUING)
 			{
-				ReplyToCommand(client, "%s You have left the PUG queue.", g_tag);
+				ReplyToCommand(client, "%s You have left the PUG queue.", g_sTag);
 			}
 			else if (state == PUGGER_STATE_CONFIRMING)
 			{
-				ReplyToCommand(client, "%s You have left the PUG queue. Declining offered match.", g_tag);
+				ReplyToCommand(client, "%s You have left the PUG queue. Declining offered match.", g_sTag);
 
 				Database_LogIgnore(client);
 				Pugger_CloseMatchOfferMenu(client);
 			}
 			else if (state == PUGGER_STATE_ACCEPTED)
 			{
-				ReplyToCommand(client, "%s You have already accepted this match.", g_tag);
+				ReplyToCommand(client, "%s You have already accepted this match.", g_sTag);
 				CloseHandle(stmt);
 				return;
 			}
 			else if (state == PUGGER_STATE_LIVE)
 			{
-				ReplyToCommand(client, "%s You already have a match live!", g_tag);
+				ReplyToCommand(client, "%s You already have a match live!", g_sTag);
 				CloseHandle(stmt);
 				return;
 			}
@@ -909,8 +909,8 @@ void Pugger_ShowMatchOfferMenu(client)
 	if (!Client_IsValid(client) || IsFakeClient(client))
 		return;
 
-	if (g_InviteTimerDisplay[client] <= 0)
-		g_InviteTimerDisplay[client] = PUG_INVITE_TIME;
+	if (g_iInviteTimerDisplay[client] <= 0)
+		g_iInviteTimerDisplay[client] = PUG_INVITE_TIME;
 
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
@@ -945,7 +945,7 @@ void Pugger_ShowMatchOfferMenu(client)
 	DrawPanelText(panel, " ");
 
 	decl String:text_TimeToAccept[24];
-	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", g_InviteTimerDisplay[client]);
+	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", g_iInviteTimerDisplay[client]);
 	DrawPanelText(panel, text_TimeToAccept);
 
 	decl String:text_PlayersReady[24];
@@ -959,7 +959,7 @@ void Pugger_ShowMatchOfferMenu(client)
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
 	CloseHandle(panel);
 
-	g_InviteTimerDisplay[client]--;
+	g_iInviteTimerDisplay[client]--;
 }
 
 void Pugger_CloseMatchOfferMenu(client)
@@ -1010,7 +1010,7 @@ void Database_Initialize()
 	GetConVarString(g_hCvar_DbConfig, configName, sizeof(configName));
 	if (!SQL_CheckConfig(configName))
 	{
-		g_isDatabaseDown = true;
+		g_bIsDatabaseDown = true;
 		ThrowError("Could not find a config named \"%s\". Please check your databases.cfg", configName);
 	}
 
@@ -1019,12 +1019,12 @@ void Database_Initialize()
 
 	if (db == null)
 	{
-		g_isDatabaseDown = true;
+		g_bIsDatabaseDown = true;
 		ThrowError(error);
 	}
 	else
 	{
-		g_isDatabaseDown = false;
+		g_bIsDatabaseDown = false;
 	}
 }
 
@@ -1043,7 +1043,7 @@ void PrintDebug(const String:message[], any ...)
 void GenerateIdentifier_This()
 {
 	// The identifier has been manually set before compiling, no need to generate one
-	if (!StrEqual(g_identifier, ""))
+	if (!StrEqual(g_sIdentifier, ""))
 		return;
 
 	new Handle:cvarIP = FindConVar("ip");
@@ -1056,7 +1056,7 @@ void GenerateIdentifier_This()
 
 #if DEBUG_SQL == 0 // Skip this check when debugging
 	if (StrEqual(ipAddress, "localhost") || StrEqual(ipAddress, "127.0.0.1") || StrContains(ipAddress, "192.168.") == 0)
-		SetFailState("Could not get real external IP address, returned a local address \"%s\" instead. This can't be used for uniquely identifying the server. You can declare a unique g_identifier value near the beginning of the plugin source code to manually circumvent this problem.", ipAddress);
+		SetFailState("Could not get real external IP address, returned a local address \"%s\" instead. This can't be used for uniquely identifying the server. You can declare a unique g_sIdentifier value near the beginning of the plugin source code to manually circumvent this problem.", ipAddress);
 #endif
 
 	new Handle:cvarPort = FindConVar("hostport");
@@ -1066,17 +1066,17 @@ void GenerateIdentifier_This()
 	new port = GetConVarInt(cvarPort);
 	CloseHandle(cvarPort);
 
-	Format(g_identifier, sizeof(g_identifier), "%s:%i", ipAddress, port);
+	Format(g_sIdentifier, sizeof(g_sIdentifier), "%s:%i", ipAddress, port);
 
 #if DEBUG
-	PrintDebug("GenerateIdentifier_This(): %s", g_identifier);
+	PrintDebug("GenerateIdentifier_This(): %s", g_sIdentifier);
 #endif
 }
 
 #if DEBUG_SQL
 void CheckSQLConstants()
 {
-	CheckForSpookiness(g_identifier);
+	CheckForSpookiness(g_sIdentifier);
 	CheckForSpookiness(g_sqlTable_Organizers);
 	CheckForSpookiness(g_sqlTable_PickupServers);
 	CheckForSpookiness(g_sqlTable_Puggers);

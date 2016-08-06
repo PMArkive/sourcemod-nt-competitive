@@ -924,11 +924,11 @@ void Pugger_ShowMatchOfferMenu(client)
 		offer_ServerPort = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
 	}
 	CloseHandle(stmt_Select);
-
+/*
 	PrintToChat(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 	PrintToConsole(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 	PrintDebug("Client %i Invite: %s:%i:%s", client, offer_ServerIP, offer_ServerPort, offer_ServerPassword);
-
+*/
 	new Handle:panel = CreatePanel();
 
 	SetPanelTitle(panel, "Match is ready");

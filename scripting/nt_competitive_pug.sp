@@ -314,36 +314,25 @@ void FindNewMatch()
 {
 	// Is anyone (including myself) busy organizing a match with the DB right now?
 	if (Organizers_Is_Anyone_Busy())
-	{
 		return;
-	}
-	// Mark ourselves busy
-	else
-	{
-		Organizers_Update_This(SERVER_DB_RESERVED);
-	}
 
 	// Are there any available PUG servers?
 	if (Database_GetRowCountForTableName(g_sqlTable_PickupServers) < 1) // BUG / FIXME: This is row count regardless of state, need PUG_SERVER_STATUS_AVAILABLE specifically!
-	{
-		Organizers_Update_This(); // Can't offer match, give up db reservation
 		return;
-	}
 
 	// Are there enough queued puggers available?
 	if (Puggers_GetCountPerState(PUGGER_STATE_QUEUING) < DESIRED_PLAYERCOUNT)
-	{
-		Organizers_Update_This(); // Can't offer match, give up db reservation
 		return;
-	}
 
 	OfferMatch();
 }
 
 void OfferMatch()
 {
-	PugServer_Reserve();
-	Puggers_Reserve();
+	Organizers_Update_This(SERVER_DB_RESERVED);	// Reserve database
+	PugServer_Reserve();												// Reserve a PUG server
+	Puggers_Reserve();													// Reserve puggers to offer match for
+	Organizers_Update_This();										// Release database reservation
 }
 
 public Action:Command_UnPug(client, args)

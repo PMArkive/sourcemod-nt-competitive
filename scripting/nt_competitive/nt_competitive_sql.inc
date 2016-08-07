@@ -27,6 +27,11 @@ enum {
 	SQL_TABLE_PUGGER_INVITE_TIMESTAMP,				// When was this player last invited to a PUG. Used for invite expiration.
 	SQL_TABLE_PUGGER_ENUM_COUNT
 };
+// This table holds global rules PUG servers should follow
+enum {
+	SQL_TABLE_RULES_DESIRED_PLAYERCOUNT = 0,
+	SQL_TABLE_RULES_ENUM_COUNT
+};
 // This table holds PUG organizer (public gameserver, chatbot, etc.) information
 enum {
 	SQL_TABLE_ORG_ID = 0,										// Auto incremented database id
@@ -76,16 +81,22 @@ enum {
 };
 
 enum {
-	TABLES_ORGANIZERS = 0,
+	TABLES_RULES = 0,
+	TABLES_ORGANIZERS,
 	TABLES_PUG_SERVERS,
 	TABLES_PUGGERS,
 	TABLES_ENUM_COUNT
 }
 
 new const String:g_sqlTable[TABLES_ENUM_COUNT][] = {
+	"global_rules",
 	"organizers",
 	"pickup_servers",
 	"puggers",
+};
+
+new const String:g_sqlRow_Rules[SQL_TABLE_RULES_ENUM_COUNT][] = {
+	"desired_playercount"
 };
 
 new const String:g_sqlRow_Organizers[SQL_TABLE_ORG_ENUM_COUNT][] = {

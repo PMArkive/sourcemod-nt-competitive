@@ -324,7 +324,7 @@ void FindNewMatch()
 		return;
 
 	// Are there enough queued puggers available?
-	if (Puggers_GetCountPerState(PUGGER_STATE_QUEUING) < DESIRED_PLAYERCOUNT)
+	if (Puggers_GetCountPerState(PUGGER_STATE_QUEUING) < Database_GetDesiredPlayerCount())
 		return;
 
 	OfferMatch();
@@ -418,8 +418,9 @@ public Action:Command_CreateTables(client, args)
 	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_PUGGERS], false);
 	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_ORGANIZERS], false);
 	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_PUG_SERVERS], false);
+	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_RULES], false);
 
-	PrintDebug("Create Tables rows: %i", rows);
+	PrintDebug("Command_CreateTables() rows: %i", rows);
 
 	if (rows > 0)
 	{
@@ -436,8 +437,20 @@ public Action:Command_CreateTables(client, args)
 	Database_Initialize(false);
 	decl String:sql[MAX_SQL_LENGTH];
 
+	new arrayIndex = SQL_TABLE_RULES_ENUM_COUNT-1; // Reversed array index for Format() order of operations
+	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
+									%s INT NOT NULL) \
+									CHARACTER SET=utf8",
+									g_sqlTable[TABLES_RULES],
+									g_sqlRow_Rules[arrayIndex--]
+	);
+	PrintDebug("SQL: %s", sql);
+
+	new Handle:query_CreateRules = SQL_Query(db, sql);
+	CloseHandle(query_CreateRules);
+
 	// todo: optimise INT sizes
-	new arrayIndex = SQL_TABLE_PUGGER_ENUM_COUNT-1; // Reversed array index for Format() order of operations
+	arrayIndex = SQL_TABLE_PUGGER_ENUM_COUNT-1; // Reversed array index for Format() order of operations
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
 									%s INT NOT NULL AUTO_INCREMENT, \
 									%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
@@ -469,8 +482,6 @@ public Action:Command_CreateTables(client, args)
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
 	);
-
-	//PrintDebug("SQL: %s", sql);
 
 	new Handle:query_CreatePuggers = SQL_Query(db, sql);
 	CloseHandle(query_CreatePuggers);
@@ -521,8 +532,6 @@ public Action:Command_CreateTables(client, args)
 
 	new Handle:query_CreatePugServers = SQL_Query(db, sql);
 	CloseHandle(query_CreatePugServers);
-
-	//PrintDebug("SQL:\n%s", sql);
 
 	return Plugin_Handled;
 }
@@ -919,7 +928,7 @@ void Puggers_Reserve()
 	new state;
 	while (SQL_FetchRow(query_Puggers))
 	{
-		if (i >= DESIRED_PLAYERCOUNT)
+		if (i >= Database_GetDesiredPlayerCount())
 			break;
 
 		state = SQL_FetchInt(query_Puggers, SQL_TABLE_PUGGER_STATE);
@@ -952,8 +961,8 @@ void Puggers_Reserve()
 	}
 	CloseHandle(query_Puggers);
 
-	if (i != DESIRED_PLAYERCOUNT)
-		ThrowError("Could not find %i desired players, found %i instead. This should never happen.", DESIRED_PLAYERCOUNT, i);
+	if (i != Database_GetDesiredPlayerCount())
+		ThrowError("Could not find %i desired players, found %i instead. This should never happen.", Database_GetDesiredPlayerCount(), i);
 }
 
 float IntToFloat(integer)
@@ -1006,7 +1015,7 @@ void Pugger_ShowMatchOfferMenu(client)
 	DrawPanelText(panel, text_TimeToAccept);
 
 	decl String:text_PlayersReady[24];
-	Format(text_PlayersReady, sizeof(text_PlayersReady), "%i / %i players accepted", Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED), DESIRED_PLAYERCOUNT);
+	Format(text_PlayersReady, sizeof(text_PlayersReady), "%i / %i players accepted", Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED), Database_GetDesiredPlayerCount());
 	DrawPanelText(panel, text_PlayersReady);
 
 	DrawPanelText(panel, " ");
@@ -1152,3 +1161,22 @@ void CheckForSpookiness(const String:haystack[])
 		SetFailState("Found potentially dangerous characters \" or ; inside the plugin's SQL string, which could result to incorrect SQL statements. Check your plugin source code for errors. String contents: \"%s\"", haystack);
 }
 #endif
+
+int Database_GetDesiredPlayerCount()
+{
+	Database_Initialize();
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT %s FROM %s", g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT], g_sqlTable[TABLES_RULES]);
+
+	new Handle:query = SQL_Query(db, sql);
+
+	new playerCount;
+	while (SQL_FetchRow(query))
+	{
+		SQL_FetchInt(query, 0);
+	}
+	CloseHandle(query);
+
+	return playerCount;
+}

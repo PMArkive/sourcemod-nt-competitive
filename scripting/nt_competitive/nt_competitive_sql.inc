@@ -24,6 +24,7 @@ enum {
 	SQL_TABLE_PUGGER_MATCH_ORGANIZER,					// If playing, who created the match (unique string id of a pub server, chat bot etc. for example their ip)
 	SQL_TABLE_PUGGER_IGNORED_INVITES,					// How many match invites has the player ignored? Used to determine placing in match queue.
 	SQL_TABLE_PUGGER_IGNORED_TIMESTAMP,				// When did the player last ignore a match invite? Ignores reset after set time, or after accepting a match.
+	SQL_TABLE_PUGGER_INVITE_TIMESTAMP,				// When was this player last invited to a PUG. Used for invite expiration.
 	SQL_TABLE_PUGGER_ENUM_COUNT
 };
 // This table holds PUG organizer (public gameserver, chatbot, etc.) information
@@ -74,9 +75,18 @@ enum {
 	SERVER_DB_ENUM_COUNT = 3
 };
 
-new const String:g_sqlTable_Organizers[] = "organizers";
-new const String:g_sqlTable_PickupServers[] = "pickup_servers";
-new const String:g_sqlTable_Puggers[] = "puggers";
+enum {
+	TABLES_ORGANIZERS = 0,
+	TABLES_PUG_SERVERS,
+	TABLES_PUGGERS,
+	TABLES_ENUM_COUNT
+}
+
+new const String:g_sqlTable[TABLES_ENUM_COUNT][] = {
+	"organizers",
+	"pickup_servers",
+	"puggers",
+};
 
 new const String:g_sqlRow_Organizers[SQL_TABLE_ORG_ENUM_COUNT][] = {
 	"id",
@@ -98,7 +108,8 @@ new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
 	"match_timestamp",
 	"match_organizer_id",
 	"invites_ignored",
-	"invites_ignored_timestamp"
+	"invites_ignored_timestamp",
+	"invite_timestamp"
 };
 
 new const String:g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ENUM_COUNT][] = {

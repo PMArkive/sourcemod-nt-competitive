@@ -1,9 +1,3 @@
-/*
-	TODO:
-		- Abstract more sql operations
-		- Make accept do things!
-*/
-
 #pragma semicolon 1
 
 #include <sourcemod>
@@ -88,7 +82,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 	if (!g_bIsQueueActive)
 	{
 		// Loop timer's inactive period isn't over yet, stop here.
-		// We do this to avoid database spam when there is no active match preparations.
+		// We do this to avoid database spam when there are no active match preparations.
 		if (g_fQueueTimer_DeltaTime > 0)
 		{
 			return Plugin_Continue;
@@ -100,9 +94,11 @@ public Action:Timer_CheckQueue(Handle:timer)
 		}
 	}
 
+	Database_Initialize();
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
@@ -137,6 +133,9 @@ public Action:Timer_CheckQueue(Handle:timer)
 // FIXME: Need to take others' status into consideration when setting status other than default
 void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 {
+	if (g_bIsDatabaseDown)
+		return;
+
 	PrintDebug("Organizers_Update_This()");
 
 	if (SERVER_DB_INACTIVE > reserveStatus > SERVER_DB_ENUM_COUNT)
@@ -146,7 +145,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
@@ -166,7 +165,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		//FIXME: Maybe should not expect 0 rows (Command_CreateTables)
 		LogError("Organizers_Update_This(): Found %i results from database for organizer \"%s\", expected 0 or 1.", results, g_sIdentifier);
 
-		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
@@ -179,7 +178,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	// No record, insert new one
 	if (results > 1 || results == 0)
 	{
-		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME], g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING]);
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME], g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING]);
 
 		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
@@ -194,7 +193,7 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	// Record already exists, just update
 	else
 	{
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
@@ -216,7 +215,7 @@ int Organizers_Get_Status_This()
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Organizers, g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
@@ -286,7 +285,7 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 {
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_Organizers);
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_ORGANIZERS]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
@@ -321,7 +320,7 @@ void FindNewMatch()
 		return;
 
 	// Are there any available PUG servers?
-	if (Database_GetRowCountForTableName(g_sqlTable_PickupServers) < 1) // BUG / FIXME: This is row count regardless of state, need PUG_SERVER_STATUS_AVAILABLE specifically!
+	if (Database_GetRowCountForTableName(g_sqlTable[TABLES_PUG_SERVERS]) < 1) // BUG / FIXME: This is row count regardless of state, need PUG_SERVER_STATUS_AVAILABLE specifically!
 		return;
 
 	// Are there enough queued puggers available?
@@ -416,9 +415,11 @@ void AcceptMatch(client)
 public Action:Command_CreateTables(client, args)
 {
 	new rows;
-	rows += Database_GetRowCountForTableName(g_sqlTable_Puggers);
-	rows += Database_GetRowCountForTableName(g_sqlTable_Organizers);
-	rows += Database_GetRowCountForTableName(g_sqlTable_PickupServers);
+	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_PUGGERS], false);
+	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_ORGANIZERS], false);
+	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_PUG_SERVERS], false);
+
+	PrintDebug("Create Tables rows: %i", rows);
 
 	if (rows > 0)
 	{
@@ -432,7 +433,7 @@ public Action:Command_CreateTables(client, args)
 		return Plugin_Stop;
 	}
 
-	Database_Initialize();
+	Database_Initialize(false);
 	decl String:sql[MAX_SQL_LENGTH];
 
 	// todo: optimise INT sizes
@@ -450,8 +451,9 @@ public Action:Command_CreateTables(client, args)
 									%s VARCHAR(128) NOT NULL, \
 									%s INT NOT NULL, \
 									%s TIMESTAMP NOT NULL, \
+									%s TIMESTAMP NOT NULL, \
 									PRIMARY KEY (%s)) CHARACTER SET=utf8",
-									g_sqlTable_Puggers,
+									g_sqlTable[TABLES_PUGGERS],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--], MAX_STEAMID_LENGTH,
@@ -459,6 +461,7 @@ public Action:Command_CreateTables(client, args)
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--], MAX_CVAR_LENGTH,
+									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
@@ -480,7 +483,7 @@ public Action:Command_CreateTables(client, args)
 									%s INT NOT NULL, \
 									%s TIMESTAMP NOT NULL, \
 									PRIMARY KEY (%s)) CHARACTER SET=utf8",
-									g_sqlTable_Organizers,
+									g_sqlTable[TABLES_ORGANIZERS],
 									g_sqlRow_Organizers[arrayIndex--],
 									g_sqlRow_Organizers[arrayIndex--],
 									g_sqlRow_Organizers[arrayIndex--],
@@ -503,7 +506,7 @@ public Action:Command_CreateTables(client, args)
 									%s VARCHAR(128) NOT NULL, \
 									%s TIMESTAMP NOT NULL, \
 									PRIMARY KEY (%s)) CHARACTER SET=utf8",
-									g_sqlTable_PickupServers,
+									g_sqlTable[TABLES_PUG_SERVERS],
 									g_sqlRow_PickupServers[arrayIndex--],
 									g_sqlRow_PickupServers[arrayIndex--],
 									g_sqlRow_PickupServers[arrayIndex--],
@@ -524,14 +527,44 @@ public Action:Command_CreateTables(client, args)
 	return Plugin_Handled;
 }
 
-int Database_GetRowCountForTableName(const String:tableName[])
+bool Database_DoTablesExist()
+{
+	for (new i = 0; i < TABLES_ENUM_COUNT; i++)
+	{
+		decl String:sql[MAX_SQL_LENGTH];
+		decl String:error[MAX_SQL_ERROR_LENGTH];
+		Format(sql, sizeof(sql), "SELECT max(CASE WHEN table_name = '%s' THEN 1 ELSE 0 END) AS TableExists FROM information_schema.tables", g_sqlTable[i]);
+
+		new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt == INVALID_HANDLE)
+			ThrowError(error);
+
+		SQL_Execute(stmt);
+
+		new bool:tableExists;
+		while (SQL_FetchRow(stmt))
+		{
+			tableExists = view_as<bool>SQL_FetchInt(stmt, 0);
+		}
+		CloseHandle(stmt);
+
+		if (!tableExists)
+			return false;
+	}
+	return true;
+}
+
+int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesValidity = true)
 {
 	CheckForSpookiness(tableName);
-	Database_Initialize();
+	Database_Initialize(checkTablesValidity);
+
+	// We only want to throw error if table creation isn't currently happening
+	if (!checkTablesValidity && !Database_DoTablesExist())
+		return 0;
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", tableName);
-
 	new Handle:query = SQL_Query(db, sql);
 	new rows = SQL_GetRowCount(query);
 
@@ -553,7 +586,7 @@ void Database_AddPugger(client)
 
 	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
 
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable_Puggers);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable[TABLES_PUGGERS]);
 
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
@@ -567,7 +600,7 @@ void Database_AddPugger(client)
 	{
 		while (SQL_FetchRow(stmt))
 		{
-			Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = NOW() WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = NOW() WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
 			new Handle:updateStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 
@@ -588,7 +621,7 @@ void Database_AddPugger(client)
 	// Pugger not yet in database, insert
 	else
 	{
-		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, NOW())", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP]);
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, NOW())", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP]);
 
 		new Handle:insertStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 
@@ -621,7 +654,7 @@ void Database_RemovePugger(client)
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable_Puggers);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable[TABLES_PUGGERS]);
 
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
@@ -639,7 +672,7 @@ void Database_RemovePugger(client)
 	{
 		LogError("Database_RemovePugger(%i): Found %i results for SteamID \"%s\" in database, expected to find 1. Deleting duplicates.", client, results, steamID);
 
-		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
 		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
@@ -659,7 +692,7 @@ void Database_RemovePugger(client)
 			LogError("Database_RemovePugger(%i): Found 0 results for SteamID \"%s\" in database, inserting a row with PUGGER_STATE_INACTIVE", client, steamID);
 		}
 
-		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
 		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
@@ -717,7 +750,7 @@ void Database_RemovePugger(client)
 		CloseHandle(stmt);
 
 		// Remove player from active PUG queue
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
@@ -753,7 +786,7 @@ void Pugger_SetQueuingState(client, state)
 
 	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
 
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
@@ -779,7 +812,7 @@ int Pugger_GetQueuingState(client)
 
 	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
 
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable_Puggers);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?", g_sqlTable[TABLES_PUGGERS]);
 
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 
@@ -814,7 +847,7 @@ int Puggers_GetCountPerState(state)
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 
@@ -833,7 +866,7 @@ void PugServer_Reserve()
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable_PickupServers);
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUG_SERVERS]);
 
 	new Handle:query_Pugs = SQL_Query(db, sql);
 
@@ -849,7 +882,7 @@ void PugServer_Reserve()
 			decl String:identifier[MAX_IDENTIFIER_LENGTH];
 			SQL_FetchString(query_Pugs, SQL_TABLE_PUG_SERVER_NAME, identifier, sizeof(identifier));
 
-			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUG_SERVERS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
 			new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 			if (stmt_Update == INVALID_HANDLE)
 				ThrowError(error);
@@ -878,7 +911,7 @@ void Puggers_Reserve()
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i ORDER BY %s", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i ORDER BY %s", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
 
 	new Handle:query_Puggers = SQL_Query(db, sql);
 
@@ -893,7 +926,7 @@ void Puggers_Reserve()
 		if (state != PUGGER_STATE_QUEUING)
 			continue;
 
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable_Puggers, g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
 			ThrowError(error);
@@ -942,7 +975,7 @@ void Pugger_ShowMatchOfferMenu(client)
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable_PickupServers, g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUG_SERVERS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
@@ -1026,7 +1059,7 @@ int GetClientOfAuthId(const String:steamID[])
 }
 
 
-void Database_Initialize()
+void Database_Initialize(bool checkTables = true)
 {
 	PrintDebug("Database_Initialize()");
 
@@ -1046,10 +1079,14 @@ void Database_Initialize()
 		g_bIsDatabaseDown = true;
 		ThrowError(error);
 	}
-	else
+
+	if (checkTables && !Database_DoTablesExist())
 	{
-		g_bIsDatabaseDown = false;
+		g_bIsDatabaseDown = true;
+		ThrowError("Database tables do not exist.");
 	}
+
+	g_bIsDatabaseDown = false;
 }
 
 void PrintDebug(const String:message[], any ...)
@@ -1101,9 +1138,9 @@ void GenerateIdentifier_This()
 void CheckSQLConstants()
 {
 	CheckForSpookiness(g_sIdentifier);
-	CheckForSpookiness(g_sqlTable_Organizers);
-	CheckForSpookiness(g_sqlTable_PickupServers);
-	CheckForSpookiness(g_sqlTable_Puggers);
+	CheckForSpookiness(g_sqlTable[TABLES_ORGANIZERS]);
+	CheckForSpookiness(g_sqlTable[TABLES_PUG_SERVERS]);
+	CheckForSpookiness(g_sqlTable[TABLES_PUGGERS]);
 
 	for (new i = 0; i < sizeof(g_sqlRow_Puggers); i++)
 		CheckForSpookiness(g_sqlRow_Puggers[i]);

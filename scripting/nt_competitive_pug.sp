@@ -111,8 +111,6 @@ public Action:Timer_CheckQueue(Handle:timer)
 	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_CONFIRMING);
 	SQL_Execute(stmt_Select);
 
-	PrintDebug("Line 114 - Rows found: %i", SQL_GetRowCount(stmt_Select));
-
 	new currentEpoch = Database_GetEpoch();
 	new rows;
 	while (SQL_FetchRow(stmt_Select))
@@ -958,11 +956,13 @@ void Puggers_Reserve()
 		}
 
 		state = SQL_FetchInt(query_Puggers, SQL_TABLE_PUGGER_STATE);
+#if DEBUG
 		if (state != PUGGER_STATE_QUEUING)
 		{
-			LogError("!!!Pugger state is not PUGGER_STATE_QUEUING!!!");
+			LogError("Pugger state is not PUGGER_STATE_QUEUING! This should never happen.");
 			continue;
 		}
+#endif
 
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
@@ -973,7 +973,6 @@ void Puggers_Reserve()
 		SQL_FetchString(query_Puggers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
 
 		new paramIndex;
-		PrintDebug("I'm trying very hard.");
 		SQL_BindParamInt(stmt_Update, paramIndex++, PUGGER_STATE_CONFIRMING);
 		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
 		SQL_Execute(stmt_Update);
@@ -1200,8 +1199,6 @@ int Database_GetDesiredPlayerCount()
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT %s FROM %s", g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT], g_sqlTable[TABLES_RULES]);
 
-	PrintDebug("SQL: %s", sql);
-
 	new Handle:query = SQL_Query(db, sql);
 	if (SQL_GetAffectedRows(query) == 0)
 	{
@@ -1216,7 +1213,6 @@ int Database_GetDesiredPlayerCount()
 	}
 	CloseHandle(query);
 
-	PrintDebug("Playercount returned: %i", playerCount);
 	return playerCount;
 }
 

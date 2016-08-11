@@ -145,6 +145,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 		{
 			PrintDebug("Invite time has elapsed, un-confirm not readied players.");
 			Database_CleanAFKers();
+			Database_GiveUpMatch();
 		}
 
 		rows++;
@@ -166,8 +167,51 @@ public Action:Timer_CheckQueue(Handle:timer)
 	return Plugin_Continue;
 }
 
+void Database_GiveUpMatch()
+{
+	Database_Initialize();
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+
+	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_Select == INVALID_HANDLE)
+		ThrowError(error);
+
+	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_ACCEPTED);
+	SQL_Execute(stmt_Select);
+
+	while (SQL_FetchRow(stmt_Select))
+	{
+		decl String:steamID[MAX_STEAMID_LENGTH];
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+
+		PrintDebug("Giveup SteamID: %s", steamID);
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Update == INVALID_HANDLE)
+		{
+			CloseHandle(stmt_Select);
+			ThrowError(error);
+		}
+
+		new paramIndex;
+		SQL_BindParamInt(stmt_Update, paramIndex++, PUGGER_STATE_QUEUING);
+		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
+		SQL_Execute(stmt_Update);
+
+		CloseHandle(stmt_Update);
+	}
+	CloseHandle(stmt_Select);
+}
+
 void Database_CleanAFKers()
 {
+	Database_Initialize();
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 

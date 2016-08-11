@@ -76,6 +76,8 @@ public OnConfigsExecuted()
 // Purpose: Check if any puggers are marked "confirming", and display the invite panel for those connected to this server
 public Action:Timer_CheckQueue(Handle:timer)
 {
+	//PrintDebug("Interval");
+
 	// This is called once per interval, so it represents time elapsed
 	g_fQueueTimer_DeltaTime -= g_fQueueTimer_Interval;
 
@@ -85,11 +87,13 @@ public Action:Timer_CheckQueue(Handle:timer)
 		// We do this to avoid database spam when there are no active match preparations.
 		if (g_fQueueTimer_DeltaTime > 0)
 		{
+			//PrintDebug("(g_fQueueTimer_DeltaTime > 0)");
 			return Plugin_Continue;
 		}
 		// Inactive period has elapsed, reset delta variable and continue execution.
 		else
 		{
+			//PrintDebug("else");
 			g_fQueueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
 		}
 	}
@@ -107,9 +111,17 @@ public Action:Timer_CheckQueue(Handle:timer)
 	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_CONFIRMING);
 	SQL_Execute(stmt_Select);
 
+	PrintDebug("Rows found: %i", SQL_GetRowCount(stmt_Select));
+
+	new currentEpoch = Database_GetEpoch();
 	new rows;
 	while (SQL_FetchRow(stmt_Select))
 	{
+		// If invite time expired: set state to inactive, regord ignore, continue;
+		new inviteEpoch = SQL_FetchInt(stmt_Select, SQL_TABLE_PUGGER_INVITE_TIMESTAMP);
+		PrintDebug("Invite epoch: %i and current epoch: %i", inviteEpoch, currentEpoch);
+		PrintDebug("Epoch difference: %i", currentEpoch - inviteEpoch);
+
 		rows++;
 		decl String:steamID[MAX_STEAMID_LENGTH];
 		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
@@ -130,11 +142,14 @@ public Action:Timer_CheckQueue(Handle:timer)
 }
 
 // Purpose: Add this server into the organizers database table, and set its reserve status.
-// FIXME: Need to take others' status into consideration when setting status other than default
-void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
+bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 {
 	if (g_bIsDatabaseDown)
-		return;
+		return false;
+
+	// Cannot set busy reserve status if someone else is already busy
+	if (reserveStatus != SERVER_DB_INACTIVE && Organizers_Is_Anyone_Busy(false))
+		return false;
 
 	PrintDebug("Organizers_Update_This()");
 
@@ -205,6 +220,8 @@ void Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		SQL_Execute(stmt_Update);
 		CloseHandle(stmt_Update);
 	}
+
+	return true;
 }
 
 // Purpose: Return reserve status int enum of this org server
@@ -332,7 +349,10 @@ void FindNewMatch()
 
 void OfferMatch()
 {
-	Organizers_Update_This(SERVER_DB_RESERVED);	// Reserve database
+	// Attempt database reservation
+	if (!Organizers_Update_This(SERVER_DB_RESERVED))
+		return;
+
 	PugServer_Reserve();												// Reserve a PUG server
 	Puggers_Reserve();													// Reserve puggers to offer match for
 	Organizers_Update_This();										// Release database reservation
@@ -1179,4 +1199,23 @@ int Database_GetDesiredPlayerCount()
 	CloseHandle(query);
 
 	return playerCount;
+}
+
+int Database_GetEpoch()
+{
+	Database_Initialize();
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP()");
+
+	new Handle:query = SQL_Query(db, sql);
+
+	new epoch;
+	while (SQL_FetchRow(query))
+	{
+		epoch = SQL_FetchInt(query, 0);
+	}
+	CloseHandle(query);
+
+	return epoch;
 }

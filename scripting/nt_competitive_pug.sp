@@ -111,7 +111,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_CONFIRMING);
 	SQL_Execute(stmt_Select);
 
-	PrintDebug("Rows found: %i", SQL_GetRowCount(stmt_Select));
+	PrintDebug("Line 114 - Rows found: %i", SQL_GetRowCount(stmt_Select));
 
 	new currentEpoch = Database_GetEpoch();
 	new rows;
@@ -170,7 +170,7 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		ThrowError(error);
 
 	new results = SQL_GetRowCount(stmt_Select);
-	PrintDebug("Results: %i", results);
+	//PrintDebug("Results: %i", results);
 
 	CloseHandle(stmt_Select);
 
@@ -938,22 +938,31 @@ void Puggers_Reserve()
 {
 	Database_Initialize();
 
+	PrintDebug("Puggers_Reserve()");
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i ORDER BY %s", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
 
 	new Handle:query_Puggers = SQL_Query(db, sql);
-
+	PrintDebug("Line 948");
 	new i;
 	new state;
 	while (SQL_FetchRow(query_Puggers))
 	{
+		PrintDebug("While loop");
 		if (i >= Database_GetDesiredPlayerCount())
+		{
+			PrintDebug("Desired playercount: %i", Database_GetDesiredPlayerCount());
 			break;
+		}
 
 		state = SQL_FetchInt(query_Puggers, SQL_TABLE_PUGGER_STATE);
 		if (state != PUGGER_STATE_QUEUING)
+		{
+			LogError("!!!Pugger state is not PUGGER_STATE_QUEUING!!!");
 			continue;
+		}
 
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
@@ -964,16 +973,18 @@ void Puggers_Reserve()
 		SQL_FetchString(query_Puggers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
 
 		new paramIndex;
+		PrintDebug("I'm trying very hard.");
 		SQL_BindParamInt(stmt_Update, paramIndex++, PUGGER_STATE_CONFIRMING);
 		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
 		SQL_Execute(stmt_Update);
 
-		if (SQL_GetAffectedRows(stmt_Update) != 1)
+		new affectedRows = SQL_GetAffectedRows(stmt_Update);
+		if (affectedRows != 1)
 		{
 			CloseHandle(stmt_Update);
 			CloseHandle(query_Puggers);
 			Organizers_Update_This();
-			ThrowError("SQL query affected %i rows, expected 1. This shouldn't happen.", SQL_GetAffectedRows(stmt_Update));
+			ThrowError("SQL query affected %i rows, expected 1. This shouldn't happen.", affectedRows);
 		}
 		CloseHandle(stmt_Update);
 
@@ -1189,15 +1200,23 @@ int Database_GetDesiredPlayerCount()
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT %s FROM %s", g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT], g_sqlTable[TABLES_RULES]);
 
+	PrintDebug("SQL: %s", sql);
+
 	new Handle:query = SQL_Query(db, sql);
+	if (SQL_GetAffectedRows(query) == 0)
+	{
+		CloseHandle(query);
+		ThrowError("No playercount found from database.");
+	}
 
 	new playerCount;
 	while (SQL_FetchRow(query))
 	{
-		SQL_FetchInt(query, 0);
+		playerCount = SQL_FetchInt(query, SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
 	}
 	CloseHandle(query);
 
+	PrintDebug("Playercount returned: %i", playerCount);
 	return playerCount;
 }
 

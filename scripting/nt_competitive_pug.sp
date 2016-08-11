@@ -76,8 +76,6 @@ public OnConfigsExecuted()
 // Purpose: Check if any puggers are marked "confirming", and display the invite panel for those connected to this server
 public Action:Timer_CheckQueue(Handle:timer)
 {
-	//PrintDebug("Interval");
-
 	// This is called once per interval, so it represents time elapsed
 	g_fQueueTimer_DeltaTime -= g_fQueueTimer_Interval;
 
@@ -115,10 +113,38 @@ public Action:Timer_CheckQueue(Handle:timer)
 	new rows;
 	while (SQL_FetchRow(stmt_Select))
 	{
+		decl String:strTimestamp[128];
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_INVITE_TIMESTAMP, strTimestamp, sizeof(strTimestamp));
+		PrintDebug("String format: %s", strTimestamp);
+
+		Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(?)");
+		new Handle:stmt_InviteEpoch = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_InviteEpoch == INVALID_HANDLE)
+		{
+			CloseHandle(stmt_Select);
+			ThrowError(error);
+		}
+
+		SQL_BindParamString(stmt_InviteEpoch, 0, strTimestamp, false);
+		SQL_Execute(stmt_InviteEpoch);
+
+		new inviteEpoch;
+		while (SQL_FetchRow(stmt_InviteEpoch))
+		{
+			inviteEpoch = SQL_FetchInt(stmt_InviteEpoch, 0);
+			PrintDebug("Invite epoch: %i", inviteEpoch);
+		}
+		CloseHandle(stmt_InviteEpoch);
+
 		// If invite time expired: set state to inactive, regord ignore, continue;
-		new inviteEpoch = SQL_FetchInt(stmt_Select, SQL_TABLE_PUGGER_INVITE_TIMESTAMP);
+		new timeElapsedSinceInvite = currentEpoch - inviteEpoch;
 		PrintDebug("Invite epoch: %i and current epoch: %i", inviteEpoch, currentEpoch);
-		PrintDebug("Epoch difference: %i", currentEpoch - inviteEpoch);
+		PrintDebug("Epoch difference: %i", timeElapsedSinceInvite);
+
+		if (timeElapsedSinceInvite > PUG_INVITE_TIME)
+		{
+			PrintDebug("Invite time has elapsed, un-confirm not readied players.");
+		}
 
 		rows++;
 		decl String:steamID[MAX_STEAMID_LENGTH];
@@ -964,7 +990,7 @@ void Puggers_Reserve()
 		}
 #endif
 
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = CURRENT_TIMESTAMP WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_INVITE_TIMESTAMP], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
 			ThrowError(error);

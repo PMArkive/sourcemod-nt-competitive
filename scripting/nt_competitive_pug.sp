@@ -144,8 +144,10 @@ public Action:Timer_CheckQueue(Handle:timer)
 		if (timeElapsedSinceInvite > PUG_INVITE_TIME)
 		{
 			PrintDebug("Invite time has elapsed, un-confirm not readied players.");
-			Database_CleanAFKers();
-			Database_GiveUpMatch();
+
+			Database_CleanAFKers();	// Remove afkers from queue
+			Database_GiveUpMatch();	// Give up current invite, move accepted players back in queue
+			OfferMatch();						// Try to find a new match
 		}
 
 		rows++;
@@ -176,36 +178,52 @@ void Database_GiveUpMatch()
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt_Select == INVALID_HANDLE)
+	new Handle:stmt_SelectPuggers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_SelectPuggers == INVALID_HANDLE)
 		ThrowError(error);
 
-	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_ACCEPTED);
-	SQL_Execute(stmt_Select);
+	SQL_BindParamInt(stmt_SelectPuggers, 0, PUGGER_STATE_ACCEPTED);
+	SQL_Execute(stmt_SelectPuggers);
 
-	while (SQL_FetchRow(stmt_Select))
+	while (SQL_FetchRow(stmt_SelectPuggers))
 	{
 		decl String:steamID[MAX_STEAMID_LENGTH];
-		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+		SQL_FetchString(stmt_SelectPuggers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
 
 		PrintDebug("Giveup SteamID: %s", steamID);
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
-		if (stmt_Update == INVALID_HANDLE)
+		new Handle:stmt_UpdatePuggers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_UpdatePuggers == INVALID_HANDLE)
 		{
-			CloseHandle(stmt_Select);
+			CloseHandle(stmt_SelectPuggers);
 			ThrowError(error);
 		}
 
 		new paramIndex;
-		SQL_BindParamInt(stmt_Update, paramIndex++, PUGGER_STATE_QUEUING);
-		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
-		SQL_Execute(stmt_Update);
+		SQL_BindParamInt(stmt_UpdatePuggers, paramIndex++, PUGGER_STATE_QUEUING);
+		SQL_BindParamString(stmt_UpdatePuggers, paramIndex++, steamID, false);
+		SQL_Execute(stmt_UpdatePuggers);
 
-		CloseHandle(stmt_Update);
+		CloseHandle(stmt_UpdatePuggers);
 	}
-	CloseHandle(stmt_Select);
+	CloseHandle(stmt_SelectPuggers);
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUG_SERVERS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
+	PrintDebug("SQL: %s", sql);
+
+	new Handle:stmt_SelectPugServers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_SelectPugServers == INVALID_HANDLE)
+		ThrowError(error);
+
+	new paramIndex;
+	SQL_BindParamInt(stmt_SelectPugServers, paramIndex++, PUG_SERVER_STATUS_AVAILABLE);
+	SQL_BindParamInt(stmt_SelectPugServers, paramIndex++, PUG_SERVER_STATUS_RESERVED);
+	SQL_Execute(stmt_SelectPugServers);
+
+	CloseHandle(stmt_SelectPugServers);
+
+	Organizers_Update_This();
 }
 
 void Database_CleanAFKers()
@@ -447,8 +465,19 @@ void OfferMatch()
 	if (!Organizers_Update_This(SERVER_DB_RESERVED))
 		return;
 
-	PugServer_Reserve();												// Reserve a PUG server
-	Puggers_Reserve();													// Reserve puggers to offer match for
+	// Reserve a PUG server
+	if (!PugServer_Reserve())
+	{
+		Database_GiveUpMatch();
+		return;
+	}
+
+	if (!Puggers_Reserve())
+	{
+		Database_GiveUpMatch();
+		return;
+	}
+
 	Organizers_Update_This();										// Release database reservation
 }
 
@@ -986,7 +1015,7 @@ int Puggers_GetCountPerState(state)
 	return results;
 }
 
-void PugServer_Reserve()
+bool PugServer_Reserve()
 {
 	Database_Initialize();
 
@@ -1026,12 +1055,14 @@ void PugServer_Reserve()
 
 	if (!foundServer)
 	{
-		Organizers_Update_This();
-		ThrowError("Could not find a PUG server to reserve although one was found earlier. This should never happen.");
+		LogError("Could not find a PUG server to reserve although one was found earlier. This should never happen.");
+		return false;
 	}
+
+	return true;
 }
 
-void Puggers_Reserve()
+bool Puggers_Reserve()
 {
 	Database_Initialize();
 
@@ -1043,6 +1074,15 @@ void Puggers_Reserve()
 
 	new Handle:query_Puggers = SQL_Query(db, sql);
 	PrintDebug("Line 948");
+
+	new rows = SQL_GetRowCount(query_Puggers);
+	if (rows < Database_GetDesiredPlayerCount())
+	{
+		PrintDebug("Not enough players in queue");
+		CloseHandle(query_Puggers);
+		return false;
+	}
+
 	new i;
 	new state;
 	while (SQL_FetchRow(query_Puggers))
@@ -1092,6 +1132,8 @@ void Puggers_Reserve()
 
 	if (i != Database_GetDesiredPlayerCount())
 		ThrowError("Could not find %i desired players, found %i instead. This should never happen.", Database_GetDesiredPlayerCount(), i);
+
+	return true;
 }
 
 float IntToFloat(integer)

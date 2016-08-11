@@ -144,6 +144,27 @@ public Action:Timer_CheckQueue(Handle:timer)
 		if (timeElapsedSinceInvite > PUG_INVITE_TIME)
 		{
 			PrintDebug("Invite time has elapsed, un-confirm not readied players.");
+
+			Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+
+			new Handle:stmt_CleanAfkers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+			if (stmt_CleanAfkers == INVALID_HANDLE)
+			{
+				CloseHandle(stmt_Select);
+				ThrowError(error);
+			}
+			SQL_BindParamInt(stmt_CleanAfkers, 0, PUGGER_STATE_CONFIRMING);
+			SQL_Execute(stmt_CleanAfkers);
+
+			while (SQL_FetchRow(stmt_CleanAfkers))
+			{
+				decl String:steamID[MAX_STEAMID_LENGTH];
+				SQL_FetchString(stmt_CleanAfkers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+
+				PrintDebug("Cleaning SteamID: %s", steamID);
+				Database_RemovePugger(_, true, steamID);
+			}
+			CloseHandle(stmt_CleanAfkers);
 		}
 
 		rows++;
@@ -689,19 +710,19 @@ void Database_AddPugger(client)
 	CloseHandle(stmt);
 }
 
-void Database_RemovePugger(client)
+void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
-	if (client == 0)
+	// Make sure client index is valid, unless removing player directly with SteamID instead
+	if (!bySteamID)
 	{
-		ReplyToCommand(client, "This command cannot be executed from the server console.");
-		return;
-	}
-	if (!Client_IsValid(client) || IsFakeClient(client))
-	{
-		ThrowError("Invalid client %i", client);
-	}
+		if (!Client_IsValid(client) || IsFakeClient(client))
+		{
+			ThrowError("Invalid client %i", client);
+		}
 
-	g_iInviteTimerDisplay[client] = 0;
+		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+		g_iInviteTimerDisplay[client] = 0;
+	}
 
 	Database_Initialize();
 
@@ -713,8 +734,7 @@ void Database_RemovePugger(client)
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+	PrintDebug("Perceived SteamID: %s", steamID);
 
 	SQL_BindParamString(stmt, 0, steamID, false);
 	SQL_Execute(stmt);
@@ -723,7 +743,7 @@ void Database_RemovePugger(client)
 
 	if (results > 1)
 	{
-		LogError("Database_RemovePugger(%i): Found %i results for SteamID \"%s\" in database, expected to find 1. Deleting duplicates.", client, results, steamID);
+		LogError("Database_RemovePugger: Found %i results for SteamID \"%s\" in database, expected to find 1. Deleting duplicates.", results, steamID);
 
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
@@ -742,7 +762,7 @@ void Database_RemovePugger(client)
 	{
 		if (results == 0)
 		{
-			LogError("Database_RemovePugger(%i): Found 0 results for SteamID \"%s\" in database, inserting a row with PUGGER_STATE_INACTIVE", client, steamID);
+			LogError("Database_RemovePugger: Found 0 results for SteamID \"%s\" in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 		}
 
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
@@ -762,42 +782,46 @@ void Database_RemovePugger(client)
 	}
 	else if (results == 1)
 	{
-		while (SQL_FetchRow(stmt))
+		// Client is on this server, respond to them accordingly
+		if (!bySteamID)
 		{
-			new state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
+			while (SQL_FetchRow(stmt))
+			{
+				new state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
 
-			if (state == PUGGER_STATE_INACTIVE)
-			{
-				ReplyToCommand(client, "%s You are not in a PUG queue.", g_sTag);
-				CloseHandle(stmt);
-				return;
-			}
-			else if (state == PUGGER_STATE_QUEUING)
-			{
-				ReplyToCommand(client, "%s You have left the PUG queue.", g_sTag);
-			}
-			else if (state == PUGGER_STATE_CONFIRMING)
-			{
-				ReplyToCommand(client, "%s You have left the PUG queue. Declining offered match.", g_sTag);
+				if (state == PUGGER_STATE_INACTIVE)
+				{
+					ReplyToCommand(client, "%s You are not in a PUG queue.", g_sTag);
+					CloseHandle(stmt);
+					return;
+				}
+				else if (state == PUGGER_STATE_QUEUING)
+				{
+					ReplyToCommand(client, "%s You have left the PUG queue.", g_sTag);
+				}
+				else if (state == PUGGER_STATE_CONFIRMING)
+				{
+					ReplyToCommand(client, "%s You have left the PUG queue. Declining offered match.", g_sTag);
 
-				Database_LogIgnore(client);
-				Pugger_CloseMatchOfferMenu(client);
-			}
-			else if (state == PUGGER_STATE_ACCEPTED)
-			{
-				ReplyToCommand(client, "%s You have already accepted this match.", g_sTag);
-				CloseHandle(stmt);
-				return;
-			}
-			else if (state == PUGGER_STATE_LIVE)
-			{
-				ReplyToCommand(client, "%s You already have a match live!", g_sTag);
-				CloseHandle(stmt);
-				return;
-			}
-			else
-			{
-				LogError("Database_RemovePugger(): Pugger state for \"%s\" returned %i. This should never happen.", steamID, state);
+					Database_LogIgnore(client);
+					Pugger_CloseMatchOfferMenu(client);
+				}
+				else if (state == PUGGER_STATE_ACCEPTED)
+				{
+					ReplyToCommand(client, "%s You have already accepted this match.", g_sTag);
+					CloseHandle(stmt);
+					return;
+				}
+				else if (state == PUGGER_STATE_LIVE)
+				{
+					ReplyToCommand(client, "%s You already have a match live!", g_sTag);
+					CloseHandle(stmt);
+					return;
+				}
+				else
+				{
+					LogError("Database_RemovePugger(): Pugger state for \"%s\" returned %i. This should never happen.", steamID, state);
+				}
 			}
 		}
 		CloseHandle(stmt);

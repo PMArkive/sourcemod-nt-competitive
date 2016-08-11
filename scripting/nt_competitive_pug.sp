@@ -144,27 +144,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 		if (timeElapsedSinceInvite > PUG_INVITE_TIME)
 		{
 			PrintDebug("Invite time has elapsed, un-confirm not readied players.");
-
-			Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
-
-			new Handle:stmt_CleanAfkers = SQL_PrepareQuery(db, sql, error, sizeof(error));
-			if (stmt_CleanAfkers == INVALID_HANDLE)
-			{
-				CloseHandle(stmt_Select);
-				ThrowError(error);
-			}
-			SQL_BindParamInt(stmt_CleanAfkers, 0, PUGGER_STATE_CONFIRMING);
-			SQL_Execute(stmt_CleanAfkers);
-
-			while (SQL_FetchRow(stmt_CleanAfkers))
-			{
-				decl String:steamID[MAX_STEAMID_LENGTH];
-				SQL_FetchString(stmt_CleanAfkers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
-
-				PrintDebug("Cleaning SteamID: %s", steamID);
-				Database_RemovePugger(_, true, steamID);
-			}
-			CloseHandle(stmt_CleanAfkers);
+			Database_CleanAFKers();
 		}
 
 		rows++;
@@ -184,6 +164,31 @@ public Action:Timer_CheckQueue(Handle:timer)
 		g_bIsQueueActive = false;
 
 	return Plugin_Continue;
+}
+
+void Database_CleanAFKers()
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+
+	new Handle:stmt_CleanAfkers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_CleanAfkers == INVALID_HANDLE)
+		ThrowError(error);
+
+	SQL_BindParamInt(stmt_CleanAfkers, 0, PUGGER_STATE_CONFIRMING);
+	SQL_Execute(stmt_CleanAfkers);
+
+	while (SQL_FetchRow(stmt_CleanAfkers))
+	{
+		decl String:steamID[MAX_STEAMID_LENGTH];
+		SQL_FetchString(stmt_CleanAfkers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+
+		PrintDebug("Cleaning SteamID: %s", steamID);
+		Database_RemovePugger(_, true, steamID);
+	}
+	CloseHandle(stmt_CleanAfkers);
 }
 
 // Purpose: Add this server into the organizers database table, and set its reserve status.

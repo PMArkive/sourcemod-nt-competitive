@@ -1167,18 +1167,18 @@ void Pugger_ShowMatchOfferMenu(client)
 	decl String:steamID[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
 
-	decl String:text_TimeToAccept[24];
 	new timeRemaining = Database_GetInviteTimeRemaining(steamID);
+	if (timeRemaining <= 0)
+	{
+		Pugger_CloseMatchOfferMenu(client);
+		return;
+	}
+
+	decl String:text_TimeToAccept[24];
 	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", timeRemaining);
 
-	decl String:text_MatchReady[128];
-	if (timeRemaining <= 0)
-		strcopy(text_MatchReady, sizeof(text_MatchReady), "Invite has expired");
-	else
-		strcopy(text_MatchReady, sizeof(text_MatchReady), "Match is ready");
-
 	new Handle:panel = CreatePanel();
-	SetPanelTitle(panel, text_MatchReady);
+	SetPanelTitle(panel, "Match is ready");
 	DrawPanelText(panel, " ");
 	DrawPanelText(panel, text_TimeToAccept);
 

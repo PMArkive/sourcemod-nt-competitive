@@ -155,7 +155,6 @@ void Database_GiveUpMatch()
 	SQL_BindParamInt(stmt_SelectPuggers, 0, PUGGER_STATE_ACCEPTED);
 	SQL_Execute(stmt_SelectPuggers);
 
-	// TODO: Create db bool/string rows for messaging the accepted client that their match was cancelled regardless of this state change (if client is elsewhere)
 	while (SQL_FetchRow(stmt_SelectPuggers))
 	{
 		decl String:steamID[MAX_STEAMID_LENGTH];
@@ -177,6 +176,8 @@ void Database_GiveUpMatch()
 		SQL_Execute(stmt_UpdatePuggers);
 
 		CloseHandle(stmt_UpdatePuggers);
+
+		Pugger_ShowMatchFail(steamID);
 	}
 	CloseHandle(stmt_SelectPuggers);
 
@@ -195,6 +196,52 @@ void Database_GiveUpMatch()
 	CloseHandle(stmt_SelectPugServers);
 
 	Organizers_Update_This();
+}
+
+void Pugger_ShowMatchFail(const String:steamID[])
+{
+	new bool:isPresent;
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if (!Client_IsValid(i) || IsFakeClient(i))
+			continue;
+
+		decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
+		GetClientAuthId(i, AuthId_Steam2, steamIDBuffer, sizeof(steamIDBuffer));
+
+		if (StrEqual(steamIDBuffer, steamID))
+		{
+			isPresent = true;
+			break;
+		}
+	}
+
+	// Player is on this server, notify them of failed match
+	if (isPresent)
+	{
+		new client = GetClientOfAuthId(steamID);
+		PrintToChat(client, "%s Match failed as everyone didn't accept. Returning to PUG queue.", g_sTag);
+		return;
+	}
+
+	// Player is not on this server, leave a notification to db for them to read
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG], g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_MSG], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	Database_Initialize();
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+
+	new paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, 1);
+	SQL_BindParamString(stmt, paramIndex++, "Match failed as everyone didn't accept.", false);
+	SQL_BindParamString(stmt, paramIndex++, steamID, false);
+	SQL_Execute(stmt);
+
+	CloseHandle(stmt);
 }
 
 void Database_CleanAFKers()
@@ -618,6 +665,8 @@ public Action:Command_CreateTables(client, args)
 									%s INT NOT NULL, \
 									%s TIMESTAMP NOT NULL, \
 									%s TIMESTAMP NOT NULL, \
+									%s BOOL NOT NULL, \
+									%s VARCHAR(128) NOT NULL, \
 									PRIMARY KEY (%s)) CHARACTER SET=utf8",
 									g_sqlTable[TABLES_PUGGERS],
 									g_sqlRow_Puggers[arrayIndex--],
@@ -627,6 +676,8 @@ public Action:Command_CreateTables(client, args)
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--], MAX_CVAR_LENGTH,
+									g_sqlRow_Puggers[arrayIndex--],
+									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],
 									g_sqlRow_Puggers[arrayIndex--],

@@ -457,9 +457,9 @@ public Action:Command_UnPug(client, args)
 {
 	if (g_bIsDatabaseDown)
 	{
-			ReplyToCommand(client, "%s Command failed due to database error.", g_sTag);
-			ReplyToCommand(client, "Please contact server admins for help.");
-			return Plugin_Stop;
+		ReplyToCommand(client, "%s Command failed due to database error.", g_sTag);
+		ReplyToCommand(client, "Please contact server admins for help.");
+		return Plugin_Stop;
 	}
 
 	Database_RemovePugger(client);

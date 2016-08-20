@@ -73,25 +73,23 @@ public OnConfigsExecuted()
 	}
 }
 
-// Purpose: Check if any puggers are marked "confirming", and display the invite panel for those connected to this server
+// Purpose: Check if it's possible to offer a match to puggers
 public Action:Timer_CheckQueue(Handle:timer)
 {
-	// This is called once per interval, so it represents time elapsed
+	// This is called once per interval, so it represents time elapsed.
+	// We only want to connect to db if there seem to be preparations underway, to avoid spamming it needlessly.
 	g_fQueueTimer_DeltaTime -= g_fQueueTimer_Interval;
 
 	if (!g_bIsQueueActive)
 	{
 		// Loop timer's inactive period isn't over yet, stop here.
-		// We do this to avoid database spam when there are no active match preparations.
 		if (g_fQueueTimer_DeltaTime > 0)
 		{
-			//PrintDebug("(g_fQueueTimer_DeltaTime > 0)");
 			return Plugin_Continue;
 		}
 		// Inactive period has elapsed, reset delta variable and continue execution.
 		else
 		{
-			//PrintDebug("else");
 			g_fQueueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
 		}
 	}
@@ -157,6 +155,7 @@ void Database_GiveUpMatch()
 	SQL_BindParamInt(stmt_SelectPuggers, 0, PUGGER_STATE_ACCEPTED);
 	SQL_Execute(stmt_SelectPuggers);
 
+	// TODO: Create db bool/string rows for messaging the accepted client that their match was cancelled regardless of this state change (if client is elsewhere)
 	while (SQL_FetchRow(stmt_SelectPuggers))
 	{
 		decl String:steamID[MAX_STEAMID_LENGTH];

@@ -523,7 +523,15 @@ void AcceptMatch(client)
 	}
 
 	Pugger_SetQueuingState(client, PUGGER_STATE_ACCEPTED);
-	ReplyToCommand(client, "AcceptMatch passed.");
+
+	new Handle:panel = CreatePanel();
+	SetPanelTitle(panel, "Match accepted. Waiting for others to accept...");
+	DrawPanelText(panel, " ");
+	DrawPanelItem(panel, "OK");
+
+	new displayTime = 5;
+	SendPanelToClient(panel, client, PanelHandler_AcceptMatch, displayTime);
+	CloseHandle(panel);
 }
 
 int Database_GetInviteTimeRemaining(const String:steamID[])
@@ -1213,6 +1221,11 @@ public PanelHandler_Pugger_SendMatchOffer(Handle:menu, MenuAction:action, client
 }
 
 public PanelHandler_Pugger_CloseMatchOfferMenu(Handle:menu, MenuAction:action, client, choice)
+{
+	return;
+}
+
+public PanelHandler_AcceptMatch(Handle:menu, MenuAction:action, client, choice)
 {
 	return;
 }

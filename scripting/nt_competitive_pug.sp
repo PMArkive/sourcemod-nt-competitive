@@ -530,7 +530,7 @@ int Database_GetInviteTimeRemaining(const String:steamID[])
 {
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(%s) FROM %s WHERE %s = ?", g_sqlRow_Puggers[SQL_TABLE_PUGGER_INVITE_TIMESTAMP], g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
@@ -539,36 +539,19 @@ int Database_GetInviteTimeRemaining(const String:steamID[])
 	SQL_BindParamString(stmt_Select, 0, steamID, false);
 	SQL_Execute(stmt_Select);
 
-	new String:strInviteEpoch[11];
+	new inviteEpoch;
 	while (SQL_FetchRow(stmt_Select))
 	{
-		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_INVITE_TIMESTAMP, strInviteEpoch, sizeof(strInviteEpoch));
+		inviteEpoch = SQL_FetchInt(stmt_Select, 0);
 	}
 	CloseHandle(stmt_Select);
 
-	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(?)");
-	new Handle:stmt_InviteEpoch = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt_InviteEpoch == INVALID_HANDLE)
-	{
-		CloseHandle(stmt_Select);
-		ThrowError(error);
-	}
-
-	SQL_BindParamString(stmt_InviteEpoch, 0, strInviteEpoch, false);
-	SQL_Execute(stmt_InviteEpoch);
-
-	new inviteEpoch;
-	while (SQL_FetchRow(stmt_InviteEpoch))
-	{
-		inviteEpoch = SQL_FetchInt(stmt_InviteEpoch, 0);
-	}
-	CloseHandle(stmt_InviteEpoch);
-
 	new currentEpoch = Database_GetEpoch();
 	new timeSinceInvite = currentEpoch - inviteEpoch;
+	new timeRemaining = PUG_INVITE_TIME - timeSinceInvite;
 
-	PrintDebug("Time since invite = %i - %i = %i", currentEpoch, inviteEpoch, timeSinceInvite);
-	return timeSinceInvite;
+	//PrintDebug("Time since invite = %i - %i = %i", currentEpoch, inviteEpoch, timeSinceInvite);
+	return timeRemaining;
 }
 
 #if DEBUG_SQL
@@ -1154,9 +1137,6 @@ void Pugger_ShowMatchOfferMenu(client)
 	if (!Client_IsValid(client) || IsFakeClient(client))
 		return;
 
-	if (g_iInviteTimerDisplay[client] <= 0)
-		g_iInviteTimerDisplay[client] = PUG_INVITE_TIME;
-
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
 	new offer_ServerPort;
@@ -1184,13 +1164,22 @@ void Pugger_ShowMatchOfferMenu(client)
 	PrintToConsole(client, "Invite: %s:%i:%s", offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 	PrintDebug("Client %i Invite: %s:%i:%s", client, offer_ServerIP, offer_ServerPort, offer_ServerPassword);
 */
-	new Handle:panel = CreatePanel();
-
-	SetPanelTitle(panel, "Match is ready");
-	DrawPanelText(panel, " ");
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
 
 	decl String:text_TimeToAccept[24];
-	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", g_iInviteTimerDisplay[client]);
+	new timeRemaining = Database_GetInviteTimeRemaining(steamID);
+	Format(text_TimeToAccept, sizeof(text_TimeToAccept), "Time to accept: %i", timeRemaining);
+
+	decl String:text_MatchReady[128];
+	if (timeRemaining <= 0)
+		strcopy(text_MatchReady, sizeof(text_MatchReady), "Invite has expired");
+	else
+		strcopy(text_MatchReady, sizeof(text_MatchReady), "Match is ready");
+
+	new Handle:panel = CreatePanel();
+	SetPanelTitle(panel, text_MatchReady);
+	DrawPanelText(panel, " ");
 	DrawPanelText(panel, text_TimeToAccept);
 
 	decl String:text_PlayersReady[24];
@@ -1203,8 +1192,6 @@ void Pugger_ShowMatchOfferMenu(client)
 
 	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
 	CloseHandle(panel);
-
-	g_iInviteTimerDisplay[client]--;
 }
 
 void Pugger_CloseMatchOfferMenu(client)

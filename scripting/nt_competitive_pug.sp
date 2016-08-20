@@ -146,7 +146,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 	return Plugin_Continue;
 }
 
-void Pugger_DisplayMessage(const String:steamID[])
+void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 {
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -256,7 +256,7 @@ void Database_GiveUpMatch()
 	Organizers_Update_This();
 }
 
-void Pugger_ShowMatchFail(const String:steamID[])
+void Pugger_ShowMatchFail(const String:steamID[MAX_STEAMID_LENGTH])
 {
 	new bool:isPresent;
 	for (new i = 1; i <= MaxClients; i++)
@@ -639,7 +639,7 @@ void AcceptMatch(client)
 	CloseHandle(panel);
 }
 
-int Database_GetInviteTimeRemaining(const String:steamID[])
+int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 {
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -1339,7 +1339,7 @@ public PanelHandler_AcceptMatch(Handle:menu, MenuAction:action, client, choice)
 	return;
 }
 
-int GetClientOfAuthId(const String:steamID[])
+int GetClientOfAuthId(const String:steamID[MAX_STEAMID_LENGTH])
 {
 	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];
 	for (new i = 1; i <= MaxClients; i++)

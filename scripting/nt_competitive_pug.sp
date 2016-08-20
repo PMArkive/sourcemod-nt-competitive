@@ -349,9 +349,9 @@ public Action:Command_Pug(client, args)
 {
 	if (g_bIsDatabaseDown)
 	{
-			ReplyToCommand(client, "%s Command failed due to database error.", g_sTag);
-			ReplyToCommand(client, "Please contact server admins for help.");
-			return Plugin_Stop;
+		ReplyToCommand(client, "%s Command failed due to database error.", g_sTag);
+		ReplyToCommand(client, "Please contact server admins for help.");
+		return Plugin_Stop;
 	}
 
 	if (client == 0)
@@ -443,14 +443,14 @@ void OfferMatch()
 		Database_GiveUpMatch();
 		return;
 	}
-
+	// Reserve puggers
 	if (!Puggers_Reserve())
 	{
 		Database_GiveUpMatch();
 		return;
 	}
-
-	Organizers_Update_This();										// Release database reservation
+	// Release database reservation
+	Organizers_Update_This();
 }
 
 public Action:Command_UnPug(client, args)

@@ -472,6 +472,11 @@ public Action:Command_Pug(client, args)
 		ReplyToCommand(client, "%s You are already queuing. Use !unpug to leave the queue.", g_sTag);
 		return Plugin_Stop;
 	}
+	else if (puggerState == PUGGER_STATE_CONFIRMING)
+	{
+		ReplyToCommand(client, "%s You are already queuing. Use !join to accept the PUG, or !unpug to leave the queue.", g_sTag);
+		return Plugin_Stop;
+	}
 	else if (puggerState == PUGGER_STATE_LIVE)
 	{
 		ReplyToCommand(client, "%s You already have a match live. Use !join to rejoin your match.", g_sTag); // TODO: Use function to display pug server info instead (helps with mapload crashing)
@@ -918,7 +923,6 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 		}
 
 		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-		g_iInviteTimerDisplay[client] = 0;
 	}
 
 	Database_Initialize();

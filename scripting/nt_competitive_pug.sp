@@ -1103,7 +1103,6 @@ bool Puggers_Reserve()
 	}
 
 	new i;
-	new state;
 	while (SQL_FetchRow(query_Puggers))
 	{
 		PrintDebug("While loop");
@@ -1112,15 +1111,6 @@ bool Puggers_Reserve()
 			PrintDebug("Desired playercount: %i", Database_GetDesiredPlayerCount());
 			break;
 		}
-
-		state = SQL_FetchInt(query_Puggers, SQL_TABLE_PUGGER_STATE);
-#if DEBUG
-		if (state != PUGGER_STATE_QUEUING)
-		{
-			LogError("Pugger state is not PUGGER_STATE_QUEUING! This should never happen.");
-			continue;
-		}
-#endif
 
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = CURRENT_TIMESTAMP WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_INVITE_TIMESTAMP], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));

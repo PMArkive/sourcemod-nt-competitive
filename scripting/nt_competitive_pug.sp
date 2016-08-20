@@ -98,13 +98,12 @@ public Action:Timer_CheckQueue(Handle:timer)
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUGGERS]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
 
-	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_CONFIRMING);
 	SQL_Execute(stmt_Select);
 
 	new rows;
@@ -112,6 +111,14 @@ public Action:Timer_CheckQueue(Handle:timer)
 	{
 		decl String:steamID[MAX_STEAMID_LENGTH];
 		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+
+		new bool:hasMessage = view_as<bool>(SQL_FetchInt(stmt_Select, SQL_TABLE_PUGGER_HAS_MATCH_MSG));
+		if (hasMessage)
+			Pugger_DisplayMessage(steamID);
+
+		new state = SQL_FetchInt(stmt_Select, SQL_TABLE_PUGGER_STATE);
+		if (state != PUGGER_STATE_CONFIRMING)
+			continue;
 
 		new inviteTimeRemaining = Database_GetInviteTimeRemaining(steamID);
 		if (inviteTimeRemaining < 0)
@@ -137,6 +144,57 @@ public Action:Timer_CheckQueue(Handle:timer)
 		g_bIsQueueActive = false;
 
 	return Plugin_Continue;
+}
+
+void Pugger_DisplayMessage(const String:steamID[])
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	// Get message from db
+	Format(sql, sizeof(sql), "SELECT %s FROM %s WHERE %s = ? AND %s = ?", g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_MSG], g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG]);
+
+	Database_Initialize();
+	new Handle:stmt_GetMessage = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_GetMessage == INVALID_HANDLE)
+		ThrowError(error);
+
+	new paramIndex;
+	SQL_BindParamString(stmt_GetMessage, paramIndex++, steamID, false);
+	SQL_BindParamInt(stmt_GetMessage, paramIndex++, view_as<int>true);
+	SQL_Execute(stmt_GetMessage);
+
+	if (SQL_GetRowCount(stmt_GetMessage) == 0)
+		ThrowError("Message not found");
+
+	decl String:message[128];
+	while (SQL_FetchRow(stmt_GetMessage))
+	{
+		SQL_FetchString(stmt_GetMessage, 0, message, sizeof(message));
+	}
+	CloseHandle(stmt_GetMessage);
+
+	new client = GetClientOfAuthId(steamID);
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		return;
+
+	// Display message to player
+	PrintToChat(client, message);
+	PrintToConsole(client, message);
+
+	// Message is now seen by player, remove it from db
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG], g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_MSG], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	new Handle:stmt_clearMsg = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_clearMsg == INVALID_HANDLE)
+		ThrowError(error);
+
+	paramIndex = 0;
+	SQL_BindParamInt(stmt_clearMsg, paramIndex++, view_as<int>false);
+	SQL_BindParamString(stmt_clearMsg, paramIndex++, "", false);
+	SQL_BindParamString(stmt_clearMsg, paramIndex++, steamID, false);
+	SQL_Execute(stmt_clearMsg);
+	CloseHandle(stmt_clearMsg);
 }
 
 void Database_GiveUpMatch()

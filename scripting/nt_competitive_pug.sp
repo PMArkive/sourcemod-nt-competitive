@@ -109,39 +109,14 @@ public Action:Timer_CheckQueue(Handle:timer)
 	SQL_BindParamInt(stmt_Select, 0, PUGGER_STATE_CONFIRMING);
 	SQL_Execute(stmt_Select);
 
-	new currentEpoch = Database_GetEpoch();
 	new rows;
 	while (SQL_FetchRow(stmt_Select))
 	{
-		decl String:strTimestamp[128];
-		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_INVITE_TIMESTAMP, strTimestamp, sizeof(strTimestamp));
-		PrintDebug("String format: %s", strTimestamp);
+		decl String:steamID[MAX_STEAMID_LENGTH];
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
 
-		Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(?)");
-		new Handle:stmt_InviteEpoch = SQL_PrepareQuery(db, sql, error, sizeof(error));
-		if (stmt_InviteEpoch == INVALID_HANDLE)
-		{
-			CloseHandle(stmt_Select);
-			ThrowError(error);
-		}
-
-		SQL_BindParamString(stmt_InviteEpoch, 0, strTimestamp, false);
-		SQL_Execute(stmt_InviteEpoch);
-
-		new inviteEpoch;
-		while (SQL_FetchRow(stmt_InviteEpoch))
-		{
-			inviteEpoch = SQL_FetchInt(stmt_InviteEpoch, 0);
-			PrintDebug("Invite epoch: %i", inviteEpoch);
-		}
-		CloseHandle(stmt_InviteEpoch);
-
-		// If invite time expired: set state to inactive, regord ignore, continue;
-		new timeElapsedSinceInvite = currentEpoch - inviteEpoch;
-		PrintDebug("Invite epoch: %i and current epoch: %i", inviteEpoch, currentEpoch);
-		PrintDebug("Epoch difference: %i", timeElapsedSinceInvite);
-
-		if (timeElapsedSinceInvite > PUG_INVITE_TIME)
+		new inviteTimeRemaining = Database_GetInviteTimeRemaining(steamID);
+		if (inviteTimeRemaining < 0)
 		{
 			PrintDebug("Invite time has elapsed, un-confirm not readied players.");
 
@@ -149,10 +124,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 			Database_GiveUpMatch();	// Give up current invite, move accepted players back in queue
 			OfferMatch();						// Try to find a new match
 		}
-
 		rows++;
-		decl String:steamID[MAX_STEAMID_LENGTH];
-		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
 
 		new client = GetClientOfAuthId(steamID);
 		Pugger_ShowMatchOfferMenu(client);
@@ -335,7 +307,7 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 
 	return true;
 }
-
+/*
 // Purpose: Return reserve status int enum of this org server
 int Organizers_Get_Status_This()
 {
@@ -372,6 +344,7 @@ int Organizers_Get_Status_This()
 
 	return status;
 }
+*/
 
 public Action:Command_Pug(client, args)
 {
@@ -541,8 +514,10 @@ void AcceptMatch(client)
 
 	g_iInviteTimerDisplay[client] = 0;
 
-	// FIXME: Add check to avoid this accidentally failing whilst calling Organizers_Update_This() and preparing match accept
-	if (Organizers_Get_Status_This() != SERVER_DB_RESERVED)
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+
+	if (Database_GetInviteTimeRemaining(steamID) > PUG_INVITE_TIME)
 	{
 		ReplyToCommand(client, "%s Joining time has ended.", g_sTag);
 		return;
@@ -550,6 +525,51 @@ void AcceptMatch(client)
 
 	Pugger_SetQueuingState(client, PUGGER_STATE_ACCEPTED);
 	ReplyToCommand(client, "AcceptMatch passed.");
+}
+
+int Database_GetInviteTimeRemaining(const String:steamID[])
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_Select == INVALID_HANDLE)
+		ThrowError(error);
+
+	SQL_BindParamString(stmt_Select, 0, steamID, false);
+	SQL_Execute(stmt_Select);
+
+	new String:strInviteEpoch[11];
+	while (SQL_FetchRow(stmt_Select))
+	{
+		SQL_FetchString(stmt_Select, SQL_TABLE_PUGGER_INVITE_TIMESTAMP, strInviteEpoch, sizeof(strInviteEpoch));
+	}
+	CloseHandle(stmt_Select);
+
+	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP(?)");
+	new Handle:stmt_InviteEpoch = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_InviteEpoch == INVALID_HANDLE)
+	{
+		CloseHandle(stmt_Select);
+		ThrowError(error);
+	}
+
+	SQL_BindParamString(stmt_InviteEpoch, 0, strInviteEpoch, false);
+	SQL_Execute(stmt_InviteEpoch);
+
+	new inviteEpoch;
+	while (SQL_FetchRow(stmt_InviteEpoch))
+	{
+		inviteEpoch = SQL_FetchInt(stmt_InviteEpoch, 0);
+	}
+	CloseHandle(stmt_InviteEpoch);
+
+	new currentEpoch = Database_GetEpoch();
+	new timeSinceInvite = currentEpoch - inviteEpoch;
+
+	PrintDebug("Time since invite = %i - %i = %i", currentEpoch, inviteEpoch, timeSinceInvite);
+	return timeSinceInvite;
 }
 
 #if DEBUG_SQL
@@ -1073,7 +1093,6 @@ bool Puggers_Reserve()
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i ORDER BY %s", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
 
 	new Handle:query_Puggers = SQL_Query(db, sql);
-	PrintDebug("Line 948");
 
 	new rows = SQL_GetRowCount(query_Puggers);
 	if (rows < Database_GetDesiredPlayerCount())

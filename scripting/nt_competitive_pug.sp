@@ -197,26 +197,52 @@ void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 	CloseHandle(stmt_clearMsg);
 }
 
-void Database_GiveUpMatch()
+void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID[MAX_STEAMID_LENGTH] = "")
 {
 	Database_Initialize();
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUGGERS]);
 
 	new Handle:stmt_SelectPuggers = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_SelectPuggers == INVALID_HANDLE)
 		ThrowError(error);
 
-	SQL_BindParamInt(stmt_SelectPuggers, 0, PUGGER_STATE_ACCEPTED);
 	SQL_Execute(stmt_SelectPuggers);
 
 	while (SQL_FetchRow(stmt_SelectPuggers))
 	{
+		new state = SQL_FetchInt(stmt_SelectPuggers, SQL_TABLE_PUGGER_STATE);
 		decl String:steamID[MAX_STEAMID_LENGTH];
 		SQL_FetchString(stmt_SelectPuggers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+
+		PrintDebug("Handling %s with state %i", steamID, state);
+
+		// Someone declined match invite early, we are including players who chose nothing
+		if (giveUpEarly)
+		{
+			PrintDebug("giveUpEarly = true");
+
+			if (state != PUGGER_STATE_ACCEPTED && state != PUGGER_STATE_CONFIRMING)
+				continue;
+
+			// This is the player who's declining the match
+			if (StrEqual(steamID, quittingSteamID))
+			{
+				//PrintDebug("Found quitter");
+				continue;
+			}
+		}
+		// Invite time ran out, we are excluding players who chose nothing
+		else
+		{
+			PrintDebug("giveUpEarly = false");
+
+			if (state != PUGGER_STATE_ACCEPTED)
+				continue;
+		}
 
 		PrintDebug("Giveup SteamID: %s", steamID);
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?", g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
@@ -1004,6 +1030,9 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 				{
 					ReplyToCommand(client, "%s You have left the PUG queue. Declining offered match.", g_sTag);
 
+					Database_GiveUpMatch(true, steamID);	// Give up current invite, move accepted players back in queue
+					OfferMatch();						// Try to find a new match
+
 					Database_LogIgnore(client);
 					Pugger_CloseMatchOfferMenu(client);
 				}
@@ -1362,7 +1391,7 @@ int GetClientOfAuthId(const String:steamID[MAX_STEAMID_LENGTH])
 
 void Database_Initialize(bool checkTables = true)
 {
-	PrintDebug("Database_Initialize()");
+	//PrintDebug("Database_Initialize()");
 
 	decl String:configName[MAX_CVAR_LENGTH];
 	GetConVarString(g_hCvar_DbConfig, configName, sizeof(configName));

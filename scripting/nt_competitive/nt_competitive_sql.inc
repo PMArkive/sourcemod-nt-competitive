@@ -61,9 +61,10 @@ enum {
 	PUGGER_STATE_INACTIVE = 0,								// This pugger is not currently queuing or playing at all
 	PUGGER_STATE_QUEUING = 1,										// Queuing for a match
 	PUGGER_STATE_CONFIRMING = 2,								// Match has been offered, waiting for this pugger to accept
-	PUGGER_STATE_ACCEPTED = 3,									// Pugger has accepted a match, preparing to go live
-	PUGGER_STATE_LIVE = 4,											// Currently playing
-	PUGGER_STATE_ENUM_COUNT = 5
+	PUGGER_STATE_ACCEPTED = 3,									// Pugger has accepted a match invite
+	PUGGER_STATE_READY = 4,											// Pugger is expected to go live soon
+	PUGGER_STATE_LIVE = 5,											// Currently playing
+	PUGGER_STATE_ENUM_COUNT = 6
 };
 
 enum {

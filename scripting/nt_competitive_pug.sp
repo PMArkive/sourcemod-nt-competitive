@@ -284,26 +284,11 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 
 void Pugger_ShowMatchFail(const String:steamID[MAX_STEAMID_LENGTH])
 {
-	new bool:isPresent;
-	for (new i = 1; i <= MaxClients; i++)
-	{
-		if (!Client_IsValid(i) || IsFakeClient(i))
-			continue;
-
-		decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
-		GetClientAuthId(i, AuthId_Steam2, steamIDBuffer, sizeof(steamIDBuffer));
-
-		if (StrEqual(steamIDBuffer, steamID))
-		{
-			isPresent = true;
-			break;
-		}
-	}
+	new client = GetClientOfAuthId(steamID);
 
 	// Player is on this server, notify them of failed match
-	if (isPresent)
+	if (Client_IsValid(client) && !IsFakeClient(client))
 	{
-		new client = GetClientOfAuthId(steamID);
 		PrintToChat(client, "%s Match failed as everyone didn't accept. Returning to PUG queue.", g_sTag);
 		return;
 	}

@@ -5,7 +5,8 @@
 #include "nt_competitive/nt_competitive_sql"
 
 #define DEBUG 1
-#define DEBUG_SQL 1 // Make sure this is set to 0 unless you really want to debug the SQL as it disables some safety checks
+#define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
+debug the SQL as it disables some safety checks */
 #define PLUGIN_VERSION "0.1"
 
 #define MAX_IDENTIFIER_LENGTH 52
@@ -32,7 +33,9 @@ new Float:g_fQueueTimer_DeltaTime;
 
 new const String:g_sTag[] = "[PUG]";
 
-new String:g_sIdentifier[MAX_IDENTIFIER_LENGTH]; // Set this to something uniquely identifying if the plugin fails to retrieve your external IP.
+// Set this to something uniquely identifying if the plugin fails to
+// retrieve your external IP.
+new String:g_sIdentifier[MAX_IDENTIFIER_LENGTH];
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",
@@ -581,7 +584,8 @@ void FindNewMatch()
 		return;
 
 	// Are there any available PUG servers?
-	if (Database_GetRowCountForTableName(g_sqlTable[TABLES_PUG_SERVERS]) < 1) // BUG / FIXME: This is row count regardless of state, need PUG_SERVER_STATUS_AVAILABLE specifically!
+	// BUG / FIXME: This is row count regardless of state, need PUG_SERVER_STATUS_AVAILABLE specifically!
+	if (Database_GetRowCountForTableName(g_sqlTable[TABLES_PUG_SERVERS]) < 1)
 		return;
 
 	// Are there enough queued puggers available?

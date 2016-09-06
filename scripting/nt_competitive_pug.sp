@@ -1149,7 +1149,7 @@ void Pugger_SetQueuingState(client, state)
 	if (!Client_IsValid(client) || IsFakeClient(client))
 		ThrowError("Invalid client %i", client);
 
-	if ( 0 > state >= PUGGER_STATE_ENUM_COUNT)
+	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
 	{
 		ThrowError("Invalid state %i, expected value between 0 and %i.",
 		state, PUGGER_STATE_ENUM_COUNT-1);

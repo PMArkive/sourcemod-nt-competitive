@@ -120,31 +120,32 @@ public Action:Timer_CheckQueue(Handle:timer)
 			Pugger_DisplayMessage(steamID);
 
 		new state = SQL_FetchInt(stmt_Select, SQL_TABLE_PUGGER_STATE);
-		if (state != PUGGER_STATE_CONFIRMING)
-			continue;
-
-		new inviteTimeRemaining = Database_GetInviteTimeRemaining(steamID);
-		if (inviteTimeRemaining < 0)
+		if (state == PUGGER_STATE_CONFIRMING)
 		{
-			PrintDebug("Invite time has elapsed, un-confirm not readied players.");
+			new inviteTimeRemaining = Database_GetInviteTimeRemaining(steamID);
+			if (inviteTimeRemaining < 0)
+			{
+				PrintDebug("Invite time has elapsed, un-confirm not readied players.");
 
-			Database_CleanAFKers();	// Remove afkers from queue
-			Database_GiveUpMatch();	// Give up current invite, move accepted players back in queue
-			OfferMatch();						// Try to find a new match
+				Database_CleanAFKers();	// Remove afkers from queue
+				Database_GiveUpMatch();	// Give up current invite, move accepted players back in queue
+				OfferMatch();						// Try to find a new match
+			}
+			rows++;
 		}
-		rows++;
-
 		new client = GetClientOfAuthId(steamID);
 		Pugger_ShowMatchOfferMenu(client);
 	}
 	CloseHandle(stmt_Select);
 
-	// There are puggers waiting to confirm their match, mark queue as active
 	if (rows > 0)
+	{
 		g_bIsQueueActive = true;
-	// Pugger queue is not active right now
+	}
 	else
-		g_bIsQueueActive = false;
+	{
+		g_bIsQueueActive = Puggers_Reserve();
+	}
 
 	return Plugin_Continue;
 }

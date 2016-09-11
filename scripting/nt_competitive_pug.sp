@@ -1026,6 +1026,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 	SQL_Execute(stmt);
 
 	new results = SQL_GetRowCount(stmt);
+	new state;
 
 	if (results > 1)
 	{
@@ -1079,7 +1080,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 		{
 			while (SQL_FetchRow(stmt))
 			{
-				new state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
+				state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
 
 				if (state == PUGGER_STATE_INACTIVE)
 				{
@@ -1095,14 +1096,6 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 				{
 					ReplyToCommand(client, "%s You have left the PUG queue. \
 					Declining offered match.", g_sTag);
-
-					// Give up current invite, move accepted players back in queue
-					Database_GiveUpMatch(true, steamID);
-					// Try to find a new match
-					OfferMatch();
-
-					Database_LogIgnore(client);
-					Pugger_CloseMatchOfferMenu(client);
 				}
 				else if (state == PUGGER_STATE_ACCEPTED)
 				{
@@ -1140,6 +1133,18 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
 		SQL_Execute(stmt_Update);
 		CloseHandle(stmt_Update);
+	}
+
+	// This needs to be done after the player is removed from active PUG queue
+	if (state == PUGGER_STATE_CONFIRMING)
+	{
+		// Give up current invite, move accepted players back in queue
+		Database_GiveUpMatch(true, steamID);
+		Database_LogIgnore(client);
+		Pugger_CloseMatchOfferMenu(client);
+
+		// Try to find a new match
+		FindNewMatch();
 	}
 }
 

@@ -79,8 +79,7 @@ enum {
 enum {
 	SERVER_DB_INACTIVE = 0,									// This server is not editing the SQL database
 	SERVER_DB_RESERVED = 1,											// This server has reserved the right to edit the SQL database
-	SERVER_DB_PASSING_ON = 2,										// This server has finished editing the SQL database, but wants to pass on that right to a specific other server
-	SERVER_DB_ENUM_COUNT = 3
+	SERVER_DB_ENUM_COUNT = 2
 };
 
 enum {

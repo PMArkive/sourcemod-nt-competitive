@@ -131,9 +131,10 @@ public Action:Timer_CheckQueue(Handle:timer)
 				OfferMatch();						// Try to find a new match
 			}
 			rows++;
+
+			new client = GetClientOfAuthId(steamID);
+			Pugger_ShowMatchOfferMenu(client); // Client validity checked by function
 		}
-		new client = GetClientOfAuthId(steamID);
-		Pugger_ShowMatchOfferMenu(client);
 	}
 	CloseHandle(stmt_Select);
 

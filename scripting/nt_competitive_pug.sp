@@ -1,7 +1,6 @@
 #pragma semicolon 1
 
 #include <sourcemod>
-#include <smlib>
 #include "nt_competitive/nt_competitive_sql"
 
 #define DEBUG 1
@@ -153,7 +152,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 {
 	new client = GetClientOfAuthId(steamID);
-	if (!Client_IsValid(client) || IsFakeClient(client))
+	if (!IsValidClient(client) || IsFakeClient(client))
 		return;
 
 	decl String:sql[MAX_SQL_LENGTH];
@@ -306,7 +305,7 @@ void Pugger_ShowMatchFail(const String:steamID[MAX_STEAMID_LENGTH])
 	new client = GetClientOfAuthId(steamID);
 
 	// Player is on this server, notify them of failed match
-	if (Client_IsValid(client) && !IsFakeClient(client))
+	if (IsValidClient(client) && !IsFakeClient(client))
 	{
 		PrintToChat(client, "%s Match failed as everyone didn't accept. Returning to PUG queue.", g_sTag);
 		return;
@@ -675,7 +674,7 @@ void AcceptMatch(client)
 {
 	PrintDebug("AcceptMatch()");
 
-	if (!Client_IsValid(client) || IsFakeClient(client))
+	if (!IsValidClient(client) || IsFakeClient(client))
 		ThrowError("Invalid or fake client %i", client);
 
 	g_iInviteTimerDisplay[client] = 0;
@@ -923,7 +922,7 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 
 void Database_AddPugger(client)
 {
-	if (!Client_IsValid(client) || IsFakeClient(client))
+	if (!IsValidClient(client) || IsFakeClient(client))
 		ThrowError("Invalid client %i", client);
 
 	Database_Initialize();
@@ -1000,7 +999,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 	// unless removing player directly with SteamID instead
 	if (!bySteamID)
 	{
-		if (!Client_IsValid(client) || IsFakeClient(client))
+		if (!IsValidClient(client) || IsFakeClient(client))
 		{
 			ThrowError("Invalid client %i", client);
 		}
@@ -1118,21 +1117,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 		}
 		CloseHandle(stmt);
 
-		// Remove player from active PUG queue
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
-		g_sqlTable[TABLES_PUGGERS],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
-
-		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
-		if (stmt_Update == INVALID_HANDLE)
-			ThrowError(error);
-
-		new paramIndex;
-		SQL_BindParamInt(stmt_Update, paramIndex++, PUGGER_STATE_INACTIVE);
-		SQL_BindParamString(stmt_Update, paramIndex++, steamID, false);
-		SQL_Execute(stmt_Update);
-		CloseHandle(stmt_Update);
+		Pugger_SetQueuingState(client, PUGGER_STATE_INACTIVE, bySteamID, steamID);
 	}
 
 	// This needs to be done after the player is removed from active PUG queue
@@ -1154,9 +1139,9 @@ void Database_LogIgnore(client)
 	PrintDebug("Database_LogIgnore(%i)", client);
 }
 
-void Pugger_SetQueuingState(client, state)
+void Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
-	if (!Client_IsValid(client) || IsFakeClient(client))
+	if (!bySteamID && !IsValidClient(client))
 		ThrowError("Invalid client %i", client);
 
 	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
@@ -1167,11 +1152,13 @@ void Pugger_SetQueuingState(client, state)
 
 	Database_Initialize();
 
-	decl String:steamID[MAX_STEAMID_LENGTH];
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+	if (!bySteamID)
+	{
+		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+	}
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
 	g_sqlTable[TABLES_PUGGERS],
@@ -1191,7 +1178,7 @@ void Pugger_SetQueuingState(client, state)
 
 int Pugger_GetQueuingState(client)
 {
-	if (!Client_IsValid(client) || IsFakeClient(client))
+	if (!IsValidClient(client) || IsFakeClient(client))
 		ThrowError("Invalid client %i", client);
 
 	Database_Initialize();
@@ -1389,7 +1376,7 @@ float IntToFloat(integer)
 
 void Pugger_ShowMatchOfferMenu(client)
 {
-	if (!Client_IsValid(client) || IsFakeClient(client))
+	if (!IsValidClient(client) || IsFakeClient(client))
 		return;
 
 	decl String:offer_ServerIP[45];
@@ -1467,7 +1454,7 @@ void Pugger_ShowMatchOfferMenu(client)
 
 void Pugger_CloseMatchOfferMenu(client)
 {
-	if (!Client_IsValid(client) || IsFakeClient(client))
+	if (!IsValidClient(client) || IsFakeClient(client))
 		return;
 
 	new Handle:panel = CreatePanel();
@@ -1498,7 +1485,7 @@ int GetClientOfAuthId(const String:steamID[MAX_STEAMID_LENGTH])
 	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (!Client_IsValid(i) || IsFakeClient(i))
+		if (!IsValidClient(i) || IsFakeClient(i))
 			continue;
 
 		GetClientAuthId(i, AuthId_Steam2, buffer_SteamID, sizeof(buffer_SteamID));
@@ -1662,4 +1649,18 @@ int Database_GetEpoch()
 	CloseHandle(query);
 
 	return epoch;
+}
+
+bool IsValidClient(client, bool:isFakeClientAllowed = false)
+{
+	if (client <= 0 || client > MaxClients)
+		return false;
+
+	if (!IsClientConnected(client) || !IsClientAuthorized(client))
+		return false;
+
+	if (!isFakeClientAllowed && IsFakeClient(client))
+		return false;
+
+	return true;
 }

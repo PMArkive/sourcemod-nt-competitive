@@ -152,6 +152,10 @@ public Action:Timer_CheckQueue(Handle:timer)
 
 void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 {
+	new client = GetClientOfAuthId(steamID);
+	if (!Client_IsValid(client) || IsFakeClient(client))
+		return;
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -181,10 +185,6 @@ void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 		SQL_FetchString(stmt_GetMessage, 0, message, sizeof(message));
 	}
 	CloseHandle(stmt_GetMessage);
-
-	new client = GetClientOfAuthId(steamID);
-	if (!Client_IsValid(client) || IsFakeClient(client))
-		return;
 
 	// Display message to player
 	PrintToChat(client, message);

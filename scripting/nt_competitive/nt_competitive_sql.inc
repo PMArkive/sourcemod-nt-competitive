@@ -443,6 +443,7 @@ void Database_CleanAFKers()
 }
 #endif
 
+#if defined PLUGIN_COMP
 bool PugServer_Update_This()
 {
 	if (g_bIsDatabaseDown)
@@ -596,6 +597,7 @@ int PugServer_Get_Status(const String:sIP[], iPort)
 
 	return status;
 }
+#endif
 
 #if defined PLUGIN_PUG
 // Purpose: Add this server into the organizers database table, and set its reserve status.

@@ -15,6 +15,7 @@ void PrintDebug(const String:message[], any ...)
 #endif
 }
 
+#if defined PLUGIN_COMP
 // Purpose: Return the contents of a server cvar.
 // Will return int and float as any, strings by reference.
 any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxStrLen = 0, bool:doFatalFail = true)
@@ -65,3 +66,4 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 
 	return value;
 }
+#endif

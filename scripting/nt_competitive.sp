@@ -5,6 +5,7 @@
 */
 #pragma semicolon 1
 
+#define PLUGIN_COMP
 #define PLUGIN_VERSION "0.3.9.14"
 
 //#define DEBUG 0 // Release

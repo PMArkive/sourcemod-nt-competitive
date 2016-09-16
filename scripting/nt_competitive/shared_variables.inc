@@ -11,6 +11,7 @@
 #define QUEUE_CHECK_TIMER 30
 #define MAX_ROUNDS_PLAYED 255 // This is just a random large number used for 1d int arrays because it's cheap and simple. A single comp game should never have more rounds than this to avoid weirdness.
 
+#if defined PLUGIN_COMP
 #define KV_IDENTIFIER "compdata"
 
 new String:g_teamName[][64] = {
@@ -19,6 +20,7 @@ new String:g_teamName[][64] = {
 	"Jinrai",
 	"NSF"
 };
+#endif
 
 #if defined PLUGIN_PUG
 // Set this to something uniquely identifying if the plugin fails to
@@ -26,6 +28,7 @@ new String:g_teamName[][64] = {
 new String:g_sIdentifier[MAX_IDENTIFIER_LENGTH];
 #endif
 
+#if defined PLUGIN_COMP
 new String:g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing SteamIDs to allow disconnected players rejoining when live
 new String:g_killInfoBuffer[MAXPLAYERS+1][512];
 new String:g_convarBeingEdited[128];
@@ -34,14 +37,16 @@ new const String:g_menuSoundOk[] = "buttons/button14.wav";
 new const String:g_menuSoundCancel[] = "buttons/combine_button7.wav";
 new const String:g_soundLive[] = "buttons/button17.wav";
 new const String:g_alphanumeric[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVXYZ1234567890";
+#endif
 
-#if DEBUG
+#if defined PLUGIN_COMP && DEBUG
 new String:g_path_logDebug[PLATFORM_MAX_PATH] = "logs/competitive";
 new String:g_kvPath[PLATFORM_MAX_PATH] = "data/competitive/matches";
 new String:g_kvName[128];
 new String:g_kvName_Temp[MAXPLAYERS+1][sizeof(g_kvName)];
 #endif
 
+#if defined PLUGIN_COMP
 new const String:g_kvKey_jinraiName[] = "jinrai_name";
 new const String:g_kvKey_nsfName[] = "nsf_name";
 new const String:g_kvKey_competitionName[] = "competition_name";
@@ -126,8 +131,6 @@ new bool:g_survivedLastRound[MAXPLAYERS+1];
 new bool:g_isSuddenDeathRound;
 new bool:g_goLiveAfterKvRestore[MAXPLAYERS+1] = true;
 
-new Handle:g_hCvar_DbConfig;
-
 new Handle:g_hAlltalk;
 new Handle:g_hCommsBehaviour;
 new Handle:g_hCompetitionName;
@@ -162,15 +165,15 @@ new Handle:g_hCenteredDisplayTarget;
 new Handle:g_hCompForceCamera;
 new Handle:g_hPugEnabled;
 new Handle:g_hPassword;
-
-#if defined PLUGIN_PUG
-new Handle:g_hDbConfig;
 #endif
 
-#if DEBUG
+new Handle:g_hCvar_DbConfig;
+
+#if defined PLUGIN_COMP && DEBUG
 new Handle:g_hDebugKeyValues;
 #endif
 
+#if defined PLUGIN_COMP
 new Handle:g_hTimer_LiveCountdown			= INVALID_HANDLE;
 new Handle:g_hTimer_GoLive						= INVALID_HANDLE;
 new Handle:g_hTimer_UnPause					= INVALID_HANDLE;
@@ -180,6 +183,7 @@ new Handle:g_hTimer_UnPause_HalfLeft		= INVALID_HANDLE;
 KeyValues g_kv;
 
 Menu g_clientMenu = null;
+#endif
 
 enum {
 	CVAR_NONE = 0,

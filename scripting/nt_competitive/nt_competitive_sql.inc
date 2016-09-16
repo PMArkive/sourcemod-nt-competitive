@@ -35,6 +35,17 @@ void Database_Initialize(bool checkTables = true)
 	g_bIsDatabaseDown = false;
 }
 
+void CheckForSpookiness(const String:haystack[])
+{
+	if (StrContains(haystack, "\"") != -1 || StrContains(haystack, ";") != -1)
+	{
+		SetFailState("Found potentially dangerous characters \" or ; \
+		inside the plugin's SQL string, which could result to \
+		incorrect SQL statements. Check your plugin source code for errors. \
+		String contents: \"%s\"", haystack);
+	}
+}
+
 int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesValidity = true)
 {
 	CheckForSpookiness(tableName);
@@ -53,6 +64,7 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 	return rows;
 }
 
+#if defined PLUGIN_PUG
 void Database_AddPugger(client)
 {
 	if (!IsValidClient(client) || IsFakeClient(client))
@@ -429,6 +441,7 @@ void Database_CleanAFKers()
 	}
 	CloseHandle(stmt_CleanAfkers);
 }
+#endif
 
 bool PugServer_Update_This()
 {
@@ -584,6 +597,7 @@ int PugServer_Get_Status(const String:sIP[], iPort)
 	return status;
 }
 
+#if defined PLUGIN_PUG
 // Purpose: Add this server into the organizers database table, and set its reserve status.
 bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 {
@@ -783,6 +797,7 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 	currentEpoch, inviteEpoch, timeSinceInvite);*/
 	return timeRemaining;
 }
+#endif
 
 #if DEBUG_SQL
 // Create all the necessary tables in the database
@@ -953,6 +968,7 @@ bool Database_DoTablesExist()
 	return true;
 }
 
+#if defined PLUGIN_PUG
 int Pugger_GetQueuingState(client)
 {
 	if (!IsValidClient(client) || IsFakeClient(client))
@@ -1018,7 +1034,6 @@ int Puggers_GetCountPerState(state)
 	return results;
 }
 
-#if DEBUG_SQL
 void CheckSQLConstants()
 {
 	CheckForSpookiness(g_sIdentifier);
@@ -1030,18 +1045,7 @@ void CheckSQLConstants()
 		CheckForSpookiness(g_sqlRow_Puggers[i]);
 }
 
-void CheckForSpookiness(const String:haystack[])
-{
-	if (StrContains(haystack, "\"") != -1 || StrContains(haystack, ";") != -1)
-	{
-		SetFailState("Found potentially dangerous characters \" or ; \
-		inside the plugin's SQL string, which could result to \
-		incorrect SQL statements. Check your plugin source code for errors. \
-		String contents: \"%s\"", haystack);
-	}
-}
-#endif
-
+#if defined PLUGIN_PUG
 int Database_GetDesiredPlayerCount()
 {
 	Database_Initialize();
@@ -1086,3 +1090,4 @@ int Database_GetEpoch()
 
 	return epoch;
 }
+#endif

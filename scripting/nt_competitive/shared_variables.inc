@@ -20,9 +20,12 @@ new String:g_teamName[][64] = {
 	"NSF"
 };
 
+#if defined PLUGIN_PUG
 // Set this to something uniquely identifying if the plugin fails to
 // retrieve your external IP.
 new String:g_sIdentifier[MAX_IDENTIFIER_LENGTH];
+#endif
+
 new String:g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing SteamIDs to allow disconnected players rejoining when live
 new String:g_killInfoBuffer[MAXPLAYERS+1][512];
 new String:g_convarBeingEdited[128];
@@ -159,7 +162,11 @@ new Handle:g_hCenteredDisplayTarget;
 new Handle:g_hCompForceCamera;
 new Handle:g_hPugEnabled;
 new Handle:g_hPassword;
+
+#if defined PLUGIN_PUG
 new Handle:g_hDbConfig;
+#endif
+
 #if DEBUG
 new Handle:g_hDebugKeyValues;
 #endif

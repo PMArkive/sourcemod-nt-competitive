@@ -1,9 +1,11 @@
 #pragma semicolon 1
 
+#define PLUGIN_PUG
+#define PLUGIN_VERSION "0.1"
+
 #define DEBUG 1
 #define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
 debug the SQL as it disables some safety checks */
-#define PLUGIN_VERSION "0.1"
 
 new Handle:g_hTimer_CheckQueue = INVALID_HANDLE;
 

@@ -22,8 +22,8 @@ new bool:g_bIsDatabaseDown;
 #include <sdktools>
 #include <smlib>
 #include <neotokyo>
-#include "nt_competitive/shared_functions"
 #include "nt_competitive/shared_variables"
+#include "nt_competitive/shared_functions"
 #include "nt_competitive/nt_competitive_base"
 #include "nt_competitive/nt_competitive_panel"
 #include "nt_competitive/nt_competitive_parser"

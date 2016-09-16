@@ -19,8 +19,8 @@ new Float:g_fQueueTimer_DeltaTime;
 new const String:g_sTag[] = "[PUG]";
 
 #include <sourcemod>
-#include "nt_competitive/shared_functions"
 #include "nt_competitive/shared_variables"
+#include "nt_competitive/shared_functions"
 #include "nt_competitive/nt_competitive_sql"
 
 public Plugin:myinfo = {

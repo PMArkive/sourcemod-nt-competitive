@@ -7,8 +7,6 @@
 #define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
 debug the SQL as it disables some safety checks */
 
-new Handle:g_hTimer_CheckQueue = INVALID_HANDLE;
-
 new bool:g_bIsDatabaseDown;
 new bool:g_bIsJustLoaded = true;
 new bool:g_bIsQueueActive;
@@ -45,7 +43,7 @@ public OnPluginStart()
 
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug", "Database config entry name", FCVAR_PROTECTED);
 
-	g_hTimer_CheckQueue = CreateTimer(g_fQueueTimer_Interval, Timer_CheckQueue, _, TIMER_REPEAT);
+	CreateTimer(g_fQueueTimer_Interval, Timer_CheckQueue, _, TIMER_REPEAT);
 	g_fQueueTimer_DeltaTime = IntToFloat(QUEUE_CHECK_TIMER);
 }
 

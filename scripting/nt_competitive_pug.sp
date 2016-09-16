@@ -540,7 +540,7 @@ void Pugger_ShowMatchOfferMenu(client)
 
 	decl String:offer_ServerIP[45];
 	decl String:offer_ServerPassword[MAX_CVAR_LENGTH];
-	new offer_ServerPort;
+	//new offer_ServerPort;
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -564,7 +564,7 @@ void Pugger_ShowMatchOfferMenu(client)
 		SQL_FetchString(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD,
 		offer_ServerPassword, sizeof(offer_ServerPassword));
 
-		offer_ServerPort = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
+		//offer_ServerPort = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
 	}
 	CloseHandle(stmt_Select);
 /*

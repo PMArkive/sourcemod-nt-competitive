@@ -2643,17 +2643,30 @@ void PugMode_Initialize()
 	// check what's going on at server (players connected, is game live?) to determine what sort of PUG status to report
 }
 
-void Pug_PasswordServer(passwordLength = 10)
+void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
 {
-	decl String:password[passwordLength];
+	if (passwordLength > MAX_CVAR_LENGTH)
+	{
+		LogError("Pug_PasswordServer: Password length %i is too long, capped to %i length.", passwordLength, MAX_CVAR_LENGTH);
+		passwordLength = MAX_CVAR_LENGTH;
+	}
+
+	decl String:currentPassword[MAX_CVAR_LENGTH];
+	GetConVarString(g_hPassword, currentPassword, sizeof(currentPassword));
+
+	// Server is already passworded
+	if (!forceNewPassword && !StrEqual(currentPassword, "") || !StrEqual(currentPassword, " "))
+		return;
+
+	decl String:newPassword[passwordLength];
 	for (new i = 0; i < passwordLength; i++)
 	{
 		// Insert random alphanumeric to char index
-		password[i] = g_alphanumeric[GetRandomInt(0, sizeof(g_alphanumeric))];
+		newPassword[i] = g_alphanumeric[GetRandomInt(0, sizeof(g_alphanumeric))];
 	}
-	password[passwordLength] = 0; // String terminator
+	newPassword[passwordLength] = 0; // String terminator
 
-	SetConVarString(g_hPassword, password);
+	SetConVarString(g_hPassword, newPassword);
 }
 
 /*

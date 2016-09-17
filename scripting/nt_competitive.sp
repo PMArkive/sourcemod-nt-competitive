@@ -135,6 +135,7 @@ public OnPluginStart()
 	HookConVarChange(g_hPreventZanshiStrats,		Event_ZanshiStrats);
 	HookConVarChange(g_hJinraiScore,						Event_JinraiScore);
 	HookConVarChange(g_hNSFScore,								Event_NSFScore);
+	HookConVarChange(g_hPugEnabled,							Event_PugEnabled);
 
 	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true); // Hook fade to black (on death)
 

@@ -551,6 +551,13 @@ public Event_SourceTVPath(Handle:cvar, const String:oldVal[], const String:newVa
 		InitDirectory(newVal);
 }
 
+public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[])
+{
+	new bool:enabled = view_as<bool>(StringToInt(newVal));
+	if (enabled)
+		PugMode_Initialize();
+}
+
 public Action:Hook_Fade(UserMsg:msg_id, Handle:bf, const players[], playersNum, bool:reliable, bool:init)
 {
 	if (GetConVarInt(g_hForceCamera))

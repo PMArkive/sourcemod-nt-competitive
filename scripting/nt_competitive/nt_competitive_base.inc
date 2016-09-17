@@ -2635,9 +2635,8 @@ void CancelLiveCountdown()
 
 void PugMode_Initialize()
 {
-	Pug_PasswordServer();
-
 	Database_Initialize();
+	Pug_PasswordServer();
 
 	if (!PugServer_Update_This())
 	{

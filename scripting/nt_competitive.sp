@@ -40,101 +40,101 @@ public Plugin:myinfo = {
 
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
-	CreateNative("Competitive_IsLive",			Competitive_IsLive);
-	CreateNative("Competitive_IsPaused",		Competitive_IsPaused);
+	CreateNative("Competitive_IsLive",				Competitive_IsLive);
+	CreateNative("Competitive_IsPaused",			Competitive_IsPaused);
 	CreateNative("Competitive_GetTeamScore",	Competitive_GetTeamScore);
-	CreateNative("Competitive_GetWinner",		Competitive_GetWinner);
+	CreateNative("Competitive_GetWinner",			Competitive_GetWinner);
 
 	return APLRes_Success;
 }
 
 public OnPluginStart()
 {
-	RegConsoleCmd("sm_ready",		Command_Ready,				"Mark yourself as ready for a competitive match.");
+	RegConsoleCmd("sm_ready",			Command_Ready,						"Mark yourself as ready for a competitive match.");
 
-	RegConsoleCmd("sm_unready",		Command_UnReady,			"Mark yourself as not ready for a competitive match.");
-	RegConsoleCmd("sm_notready",	Command_UnReady,			"Mark yourself as not ready for a competitive match. Alternative for sm_unready.");
+	RegConsoleCmd("sm_unready",		Command_UnReady,					"Mark yourself as not ready for a competitive match.");
+	RegConsoleCmd("sm_notready",	Command_UnReady,					"Mark yourself as not ready for a competitive match. Alternative for sm_unready.");
 
-	RegConsoleCmd("sm_start",		Command_OverrideStart,		"Force a competitive match start when using an unexpected setup.");
+	RegConsoleCmd("sm_start",			Command_OverrideStart,		"Force a competitive match start when using an unexpected setup.");
 	RegConsoleCmd("sm_unstart",		Command_UnOverrideStart,	"Cancel sm_start.");
 
-	RegConsoleCmd("sm_pause",		Command_Pause,				"Request a pause or timeout in a competitive match.");
-	RegConsoleCmd("sm_unpause",		Command_Pause,				"Request a pause or timeout in a competitive match.");
-	RegConsoleCmd("sm_timeout",		Command_Pause,				"Request a pause or timeout in a competitive match. Alternative for sm_pause.");
+	RegConsoleCmd("sm_pause",			Command_Pause,						"Request a pause or timeout in a competitive match.");
+	RegConsoleCmd("sm_unpause",		Command_Pause,						"Request a pause or timeout in a competitive match.");
+	RegConsoleCmd("sm_timeout",		Command_Pause,						"Request a pause or timeout in a competitive match. Alternative for sm_pause.");
 
-	RegConsoleCmd("sm_readylist",	Command_ReadyList,			"List everyone who has or hasn't readied up.");
+	RegConsoleCmd("sm_readylist",	Command_ReadyList,				"List everyone who has or hasn't readied up.");
 
 	RegConsoleCmd("jointeam",		Command_JoinTeam); // There's no pick team event for NT, so we do this instead
 
-	RegAdminCmd("sm_referee",			Command_RefereeMenu, ADMFLAG_GENERIC, "Competitive match referee/admin panel.");
-	RegAdminCmd("sm_ref",			Command_RefereeMenu, ADMFLAG_GENERIC, "Competitive match referee/admin panel. Alternative for sm_referee.");
-	RegAdminCmd("sm_forcelive",			Command_ForceLive,			ADMFLAG_GENERIC,	"Force the competitive match to start.");
+	RegAdminCmd("sm_referee",		Command_RefereeMenu,	ADMFLAG_GENERIC,	"Competitive match referee/admin panel.");
+	RegAdminCmd("sm_ref",				Command_RefereeMenu,	ADMFLAG_GENERIC,	"Competitive match referee/admin panel. Alternative for sm_referee.");
+	RegAdminCmd("sm_forcelive",	Command_ForceLive,		ADMFLAG_GENERIC,	"Force the competitive match to start.");
 
 #if DEBUG
-	RegAdminCmd("sm_pause_resetbool",	Command_ResetPauseBool,		ADMFLAG_GENERIC,	"Reset g_isPaused to FALSE. Debug command.");
-	RegAdminCmd("sm_logtest",			Command_LoggingTest,		ADMFLAG_GENERIC,	"Test competitive file logging. Logs the cmd argument. Debug command.");
-	RegAdminCmd("sm_unpause_other",		Command_UnpauseOther,		ADMFLAG_GENERIC,	"Pretend the other team requested unpause. Debug command.");
-	RegAdminCmd("sm_start_other",		Command_OverrideStartOther,	ADMFLAG_GENERIC,	"Pretend the other team requested force start. Debug command.");
-	RegAdminCmd("sm_manual_round_edit", Command_ManualRoundEdit, ADMFLAG_GENERIC, "Manually edit round int. Debug command.");
+	RegAdminCmd("sm_pause_resetbool",		Command_ResetPauseBool,			ADMFLAG_GENERIC,	"Reset g_isPaused to FALSE. Debug command.");
+	RegAdminCmd("sm_logtest",						Command_LoggingTest,				ADMFLAG_GENERIC,	"Test competitive file logging. Logs the cmd argument. Debug command.");
+	RegAdminCmd("sm_unpause_other",			Command_UnpauseOther,				ADMFLAG_GENERIC,	"Pretend the other team requested unpause. Debug command.");
+	RegAdminCmd("sm_start_other",				Command_OverrideStartOther,	ADMFLAG_GENERIC,	"Pretend the other team requested force start. Debug command.");
+	RegAdminCmd("sm_manual_round_edit",	Command_ManualRoundEdit, 		ADMFLAG_GENERIC,	"Manually edit round int. Debug command.");
 #endif
 
 	HookEvent("game_round_start",	Event_RoundStart);
-	HookEvent("player_death",		Event_PlayerDeath);
+	HookEvent("player_death",			Event_PlayerDeath);
 	HookEvent("player_hurt",			Event_PlayerHurt);
-	HookEvent("player_spawn",		Event_PlayerSpawn);
+	HookEvent("player_spawn",			Event_PlayerSpawn);
 
 	CreateConVar("sm_competitive_version", PLUGIN_VERSION, "Competitive plugin version.", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
 
-	g_hRoundLimit						= CreateConVar("sm_competitive_round_limit",						"15",					"How many rounds are played in a competitive match.", _, true, 1.0);
-	g_hMatchSize						= CreateConVar("sm_competitive_players_total",						"10",					"How many players total are expected to ready up before starting a competitive match.");
-	g_hMaxTimeouts						= CreateConVar("sm_competitive_max_timeouts",						"1",					"How many time-outs are allowed per match per team.", _, true, 0.0);
-	g_hMaxPauseLength					= CreateConVar("sm_competitive_max_pause_length",					"60",					"How long can a competitive time-out last, in seconds.", _, true, 0.0);
-	g_hMaxPauseLength_Technical		= CreateConVar("sm_competitive_max_pause_length_technical",	"300",				"How long can a pause last when team experiences technical difficulties.", _, true, 0.0);
-	g_hSourceTVEnabled					= CreateConVar("sm_competitive_sourcetv_enabled",					"1",					"Should the competitive plugin automatically record SourceTV demos.", _, true, 0.0, true, 1.0);
-	g_hSourceTVPath						= CreateConVar("sm_competitive_sourcetv_path",						"replays_competitive",	"Directory to save SourceTV demos into. Relative to NeotokyoSource folder. Will be created if possible.");
-	g_hJinraiName						= CreateConVar("sm_competitive_jinrai_name",						"Jinrai",				"Jinrai team's name. Will use \"Jinrai\" if left empty.");
-	g_hNSFName							= CreateConVar("sm_competitive_nsf_name",							"NSF",					"NSF team's name. Will use \"NSF\" if left empty.");
-	g_hCompetitionName					= CreateConVar("sm_competitive_title",								"",						"Name of the tournament/competition. Also used for replay filenames. 32 characters max. Use only alphanumerics and spaces.");
-	g_hCommsBehaviour					= CreateConVar("sm_competitive_comms_behaviour",					"0",					"Voice comms behaviour when live. 0 = no alltalk, 1 = enable alltalk, 2 = check sv_alltalk value before live state", _, true, 0.0, true, 2.0);
-	g_hLogMode							= CreateConVar("sm_competitive_log_mode",							"1",					"Competitive logging mode. 1 = enabled, 0 = disabled.", _, true, 0.0, true, 1.0);
-	g_hKillVersobity					= CreateConVar("sm_competitive_killverbosity",						"1",					"How much info is given to players upon death. 0 = disabled, 1 = print amount of players remaining to everyone, 2 = only show the victim how much damage they dealt to their killer, 3 = only show the victim their killer's remaining health", _, true, 0.0, true, 3.0);
-	g_hVerbosityDelay			= CreateConVar("sm_competitive_killverbosity_delay",				"0",					"0 = display kill info instantly, 1 = display kill info nextround", _, true, 0.0, true, 1.0);
-	g_hClientRecording					= CreateConVar("sm_competitive_record_clients",						"0",					"Should clients automatically record when going live.", _, true, 0.0, true, 1.0);
-	g_hLimitLiveTeams					= CreateConVar("sm_competitive_limit_live_teams",								"0",					"Team restrictions when game is live. 0 = players can join any team, 1 = only players present when going live can play in their teams 2 = new players can join teams midgame", _, true, 0.0, true, 2.0);
-	g_hLimitTeams						= CreateConVar("sm_competitive_limit_teams",									"1",					"Are teams enforced to use set numbers (5v5 for example).", _, true, 0.0, true, 1.0);
-	g_hPauseMode						= CreateConVar("sm_competitive_pause_mode",				"2",					"Pausing mode. 0 = no pausing allowed, 1 = use Source engine pause feature, 2 = stop round timer", _, true, 0.0, true, 2.0);
-	g_hCollectiveReady					= CreateConVar("sm_competitive_readymode_collective",	"0",					"Can a team collectively ready up by anyone of the players. Can be useful for more organized events.", _, true, 0.0, true, 1.0);
-	g_hPreventZanshiStrats			= CreateConVar("sm_competitive_nozanshi",						"1",					"Whether or not to disable timeout wins.", _, true, 0.0, true, 1.0);
-	g_hJinraiScore							= CreateConVar("sm_competitive_jinrai_score",					"0",					"Competitive plugin's internal score cvar. Editing this will directly affect comp team scores.", _, true, 0.0);
-	g_hNSFScore							= CreateConVar("sm_competitive_nsf_score",						"0",					"Competitive plugin's internal score cvar. Editing this will directly affect comp team scores.", _, true, 0.0);
-	g_hSuddenDeath						= CreateConVar("sm_competitive_sudden_death",				"1",					"Whether or not to allow match to end in a tie. Otherwise, game proceeds to sudden death until one team scores a point.", _, true, 0.0, true, 1.0);
+	g_hRoundLimit								= CreateConVar("sm_competitive_round_limit",								"15",					"How many rounds are played in a competitive match.", _, true, 1.0);
+	g_hMatchSize								= CreateConVar("sm_competitive_players_total",							"10",					"How many players total are expected to ready up before starting a competitive match.");
+	g_hMaxTimeouts							= CreateConVar("sm_competitive_max_timeouts",								"1",					"How many time-outs are allowed per match per team.", _, true, 0.0);
+	g_hMaxPauseLength						= CreateConVar("sm_competitive_max_pause_length",						"60",					"How long can a competitive time-out last, in seconds.", _, true, 0.0);
+	g_hMaxPauseLength_Technical	= CreateConVar("sm_competitive_max_pause_length_technical",	"300",				"How long can a pause last when team experiences technical difficulties.", _, true, 0.0);
+	g_hSourceTVEnabled					= CreateConVar("sm_competitive_sourcetv_enabled",						"1",					"Should the competitive plugin automatically record SourceTV demos.", _, true, 0.0, true, 1.0);
+	g_hSourceTVPath							= CreateConVar("sm_competitive_sourcetv_path",							"replays_competitive",	"Directory to save SourceTV demos into. Relative to NeotokyoSource folder. Will be created if possible.");
+	g_hJinraiName								= CreateConVar("sm_competitive_jinrai_name",								"Jinrai",			"Jinrai team's name. Will use \"Jinrai\" if left empty.");
+	g_hNSFName									= CreateConVar("sm_competitive_nsf_name",										"NSF",				"NSF team's name. Will use \"NSF\" if left empty.");
+	g_hCompetitionName					= CreateConVar("sm_competitive_title",											"",						"Name of the tournament/competition. Also used for replay filenames. 32 characters max. Use only alphanumerics and spaces.");
+	g_hCommsBehaviour						= CreateConVar("sm_competitive_comms_behaviour",						"0",					"Voice comms behaviour when live. 0 = no alltalk, 1 = enable alltalk, 2 = check sv_alltalk value before live state", _, true, 0.0, true, 2.0);
+	g_hLogMode									= CreateConVar("sm_competitive_log_mode",										"1",					"Competitive logging mode. 1 = enabled, 0 = disabled.", _, true, 0.0, true, 1.0);
+	g_hKillVersobity						= CreateConVar("sm_competitive_killverbosity",							"1",					"How much info is given to players upon death. 0 = disabled, 1 = print amount of players remaining to everyone, 2 = only show the victim how much damage they dealt to their killer, 3 = only show the victim their killer's remaining health", _, true, 0.0, true, 3.0);
+	g_hVerbosityDelay						= CreateConVar("sm_competitive_killverbosity_delay",				"0",					"0 = display kill info instantly, 1 = display kill info nextround", _, true, 0.0, true, 1.0);
+	g_hClientRecording					= CreateConVar("sm_competitive_record_clients",							"0",					"Should clients automatically record when going live.", _, true, 0.0, true, 1.0);
+	g_hLimitLiveTeams						= CreateConVar("sm_competitive_limit_live_teams",						"0",					"Team restrictions when game is live. 0 = players can join any team, 1 = only players present when going live can play in their teams 2 = new players can join teams midgame", _, true, 0.0, true, 2.0);
+	g_hLimitTeams								= CreateConVar("sm_competitive_limit_teams",								"1",					"Are teams enforced to use set numbers (5v5 for example).", _, true, 0.0, true, 1.0);
+	g_hPauseMode								= CreateConVar("sm_competitive_pause_mode",									"2",					"Pausing mode. 0 = no pausing allowed, 1 = use Source engine pause feature, 2 = stop round timer", _, true, 0.0, true, 2.0);
+	g_hCollectiveReady					= CreateConVar("sm_competitive_readymode_collective",				"0",					"Can a team collectively ready up by anyone of the players. Can be useful for more organized events.", _, true, 0.0, true, 1.0);
+	g_hPreventZanshiStrats			= CreateConVar("sm_competitive_nozanshi",										"1",					"Whether or not to disable timeout wins.", _, true, 0.0, true, 1.0);
+	g_hJinraiScore							= CreateConVar("sm_competitive_jinrai_score",								"0",					"Competitive plugin's internal score cvar. Editing this will directly affect comp team scores.", _, true, 0.0);
+	g_hNSFScore									= CreateConVar("sm_competitive_nsf_score",									"0",					"Competitive plugin's internal score cvar. Editing this will directly affect comp team scores.", _, true, 0.0);
+	g_hSuddenDeath							= CreateConVar("sm_competitive_sudden_death",								"1",					"Whether or not to allow match to end in a tie. Otherwise, game proceeds to sudden death until one team scores a point.", _, true, 0.0, true, 1.0);
 	g_hCenteredDisplayRemaining	= CreateConVar("sm_competitive_display_remaining_players_centered",	"2", "How the number of remaining players is displayed to clients in a competitive game. 0 = disabled, 1 = show remaining player numbers, 2 = show team names and remaining player numbers", _, true, 0.0, true, 2.0);
-	g_hCenteredDisplayTarget			= CreateConVar("sm_competitive_display_remaining_players_target",	"2", "Who to center display remaining players to. 1 = spectators only, 2 = spectators and dead players", _, true, 1.0, true, 2.0);
-	g_hCompForceCamera				= CreateConVar("sm_competitive_force_camera",				"1",				"Should fade to black be forced on death when live. Can be useful to disable on pugs etc.", _, true, 0.0, true, 1.0);
-	g_hPugEnabled							= CreateConVar("sm_competitive_pug_enabled",					"1",				"Is server in PUG mode. Disable for organized events.", _, true, 0.0, true, 1.0);
+	g_hCenteredDisplayTarget		= CreateConVar("sm_competitive_display_remaining_players_target",		"2", "Who to center display remaining players to. 1 = spectators only, 2 = spectators and dead players", _, true, 1.0, true, 2.0);
+	g_hCompForceCamera					= CreateConVar("sm_competitive_force_camera",								"1",					"Should fade to black be forced on death when live. Can be useful to disable on pugs etc.", _, true, 0.0, true, 1.0);
+	g_hPugEnabled								= CreateConVar("sm_competitive_pug_enabled",								"1",					"Is server in PUG mode. Disable for organized events.", _, true, 0.0, true, 1.0);
 #if DEBUG
-	g_hDebugKeyValues				= CreateConVar("sm_competitive_keyvalues_test",				"1",					"Store match data into KeyValues file. Debug cvar.", _, true, 0.0, true, 1.0);
+	g_hDebugKeyValues						= CreateConVar("sm_competitive_keyvalues_test",							"1",					"Store match data into KeyValues file. Debug cvar.", _, true, 0.0, true, 1.0);
 #endif
-	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug", "Database config entry name", FCVAR_PROTECTED);
+	g_hCvar_DbConfig 						= CreateConVar("sm_pug_db_cfg",															"pug",				"Database config entry name", FCVAR_PROTECTED);
 
-	g_hAlltalk			= FindConVar("sv_alltalk");
+	g_hAlltalk				= FindConVar("sv_alltalk");
 	g_hForceCamera		= FindConVar("mp_forcecamera");
 	g_hNeoRestartThis	= FindConVar("neo_restart_this");
-	g_hPausable			= FindConVar("sv_pausable");
-	g_hRoundTime		= FindConVar("neo_round_timelimit");
+	g_hPausable				= FindConVar("sv_pausable");
+	g_hRoundTime			= FindConVar("neo_round_timelimit");
 	g_hNeoScoreLimit	= FindConVar("neo_score_limit");
-	g_hPassword		= FindConVar("sv_password");
+	g_hPassword				= FindConVar("sv_password");
 
 	HookConVarChange(g_hNeoRestartThis,					Event_Restart);
 	HookConVarChange(g_hSourceTVEnabled,				Event_SourceTVEnabled);
-	HookConVarChange(g_hSourceTVPath,					Event_SourceTVPath);
-	HookConVarChange(g_hJinraiName,						Event_TeamNameJinrai);
-	HookConVarChange(g_hNSFName,						Event_TeamNameNSF);
+	HookConVarChange(g_hSourceTVPath,						Event_SourceTVPath);
+	HookConVarChange(g_hJinraiName,							Event_TeamNameJinrai);
+	HookConVarChange(g_hNSFName,								Event_TeamNameNSF);
 	HookConVarChange(g_hCommsBehaviour,					Event_CommsBehaviour);
-	HookConVarChange(g_hLogMode,						Event_LogMode);
-	HookConVarChange(g_hPreventZanshiStrats,			Event_ZanshiStrats);
+	HookConVarChange(g_hLogMode,								Event_LogMode);
+	HookConVarChange(g_hPreventZanshiStrats,		Event_ZanshiStrats);
 	HookConVarChange(g_hJinraiScore,						Event_JinraiScore);
-	HookConVarChange(g_hNSFScore,						Event_NSFScore);
+	HookConVarChange(g_hNSFScore,								Event_NSFScore);
 
 	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true); // Hook fade to black (on death)
 

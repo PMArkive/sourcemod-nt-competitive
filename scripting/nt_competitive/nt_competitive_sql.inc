@@ -4,7 +4,7 @@
 #endif
 #define _sql_included_
 
-void Database_Initialize(bool checkTables = true)
+bool Database_Initialize(bool checkTables = true)
 {
 	//PrintDebug("Database_Initialize()");
 
@@ -13,8 +13,9 @@ void Database_Initialize(bool checkTables = true)
 	if (!SQL_CheckConfig(configName))
 	{
 		g_bIsDatabaseDown = true;
-		ThrowError("Could not find a config named \"%s\". \
+		LogError("Database_Initialize: Could not find a config named \"%s\". \
 		Please check your databases.cfg", configName);
+		return false;
 	}
 
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -23,16 +24,19 @@ void Database_Initialize(bool checkTables = true)
 	if (db == null)
 	{
 		g_bIsDatabaseDown = true;
-		ThrowError(error);
+		LogError("Database_Initialize: %s", error);
+		return false;
 	}
 
 	if (checkTables && !Database_DoTablesExist())
 	{
 		g_bIsDatabaseDown = true;
-		ThrowError("Database tables do not exist.");
+		LogError("Database_Initialize: Database tables do not exist.");
+		return false;
 	}
 
 	g_bIsDatabaseDown = false;
+	return true;
 }
 
 void CheckForSpookiness(const String:haystack[])

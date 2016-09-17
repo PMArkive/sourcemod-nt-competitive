@@ -554,8 +554,8 @@ public Event_SourceTVPath(Handle:cvar, const String:oldVal[], const String:newVa
 public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[])
 {
 	new bool:enabled = view_as<bool>(StringToInt(newVal));
-	if (enabled)
-		PugMode_Initialize();
+	if (enabled && !PugMode_Initialize())
+		SetConVarBool(g_hPugEnabled, false);
 }
 
 public Action:Hook_Fade(UserMsg:msg_id, Handle:bf, const players[], playersNum, bool:reliable, bool:init)

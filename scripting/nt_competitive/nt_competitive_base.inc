@@ -2659,7 +2659,7 @@ void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
 	GetConVarString(g_hPassword, currentPassword, sizeof(currentPassword));
 
 	// Server is already passworded
-	if (!forceNewPassword && !StrEqual(currentPassword, "") || !StrEqual(currentPassword, " "))
+	if (!forceNewPassword && !StrEqual(currentPassword, "") && !StrEqual(currentPassword, " "))
 		return;
 
 	decl String:newPassword[passwordLength];

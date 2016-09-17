@@ -2638,7 +2638,13 @@ void PugMode_Initialize()
 	Pug_PasswordServer();
 
 	Database_Initialize();
-	PugServer_Update_This();
+
+	if (!PugServer_Update_This())
+	{
+		decl String:error[] = "Failed going to PUG mode, check logs";
+		PrintToAdmins(true, true, error);
+		ThrowError(error);
+	}
 
 	// check what's going on at server (players connected, is game live?) to determine what sort of PUG status to report
 }

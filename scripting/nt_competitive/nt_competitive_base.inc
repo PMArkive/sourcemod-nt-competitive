@@ -2663,7 +2663,7 @@ void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
 		return;
 
 	decl String:newPassword[passwordLength + 1];
-	for (new i = 0; i < passwordLength; i++)
+	for (new i = 0; i <= passwordLength; i++)
 	{
 		// Insert random alphanumeric to char index
 		newPassword[i] = g_alphanumeric[GetRandomInt(0, strlen(g_alphanumeric))];

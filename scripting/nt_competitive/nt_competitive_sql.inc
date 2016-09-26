@@ -496,7 +496,10 @@ bool PugServer_Update_This()
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?", g_sqlTable[TABLES_PUG_SERVERS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
 	new Handle:stmt_RowCount = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_RowCount == INVALID_HANDLE)
@@ -536,7 +539,8 @@ bool PugServer_Update_This()
 	}
 	else
 	{
-		LogError("PugServer_Update_This: Found %i rows matching this server (%s %s:%i), expected to find 1 or 0.", rowCount, sServerName, sIP, iPort);
+		LogError("PugServer_Update_This: Found %i rows matching this server (%s %s:%i), \
+		expected to find 1 or 0.", rowCount, sServerName, sIP, iPort);
 		return false;
 	}
 

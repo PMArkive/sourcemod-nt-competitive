@@ -16,6 +16,26 @@ void PrintDebug(const String:message[], any ...)
 }
 
 #if defined PLUGIN_COMP
+void PrintToAdmins(bool toChat = true, bool toConsole = false, const String:message[], any ...)
+{
+	decl String:formatMsg[512];
+	VFormat(formatMsg, sizeof(formatMsg), message, 4);
+
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
+			continue;
+
+		if (toChat)
+			PrintToChat(i, formatMsg);
+
+		if (toConsole)
+			PrintToConsole(i, formatMsg);
+	}
+}
+#endif
+
+#if defined PLUGIN_COMP
 // Purpose: Return the contents of a server cvar.
 // Will return int and float as any, strings by reference.
 any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxStrLen = 0, bool:doFatalFail = true)

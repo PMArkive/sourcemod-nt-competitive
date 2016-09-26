@@ -2662,11 +2662,11 @@ void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
 	if (!forceNewPassword && !StrEqual(currentPassword, "") && !StrEqual(currentPassword, " "))
 		return;
 
-	decl String:newPassword[passwordLength];
+	decl String:newPassword[passwordLength + 1];
 	for (new i = 0; i < passwordLength; i++)
 	{
 		// Insert random alphanumeric to char index
-		newPassword[i] = g_alphanumeric[GetRandomInt(0, sizeof(g_alphanumeric))];
+		newPassword[i] = g_alphanumeric[GetRandomInt(0, strlen(g_alphanumeric))];
 	}
 	newPassword[passwordLength] = 0; // String terminator
 

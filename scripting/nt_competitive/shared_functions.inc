@@ -70,7 +70,10 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 		{
 			PrintDebug("Entered switch default (error!)");
 			decl String:error[40];
-			Format(error, sizeof(error), "Unexpected cvar return type enum %i", returnType);
+
+			Format(error, sizeof(error), "Unexpected cvar return type enum %i",
+				returnType);
+
 			if (doFatalFail)
 			{
 				SetFailState(error);

@@ -1152,6 +1152,12 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 	// Check if player is competing
 	for (i = 0; i < playerCount; i++)
 	{
+		if (strlen(playerSteamID[i]) == 0)
+		{
+			LogError("Database_IsPlayerCompeting: Zero length SteamID in array");
+			continue;
+		}
+
 		if (StrEqual(steamID, playerSteamID[i]))
 		{
 			isCompeting = true;

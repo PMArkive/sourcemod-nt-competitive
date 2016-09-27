@@ -2925,7 +2925,8 @@ void PugMode_Initialize()
 		ThrowError(error);
 	}
 
-	PrintToChatAll("%s PUG mode has been enabled.", g_sTag);
+	Pug_KickOutsiders();
+	PrintToAdmins(_, _, "%s PUG mode has been enabled.", g_sTag);
 }
 
 void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
@@ -2958,4 +2959,18 @@ void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
 	newPassword[passwordLength] = 0; // String terminator
 
 	SetConVarString(g_hPassword, newPassword);
+}
+
+void Pug_KickOutsiders(bool:kickAdmins = false)
+{
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i) || IsFakeClient(i))
+			continue;
+
+		if (!kickAdmins && Client_IsAdmin(i))
+			continue;
+
+		KickClient(i, "This server is closing for a private match");
+	}
 }

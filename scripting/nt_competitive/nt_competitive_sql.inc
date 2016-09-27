@@ -1062,8 +1062,8 @@ void CheckSQLConstants()
 	for (new i = 0; i < sizeof(g_sqlRow_Puggers); i++)
 		CheckForSpookiness(g_sqlRow_Puggers[i]);
 }
+#endif
 
-#if defined PLUGIN_PUG
 int Database_GetDesiredPlayerCount()
 {
 	Database_Initialize();
@@ -1090,6 +1090,7 @@ int Database_GetDesiredPlayerCount()
 	return playerCount;
 }
 
+#if defined PLUGIN_PUG
 int Database_GetEpoch()
 {
 	Database_Initialize();

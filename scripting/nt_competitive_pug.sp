@@ -581,7 +581,8 @@ void Pugger_ShowMatchOfferMenu(client)
 		SQL_FetchString(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD,
 		offer_ServerPassword, sizeof(offer_ServerPassword));
 
-		//offer_ServerPort = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
+		/*offer_ServerPort = SQL_FetchInt(stmt_Select,
+			SQL_TABLE_PUG_SERVER_CONNECT_PORT);*/
 	}
 	CloseHandle(stmt_Select);
 /*
@@ -624,7 +625,8 @@ void Pugger_ShowMatchOfferMenu(client)
 	DrawPanelText(panel, "Type !join to accept the match, or");
 	DrawPanelText(panel, "type !unpug to leave the queue.");
 
-	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer, PUG_INVITE_TIME);
+	SendPanelToClient(panel, client, PanelHandler_Pugger_SendMatchOffer,
+		PUG_INVITE_TIME);
 	CloseHandle(panel);
 }
 
@@ -637,7 +639,8 @@ void Pugger_CloseMatchOfferMenu(client)
 	SetPanelTitle(panel, "Your PUG invite has expired...");
 
 	new displayTime = 2;
-	SendPanelToClient(panel, client, PanelHandler_Pugger_CloseMatchOfferMenu, displayTime);
+	SendPanelToClient(panel, client, PanelHandler_Pugger_CloseMatchOfferMenu,
+		displayTime);
 	CloseHandle(panel);
 }
 
@@ -676,7 +679,8 @@ int GetClientOfAuthId(const String:steamID[MAX_STEAMID_LENGTH])
 // recognizing this server in the database, based on ip:port
 void GenerateIdentifier_This()
 {
-	// The identifier has been manually set before compiling, no need to generate one
+	// The identifier has been manually set before compiling,
+	// no need to generate one
 	if (!StrEqual(g_sIdentifier, ""))
 		return;
 
@@ -689,9 +693,11 @@ void GenerateIdentifier_This()
 	CloseHandle(cvarIP);
 
 #if DEBUG_SQL == 0 // Skip this check when debugging
-	if (StrEqual(ipAddress, "localhost") ||
-			StrEqual(ipAddress, "127.0.0.1") ||
-			StrContains(ipAddress, "192.168.") == 0)
+	if (
+		StrEqual(ipAddress, "localhost") ||
+		StrEqual(ipAddress, "127.0.0.1") ||
+		StrContains(ipAddress, "192.168.") == 0
+	)
 	{
 		SetFailState("Could not get real external IP address, \
 returned a local address \"%s\" instead. \

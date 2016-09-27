@@ -1,7 +1,8 @@
 /*
 	GPLv3
 		- Fade-to-black function borrowed from Agiel's nt_fadetoblack plugin.
-		- SourceTV recording functions borrowed from Stevo.TVR's Auto Recorder plugin: http://forums.alliedmods.net/showthread.php?t=92072
+		- SourceTV recording functions borrowed from Stevo.TVR's
+			Auto Recorder plugin: http://forums.alliedmods.net/showthread.php?t=92072
 */
 #pragma semicolon 1
 
@@ -137,7 +138,8 @@ public OnPluginStart()
 	HookConVarChange(g_hNSFScore,								Event_NSFScore);
 	HookConVarChange(g_hPugEnabled,							Event_PugEnabled);
 
-	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true); // Hook fade to black (on death)
+	// Hook fade to black (on death)
+	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true);
 
 	// Initialize SourceTV path
 	new String:sourceTVPath[PLATFORM_MAX_PATH];
@@ -174,13 +176,15 @@ public OnAllPluginsLoaded()
 public OnMapStart()
 {
 	SetGameState(GAMESTATE_WARMUP);
-	ResetGlobalVariables(); // Make sure all global variables are reset properly
+	// Make sure all global variables are reset properly
+	ResetGlobalVariables();
 }
 
 public OnConfigsExecuted()
 {
 	g_isAlltalkByDefault = GetConVarBool(g_hAlltalk);
-	SetConVarInt(g_hNeoScoreLimit, 99); // Set Neotokyo's own round max round count to highest value
+	// Set Neotokyo's own round max round count to highest value
+	SetConVarInt(g_hNeoScoreLimit, 99);
 
 	if ( GetConVarBool(g_hPugEnabled) )
 		PugMode_Initialize();
@@ -193,7 +197,8 @@ public OnClientAuthorized(client, const String:authID[])
 
 	if ( Client_IsValid(client) && IsFakeClient(client) )
 	{
-		g_assignedTeamWhenLive[client] = TEAM_NONE; // This is a bot, let them join whichever team they like
+		// This is a bot, let them join whichever team they like
+		g_assignedTeamWhenLive[client] = TEAM_NONE;
 		return;
 	}
 
@@ -223,7 +228,8 @@ public OnClientAuthorized(client, const String:authID[])
 			g_assignedTeamWhenLive[client] = TEAM_SPECTATOR;
 		}
 
-		// Either teams are unlimited (g_hLimitLiveTeams 0), or new joiners are allowed to join any team (g_hLimitLiveTeams 2)
+		// Either teams are unlimited (g_hLimitLiveTeams 0),
+		// or new joiners are allowed to join any team (g_hLimitLiveTeams 2)
 		else
 		{
 			g_assignedTeamWhenLive[client] = TEAM_NONE;
@@ -236,7 +242,8 @@ public OnClientAuthorized(client, const String:authID[])
 	}
 
 #if DEBUG
-	LogDebug("Client connected when live. Assigned to team %s", g_teamName[g_assignedTeamWhenLive[client]]);
+	LogDebug("Client connected when live. Assigned to team %s",
+		g_teamName[g_assignedTeamWhenLive[client]]);
 #endif
 }
 
@@ -276,7 +283,8 @@ public OnGhostCapture(client)
 	new team = GetClientTeam(client);
 	if (team != TEAM_JINRAI && team != TEAM_NSF)
 	{
-		LogError("Returned client %i does not belong to team Jinrai or NSF, returned team id %i", client, team);
+		LogError("Returned client %i does not belong to team Jinrai or NSF, \
+returned team id %i", client, team);
 		g_ghostCapturingTeam = TEAM_NONE;
 		return;
 	}
@@ -318,7 +326,8 @@ public Action:Command_RefereeMenu(client, args)
 	DrawPanelItem(panel, "Load previous match");
 	DrawPanelItem(panel, "Exit");
 
-	SendPanelToClient(panel, client, PanelHandler_RefereeMenu_Main, MENU_TIME_FOREVER);
+	SendPanelToClient(panel, client, PanelHandler_RefereeMenu_Main,
+		MENU_TIME_FOREVER);
 
 	CloseHandle(panel);
 
@@ -357,11 +366,12 @@ public Action:Command_ForceLive(client, args)
 	{
 		if (!g_confirmLiveEnd)
 		{
-			ReplyToCommand(client, "%s Stopping a competitive match, are you sure?", g_sTag);
+			ReplyToCommand(client, "%s Stopping a competitive match, are you sure?",
+				g_sTag);
 			ReplyToCommand(client, "Please repeat the command to confirm.");
 			g_confirmLiveEnd = true;
-
-			CreateTimer(10.0, Timer_CancelLiveEndConfirmation); // Flip the bool back if force end isn't confirmed in 10 seconds
+			// Flip the bool back if force end isn't confirmed in 10 seconds
+			CreateTimer(10.0, Timer_CancelLiveEndConfirmation);
 		}
 		else
 		{
@@ -392,15 +402,16 @@ public Action:Command_Pause(client, args)
 	}
 
 	new team = GetClientTeam(client);
-
-	if (team != TEAM_JINRAI && team != TEAM_NSF) // Not in a team, ignore
+	// Not in a team, ignore
+	if (team != TEAM_JINRAI && team != TEAM_NSF)
 		return Plugin_Stop;
 
 	if (!g_isPaused && g_shouldPause)
 	{
 		if (team != g_pausingTeam)
 		{
-			ReplyToCommand(client, "%s The other team has already requested a pause for the next freezetime.", g_sTag);
+			ReplyToCommand(client, "%s The other team has already requested a pause \
+for the next freezetime.", g_sTag);
 			return Plugin_Stop;
 		}
 
@@ -412,7 +423,8 @@ public Action:Command_Pause(client, args)
 			DrawPanelItem(panel, "Yes, cancel");
 			DrawPanelItem(panel, "Exit");
 
-			SendPanelToClient(panel, client, PanelHandler_CancelPause, MENU_TIME_FOREVER);
+			SendPanelToClient(panel, client, PanelHandler_CancelPause,
+				MENU_TIME_FOREVER);
 
 			CloseHandle(panel);
 
@@ -426,7 +438,9 @@ public Action:Command_Pause(client, args)
 
 		if (!g_isTeamReadyForUnPause[g_pausingTeam] && team != g_pausingTeam)
 		{
-			ReplyToCommand(client, "%s Cannot unpause − the pause was initiated by %s", g_sTag, g_teamName[otherTeam]);
+			ReplyToCommand(client, "%s Cannot unpause − the pause was initiated by %s",
+				g_sTag, g_teamName[otherTeam]);
+
 			return Plugin_Stop;
 		}
 
@@ -446,7 +460,8 @@ public Action:Command_Pause(client, args)
 		}
 
 		g_isTeamReadyForUnPause[team] = false;
-		PrintToChatAll("%s Team %s cancelled being ready for unpause", g_sTag, g_teamName[team]);
+		PrintToChatAll("%s Team %s cancelled being ready for unpause",
+			g_sTag, g_teamName[team]);
 
 		return Plugin_Handled;
 	}
@@ -462,14 +477,18 @@ public Action:Command_Pause(client, args)
 		if (g_usedTimeouts[team] >= GetConVarInt(g_hMaxTimeouts))
 		{
 			if (GetConVarInt(g_hMaxTimeouts) == 0)
+			{
 				DrawPanelItem(panel, "Time-outs are not allowed.");
-
+			}
 			else if (GetConVarInt(g_hMaxTimeouts) == 1)
+			{
 				DrawPanelItem(panel, "Team has already used their timeout.");
-
+			}
 			else if (GetConVarInt(g_hMaxTimeouts) > 1)
-				DrawPanelItem(panel, "Team has already used all their %i timeouts.", GetConVarInt(g_hMaxTimeouts));
-
+			{
+				DrawPanelItem(panel, "Team has already used all their %i timeouts.",
+					GetConVarInt(g_hMaxTimeouts));
+			}
 			else // Some sort of error happened, we presume time-outs are not allowed
 			{
 				DrawPanelItem(panel, "Time-outs are not allowed.");
@@ -480,17 +499,18 @@ public Action:Command_Pause(client, args)
 				new tempFixValue = 0;
 				SetConVarInt( g_hMaxTimeouts, tempFixValue );
 
-				LogError("sm_competitive_max_timeouts had invalid value: %s. Value has been changed to: %i", cvarValue, tempFixValue);
+				LogError("sm_competitive_max_timeouts had invalid value: %s. \
+Value has been changed to: %i", cvarValue, tempFixValue);
 			}
 		}
-
-		else // Team is allowed to call a time-out
+		// Team is allowed to call a time-out
+		else
 		{
 			DrawPanelItem(panel, "Time-out");
 		}
 	}
-
-	DrawPanelItem(panel, "Technical difficulties"); // Team is always allowed to call a pause for technical issues
+	// Team is always allowed to call a pause for technical issues
+	DrawPanelItem(panel, "Technical difficulties");
 	DrawPanelItem(panel, "Exit");
 
 	SendPanelToClient(panel, client, PanelHandler_Pause, MENU_TIME_FOREVER);
@@ -502,11 +522,13 @@ public Action:Command_Pause(client, args)
 
 void PauseRequest(client, reason)
 {
-	// Gamedata is outdated, fall back to normal pausemode as stop clock mode would cause an error
-	if (g_isGamedataOutdated && ( GetConVarInt(g_hPauseMode) == PAUSEMODE_STOP_CLOCK) )
+	// Gamedata is outdated, fall back to normal pausemode
+	// as stop clock mode would cause an error
+	if (g_isGamedataOutdated && (GetConVarInt(g_hPauseMode) == PAUSEMODE_STOP_CLOCK))
 	{
 		SetConVarInt(g_hPauseMode, PAUSEMODE_NORMAL);
-		PrintToAdmins(true, true, "Admins: Server gamedata is outdated. Falling back to default pause mode to avoid errors.");
+		PrintToAdmins(true, true, "Admins: Server gamedata is outdated. \
+Falling back to default pause mode to avoid errors.");
 		PrintToAdmins(true, true, "See SM error logs for more info.");
 	}
 
@@ -515,9 +537,15 @@ void PauseRequest(client, reason)
 	if (g_shouldPause)
 	{
 		if (team == g_pausingTeam)
-			PrintToChat(client, "%s Your team has already requested a pause for the next freezetime.", g_sTag);
+		{
+			PrintToChat(client, "%s Your team has already requested a pause \
+for the next freezetime.", g_sTag);
+		}
 		else
-			PrintToChat(client, "%s Team \"%s\" has already requested a pause during next freezetime.", g_sTag, g_teamName[g_pausingTeam]);
+		{
+			PrintToChat(client, "%s Team \"%s\" has already requested a pause \
+during next freezetime.", g_sTag, g_teamName[g_pausingTeam]);
+		}
 
 		return;
 	}
@@ -528,8 +556,10 @@ void PauseRequest(client, reason)
 	switch (reason)
 	{
 		case REASON_TECHNICAL:
-			PrintToChatAll("%s Team %s wants to pause for a technical issue.", g_sTag, g_teamName[team]);
-
+		{
+			PrintToChatAll("%s Team %s wants to pause for a technical issue.",
+				g_sTag, g_teamName[team]);
+		}
 		case REASON_TIMEOUT:
 		{
 			g_usedTimeouts[g_pausingTeam]++;
@@ -539,9 +569,11 @@ void PauseRequest(client, reason)
 
 	new Float:currentTime = GetGameTime();
 
-	if (currentTime - g_fRoundTime < 15) // We are in a freezetime, it's safe to pause
+	// We are in a freezetime, it's safe to pause
+	if (currentTime - g_fRoundTime < 15)
+	{
 		TogglePause();
-
+	}
 	else
 	{
 		PrintToChatAll("Match will be paused during the next freezetime.");
@@ -555,11 +587,13 @@ void CancelPauseRequest(client)
 	if (!g_shouldPause)
 		return;
 
-	// We check for client & team validity in Command_Pause already before calling this
+	// We check for client & team validity in
+	// Command_Pause already before calling this
 	g_shouldPause = false;
 
 	new team = GetClientTeam(client);
-	PrintToChatAll("%s %s have cancelled their pause request for the next freezetime.", g_sTag, g_teamName[team]);
+	PrintToChatAll("%s %s have cancelled their pause request \
+for the next freezetime.", g_sTag, g_teamName[team]);
 }
 
 void UnPauseRequest(client)
@@ -568,7 +602,8 @@ void UnPauseRequest(client)
 	{
 		LogError("Invalid client %i called UnPauseRequest", client);
 #if DEBUG
-		PrintToAdmins(true, true, "Comp plugin error: Invalid client %i called UnPauseRequest", client);
+		PrintToAdmins(true, true, "Comp plugin error: \
+Invalid client %i called UnPauseRequest", client);
 #endif
 		return;
 	}
@@ -576,7 +611,9 @@ void UnPauseRequest(client)
 	new team = GetClientTeam(client);
 	if (team != TEAM_JINRAI && team != TEAM_NSF)
 	{
-		LogError("Client %i with invalid team %i attempted calling UnPauseRequest", client, team);
+		LogError("Client %i with invalid team %i attempted calling UnPauseRequest",
+			client, team);
+
 		return;
 	}
 
@@ -642,20 +679,24 @@ public Action:Command_OverrideStart(client, args)
 
 	if (playersInTeam < playersInTeamReady)
 	{
-		LogError("There are more players marked ready than there are players in the team!");
+		LogError("There are more players marked ready \
+than there are players in the team!");
 	}
 
 	if (playersInTeam != playersInTeamReady)
 	{
-		ReplyToCommand(client, "%s Only %i of %i players in your team are marked !ready.", g_sTag, playersInTeamReady, playersInTeam);
-		ReplyToCommand(client, "Everyone in your team needs to be ready to force a start.");
+		ReplyToCommand(client, "%s Only %i of %i players in your team \
+are marked !ready.", g_sTag, playersInTeamReady, playersInTeam);
+		ReplyToCommand(client, "Everyone in your team needs to be ready \
+to force a match start.");
 
 		return Plugin_Stop;
 	}
 
 	if (g_isWantingOverride[team])
 	{
-		ReplyToCommand(client, "%s Your team already wants to start. If you wish to revert this, use !unstart instead.", g_sTag);
+		ReplyToCommand(client, "%s Your team already wants to start. \
+If you wish to revert this, use !unstart instead.", g_sTag);
 		return Plugin_Stop;
 	}
 
@@ -666,7 +707,8 @@ public Action:Command_OverrideStart(client, args)
 		bothTeamsWantOverride = g_isWantingOverride[TEAM_JINRAI];
 
 	g_isWantingOverride[team] = true;
-	PrintToChatAll("%s Team %s wishes to start the match with current players.", g_sTag, g_teamName[team]);
+	PrintToChatAll("%s Team %s wishes to start the match with current players.",
+		g_sTag, g_teamName[team]);
 
 	if (bothTeamsWantOverride)
 		LiveCountDown();
@@ -695,13 +737,15 @@ public Action:Command_UnOverrideStart(client, args)
 
 	if (!g_isExpectingOverride)
 	{
-		ReplyToCommand(client, "%s Not expecting any !start override currently.", g_sTag);
+		ReplyToCommand(client, "%s Not expecting any !start override currently.",
+			g_sTag);
 		return Plugin_Stop;
 	}
 
 	if (!g_isWantingOverride[team])
 	{
-		ReplyToCommand(client, "%s Your team already does not wish to force a start!", g_sTag);
+		ReplyToCommand(client, "%s Your team already does not wish to force a start!",
+			g_sTag);
 		return Plugin_Stop;
 	}
 
@@ -709,7 +753,8 @@ public Action:Command_UnOverrideStart(client, args)
 		CancelLiveCountdown();
 
 	g_isWantingOverride[team] = false;
-	PrintToChatAll("%s Team %s has cancelled wanting to force start the match.", g_sTag, g_teamName[team]);
+	PrintToChatAll("%s Team %s has cancelled wanting to force start the match.",
+		g_sTag, g_teamName[team]);
 
 	return Plugin_Handled;
 }
@@ -741,7 +786,8 @@ public Action:Command_Ready(client, args)
 		{
 			if (g_isReady[client])
 			{
-				ReplyToCommand(client, "%s You are already marked as ready. Use !unready to revert this.", g_sTag);
+				ReplyToCommand(client, "%s You are already marked as ready. \
+Use !unready to revert this.", g_sTag);
 				return Plugin_Continue;
 			}
 
@@ -775,15 +821,19 @@ public Action:Command_Ready(client, args)
 
 			if (teamPlayers == teamPlayersReady)
 			{
-				ReplyToCommand(client, "%s Your team is already marked as ready. Use !unready to revert this.", g_sTag);
+				ReplyToCommand(client, "%s Your team is already marked as ready. \
+Use !unready to revert this.", g_sTag);
 				return Plugin_Handled;
 			}
-
 			else if (teamPlayers < teamPlayersReady)
-				LogError("Found more team members (%i) for team %i than there are members ready (%i).", teamPlayers, team, teamPlayersReady);
-
+			{
+				LogError("Found more team members (%i) for team %i \
+than there are members ready (%i).", teamPlayers, team, teamPlayersReady);
+			}
 			else
+			{
 				PrintToChatAll("%s Team %s is READY.", g_sTag, g_teamName[team]);
+			}
 		}
 	}
 
@@ -820,7 +870,8 @@ public Action:Command_UnReady(client, args)
 		{
 			if (!g_isReady[client])
 			{
-				ReplyToCommand(client, "%s You are already marked not ready. Use !ready when ready.", g_sTag);
+				ReplyToCommand(client, "%s You are already marked not ready. \
+Use !ready when ready.", g_sTag);
 				return Plugin_Continue;
 			}
 

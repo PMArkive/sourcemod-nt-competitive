@@ -2925,7 +2925,7 @@ void PugMode_Initialize()
 		ThrowError(error);
 	}
 
-	Pug_KickOutsiders();
+	Pug_KickEveryone();
 	PrintToAdmins(_, _, "%s PUG mode has been enabled.", g_sTag);
 }
 
@@ -2936,7 +2936,7 @@ void Pug_PasswordServer()
 	SetConVarString(g_hPassword, "ANPA");
 }
 
-void Pug_KickOutsiders(bool:kickAdmins = false)
+void Pug_KickEveryone(bool:kickAdmins = false)
 {
 	for (new i = 1; i <= MaxClients; i++)
 	{

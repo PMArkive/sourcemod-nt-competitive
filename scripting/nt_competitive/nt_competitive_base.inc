@@ -21,27 +21,34 @@ void CheckIfEveryoneIsReady()
 		return;
 
 	if (players < playersReady)
-		LogError("More players (%i) ready than there are players total (%i).", playersReady, players);
-
-	if ( players < GetConVarInt(g_hMatchSize) && GetConVarBool(g_hLimitTeams) ) // Everyone connected is ready, but there are less people than expected
+	{
+		LogError("More players (%i) ready than there are players total (%i).",
+			playersReady, players);
+	}
+	// Everyone connected is ready, but there are less people than expected
+	if ( players < GetConVarInt(g_hMatchSize) && GetConVarBool(g_hLimitTeams) )
 	{
 		g_isExpectingOverride = true;
-		PrintToChatAll("%s Waiting for %i more players to join.", g_sTag, (GetConVarInt(g_hMatchSize) - players));
-		PrintToChatAll("To start the match without %i players, both teams must !start", GetConVarInt(g_hMatchSize));
+		PrintToChatAll("%s Waiting for %i more players to join.",
+			g_sTag, (GetConVarInt(g_hMatchSize) - players));
+		PrintToChatAll("To start the match without %i players, both teams must !start",
+			GetConVarInt(g_hMatchSize));
 
 		return;
 	}
-
-	else if ( players > GetConVarInt(g_hMatchSize) && GetConVarBool(g_hLimitTeams) ) // Everyone connected is ready, but there are more people than expected
+	// Everyone connected is ready, but there are more people than expected
+	else if ( players > GetConVarInt(g_hMatchSize) && GetConVarBool(g_hLimitTeams) )
 	{
 		g_isExpectingOverride = true;
-		PrintToChatAll("%s There are %i more players than expected.", g_sTag, (players - GetConVarInt(g_hMatchSize)));
-		PrintToChatAll("To force the match start with %i players, both teams must !start", players);
+		PrintToChatAll("%s There are %i more players than expected.",
+			g_sTag, (players - GetConVarInt(g_hMatchSize)));
+		PrintToChatAll("To force the match start with %i players, both teams must !start",
+			players);
 
 		return;
 	}
-
-	LiveCountDown(); // Passed all checks, ready to go live
+	// Passed all checks, ready to go live
+	LiveCountDown();
 }
 
 public Action:Command_ReadyList(client, args)
@@ -49,7 +56,8 @@ public Action:Command_ReadyList(client, args)
 	if (!Client_IsValid(client))
 		return Plugin_Stop;
 
-	ReplyToCommand(client, "%s List of readied players is printed in your console.", g_sTag);
+	ReplyToCommand(client, "%s List of readied players is printed in your console.",
+		g_sTag);
 
 	PrintToConsole(client, "\n%s Players and their READY state:", g_sTag);
 	for (new i = 1; i <= MaxClients; i++)
@@ -81,7 +89,8 @@ void ToggleRecording()
 	if ( GetConVarBool(g_hClientRecording) == false )
 		return;
 
-	if (g_isLive) // Start recording
+	// Start recording
+	if (g_isLive)
 	{
 		for (new i = 1; i <= MaxClients; i++)
 		{
@@ -111,24 +120,35 @@ void ToggleRecording()
 
 			for (new j = 0; j < sizeof(replayName); j++)
 			{
-				if (IsCharAlpha(replayName[j]) || IsCharNumeric(replayName[j]) || !IsCharSpace(replayName[j]))
+				if (
+					IsCharAlpha(replayName[j]) ||
+					IsCharNumeric(replayName[j]) ||
+					!IsCharSpace(replayName[j])
+				)
+				{
 					replayBuffer[bufferPos++] = replayName[j];
+				}
 			}
 			replayBuffer[bufferPos] = '\0'; // Terminate the string with 0
 
-			ReplaceString(replayBuffer, sizeof(replayBuffer), ":", ""); // Remove : characters from the SteamID. To-do: proper sanitization
+			// Remove : characters from the SteamID. TODO: proper sanitization
+			ReplaceString(replayBuffer, sizeof(replayBuffer), ":", "");
 			strcopy(replayName, sizeof(replayName), replayBuffer);
 
-			ClientCommand(i, "stop"); // Stop any previous recording, jic. This does nothing if a demo isn't running.
-			ClientCommand(i, "record %s", replayName); // Start recording. Format demo filename here. Note: replays can be overwritten using this.
+			// Stop any previous recording, jic.
+			// This does nothing if a demo isn't running.
+			ClientCommand(i, "stop");
+			// Start recording. Format demo filename here.
+			// NOTE: Replays can be overwritten using this!
+			ClientCommand(i, "record %s", replayName);
 
 #if DEBUG > 1
 			LogDebug("Client %i is now recording to: %s", i, replayName);
 #endif
 		}
 	}
-
-	else // Stop recording
+	// Stop recording
+	else
 	{
 		for (new i = 1; i <= MaxClients; i++)
 		{
@@ -160,14 +180,17 @@ void LiveCountDown()
 
 	g_isLiveCountdown = true;
 
-	g_hTimer_LiveCountdown = CreateTimer(1.0, Timer_Live_SecondsCountdown, _, TIMER_REPEAT); // This repeat timer is killed inside the callback
+	// This repeat timer is killed inside the callback
+	g_hTimer_LiveCountdown = CreateTimer(1.0, Timer_Live_SecondsCountdown, _, TIMER_REPEAT);
 	g_hTimer_GoLive = CreateTimer((float(g_liveTimer) + 1.0), Timer_GoLive);
 }
 
 public Action:Timer_GoLive(Handle:timer)
 {
-	EmptyScore(); // Make sure everyone starts private so we avoid the no weapon spawn bug
-	CreateTimer(0.1, Timer_ToggleLive); // A slight delay so the score reset above takes effect in time
+	// Make sure everyone starts private so we avoid the no-weapon-spawn bug
+	EmptyScore();
+	// A slight delay so the score reset above takes effect in time
+	CreateTimer(0.1, Timer_ToggleLive);
 }
 
 public Action:Timer_ToggleLive(Handle:timer)
@@ -207,7 +230,8 @@ void ToggleLive(bool:isKvRestore = false)
 		new foundPlayers;
 #endif
 
-		// Save connected players' SteamIDs so they can be allowed to rejoin their teams if disconnected
+		// Save connected players' SteamIDs so
+		// they can be allowed to rejoin their teams if disconnected
 		for (new i = 1; i <= MaxClients; i++)
 		{
 			if (!Client_IsValid(i) || IsFakeClient(i) ||!IsClientInGame(i))
@@ -217,9 +241,11 @@ void ToggleLive(bool:isKvRestore = false)
 			{
 				new String:clientName[MAX_NAME_LENGTH];
 				GetClientName(i, clientName, sizeof(clientName));
-				PrintToChatAll("%s Player \"%s\" has no SteamID authorized yet! Stopped going live. Please try again in a moment.");
+				PrintToChatAll("%s Player \"%s\" has no SteamID authorized yet! \
+Stopped going live. Please try again in a moment.");
 #if DEBUG
-				LogDebug("%s Player \"%s\" has no SteamID authorized yet! Stopped going live.");
+				LogDebug("%s Player \"%s\" has no SteamID authorized yet! \
+Stopped going live.");
 #endif
 				g_isLive = false;
 
@@ -233,7 +259,8 @@ void ToggleLive(bool:isKvRestore = false)
 
 			if (strlen(steamID) == 0)
 			{
-				LogError("Client %i returned empty SteamID, probably not authorized whilst attempting to save SteamID into g_livePlayers!", i);
+				LogError("Client %i returned empty SteamID, probably not authorized \
+whilst attempting to save SteamID into g_livePlayers!", i);
 				continue;
 			}
 
@@ -244,7 +271,10 @@ void ToggleLive(bool:isKvRestore = false)
 				g_assignedTeamWhenLive[i] = team;
 #if DEBUG
 				LogDebug("Found SteamID: %s", steamID);
-				LogDebug("Saved to array as: %s, team %s", g_livePlayers[i], g_teamName[g_assignedTeamWhenLive[i]]);
+				LogDebug("Saved to array as: %s, team %s",
+					g_livePlayers[i],
+					g_teamName[g_assignedTeamWhenLive[i]]);
+
 				foundPlayers++;
 #endif
 			}
@@ -257,9 +287,11 @@ void ToggleLive(bool:isKvRestore = false)
 		SetConVarInt(g_hAlltalk, GetDesiredCommsBehaviour());
 		SetConVarBool(g_hPausable, false);
 		SetConVarBool( g_hForceCamera, GetConVarBool(g_hCompForceCamera) );
-		SetConVarInt(g_hNeoScoreLimit, 99); // Make sure Neotokyo's own max round count is maxed out so it won't interfere
+		// Max out NT's own round counter so it won't interfere
+		SetConVarInt(g_hNeoScoreLimit, 99);
 
-		// Only reset team/player scores if we're not restoring a previous game from KeyValues
+		// Only reset team/player scores if
+		// we're not restoring a previous game from KeyValues
 		if (!isKvRestore)
 			NeoRestartThis();
 
@@ -273,11 +305,14 @@ void ToggleLive(bool:isKvRestore = false)
 
 		// If competition name hasn't been specified
 		if (strlen(competitionName) < 1)
+		{
 			strcopy(competitionName, sizeof(competitionName), "Competitive Neotokyo");
+		}
 
-		decl String:liveTitle[sizeof(g_sTag) + sizeof(competitionName) + sizeof(g_teamName[]) * 2 + 6];
-		Format(liveTitle, sizeof(liveTitle), "%s %s: %s - %s", g_sTag, competitionName, g_teamName[TEAM_JINRAI], g_teamName[TEAM_NSF]);
-
+		decl String:liveTitle
+			[sizeof(g_sTag) + sizeof(competitionName) + (sizeof(g_teamName[]) * 2) + 6];
+		Format(liveTitle, sizeof(liveTitle), "%s %s: %s - %s",
+			g_sTag, competitionName, g_teamName[TEAM_JINRAI], g_teamName[TEAM_NSF]);
 		PrintToChatAll(liveTitle);
 
 		SpamTimer();
@@ -309,8 +344,8 @@ void ToggleLive(bool:isKvRestore = false)
 
 		SetGameState(GAMESTATE_WARMUP);
 	}
-
-	ToggleSourceTV(); // This has to be called after modifying the g_isLive boolean
+	// NOTE: This shouldn't be called before modifying the g_isLive boolean
+	ToggleSourceTV();
 }
 
 void NeoRestartThis()
@@ -328,7 +363,8 @@ void NeoRestartThis()
 
 void TogglePause()
 {
-	// No pausing allowed. Todo: Do this check in !pause instead, and just error check here instead
+	// No pausing allowed.
+	// TODO: Do this check in !pause instead, and just error check here instead
 	if ( GetConVarInt(g_hPauseMode) == PAUSEMODE_FORBIDDEN )
 		return;
 
@@ -366,19 +402,28 @@ void TogglePause()
 					fPauseLength = GetConVarFloat(g_hMaxPauseLength);
 				}
 
-				PrintToChatAll( "%s Pause maximum duration: %i seconds.", g_sTag, RoundToNearest(fPauseLength) );
+				PrintToChatAll( "%s Pause maximum duration: %i seconds.",
+					g_sTag, RoundToNearest(fPauseLength) );
 				PrintToChatAll("%s Use !unpause when ready.", g_sTag);
 
 #if DEBUG
-				LogDebug( "%s Pausing! Pause max duration: %i seconds.", g_sTag, RoundToNearest(fPauseLength) );
+				LogDebug( "%s Pausing! Pause max duration: %i seconds.",
+					g_sTag,
+					RoundToNearest(fPauseLength) );
 #endif
+				// Add 1 second to timer for messages
+				// to appear in correct order during countdown
+				g_hTimer_UnPause = CreateTimer( (1.0 + fPauseLength ), Timer_Unpause );
+				// Don't bother with "half of pause time remaining"
+				// notice when there's less than 10 secs remaining
+				if ( (fPauseLength / 2) > 10.0 )
+				{
+					g_hTimer_UnPause_HalfLeft =
+						CreateTimer( (fPauseLength / 2), Timer_UnpauseNotice_Half );
+				}
 
-				g_hTimer_UnPause = CreateTimer( (1.0 + fPauseLength ), Timer_Unpause ); // Add 1 second to timer for messages to appear in correct order during countdown
-
-				if ( (fPauseLength / 2) > 10.0 ) // Don't bother with "half of pause time remaining" notice when there's less than 10 secs remaining
-					g_hTimer_UnPause_HalfLeft = CreateTimer( (fPauseLength / 2), Timer_UnpauseNotice_Half );
-
-				g_hTimer_UnPause_Countdown = CreateTimer( (fPauseLength - float(g_unpauseTimer) ), Timer_StartTenSecondsLeft );
+				g_hTimer_UnPause_Countdown =
+					CreateTimer( (fPauseLength - float(g_unpauseTimer) ), Timer_StartTenSecondsLeft );
 			}
 
 			// Unpause
@@ -401,17 +446,23 @@ void TogglePause()
 			CreateTimer(0.5, Timer_TogglePauseLoop);
 		}
 
-		// Stop game's round timer instead of a regular pause. This should be less glitchy overall.
+		// Stop game's round timer instead of a regular engine pause.
+		// This should be less buggy overall (chat messages still work etc.)
 		case PAUSEMODE_STOP_CLOCK:
 		{
-			// Server's Neotokyo gamedata is outdated, GameRules_SetPropFloat probably wouldn't work.
+			// Server's Neotokyo gamedata is outdated,
+			// GameRules_SetPropFloat probably wouldn't work.
 			// We have to switch pause modes to avoid running into errors.
 			if (g_isGamedataOutdated)
 			{
-				SetConVarInt(g_hPauseMode, PAUSEMODE_NORMAL); // Use the in-engine "normal" pause instead of PAUSEMODE_STOP_CLOCK
+				// Use the in-engine "normal" pause instead of PAUSEMODE_STOP_CLOCK
+				SetConVarInt(g_hPauseMode, PAUSEMODE_NORMAL);
 
-				g_isPaused = !g_isPaused; // Flip the bool again, because...
-				TogglePause(); // ... we're going to call ourselves to land on the right pause mode! There's probably more elegant ways to achieve this, but oh well.
+				// Flip the bool again, because...
+				g_isPaused = !g_isPaused;
+				// ... we're going to call ourselves to land on the right pause mode!
+				// There's probably more elegant ways to achieve this, but oh well.
+				TogglePause();
 				return; // Stop here
 			}
 
@@ -1510,7 +1561,8 @@ void ChatCvarEdit(client, Handle:cvar)
 			decl String:clientName[MAX_NAME_LENGTH];
 			GetClientName(i, clientName, sizeof(clientName));
 
-			PrintToChat(client, "%s \"%s\" is currently editing a game setting. Please wait.", g_sTag, clientName);
+			PrintToChat(client, "%s \"%s\" is currently editing a game setting. \
+			Please wait.", g_sTag, clientName);
 			return;
 		}
 	}
@@ -1523,28 +1575,35 @@ void ChatCvarEdit(client, Handle:cvar)
 
 	PrintToChat(client, "%s Please enter a new value in the chat.", g_sTag);
 	PrintToChat(client, "To cancel this action, type \"cancel\".");
-	PrintToChat(client, "For text values, you can also type \"default\" to revert the changes.");
+	PrintToChat(client, "For text values, you can also type \"default\" \
+	to revert the changes.");
 }
 
-// Make sure Neotokyo gamedata file is up to date, as some of the plugin features require it.
+// Make sure Neotokyo gamedata file is up to date,
+// as some of the plugin features require it.
 void CheckGamedataFiles()
 {
-	new String:gamedataUrl[] = "https://github.com/alliedmodders/sourcemod/tree/master/gamedata"; // URL for the latest NT gamedata version
+	// URL for the latest NT gamedata version
+	new String:gamedataUrl[] = "https://github.com/alliedmodders/sourcemod/tree/master/gamedata";
 
+	// Gamedata file path
 	decl String:filePath[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, filePath, sizeof(filePath), "gamedata/sdktools.games/game.neotokyo.txt"); // Gamedata file path
+	BuildPath(Path_SM, filePath, sizeof(filePath), "gamedata/sdktools.games/game.neotokyo.txt");
 
 	// Do a filesize based check.
 	// This should be fairly safe as the NT gamedata is updated extremely rarely.
-	new fileSize					= FileSize(filePath, false);		// Filesize of the currently running server gamedata version
-	new correctFileSize		= 1933;								// Filesize of the correct gamedata version (30 Dec 2015 or 10 Oct 2015)
-	new oldFileSize_2014	= 1179;								// Old version filesize (23 Dec 2014)
-	new oldFileSize_2009	= 1075;								// Old version filesize (15 Dec 2009)
+	new fileSize					= FileSize(filePath, false);	// Filesize of the currently running server gamedata version
+	new correctFileSize		= 1933;												// Filesize of the correct gamedata version (30 Dec 2015 or 10 Oct 2015)
+	new oldFileSize_2014	= 1179;												// Old version filesize (23 Dec 2014)
+	new oldFileSize_2009	= 1075;												// Old version filesize (15 Dec 2009)
 
 	// File not found
 	if (fileSize == -1)
 	{
-		LogError("Neotokyo gamedata file %s could not be found! sm_competitive_pause_mode 2 is unavailable because of this. See %s for the latest gamedata version.", filePath, gamedataUrl);
+		LogError("Neotokyo gamedata file %s could not be found! \
+sm_competitive_pause_mode 2 is unavailable because of this. \
+See %s for the latest gamedata version.", filePath, gamedataUrl);
+
 		g_isGamedataOutdated = true;
 	}
 	// Filesize mismatch
@@ -1553,13 +1612,22 @@ void CheckGamedataFiles()
 		// Old file version
 		if (fileSize == oldFileSize_2014 || fileSize == oldFileSize_2009)
 		{
-			LogError("Neotokyo gamedata file %s has mismatching filesize %i bytes (expected %i bytes), it's most likely outdated. \"sm_competitive_pause_mode 2\" is unavailable because of this. See %s for the latest gamedata version.", filePath, fileSize, correctFileSize, gamedataUrl);
+			LogError("Neotokyo gamedata file %s has mismatching filesize %i bytes \
+(expected %i bytes), it's most likely outdated. \
+\"sm_competitive_pause_mode 2\" is unavailable because of this. \
+See %s for the latest gamedata version.", filePath, fileSize,
+			correctFileSize, gamedataUrl);
+
 			g_isGamedataOutdated = true;
 		}
 		// Unknown file version. Notify server, but don't treat as an error.
 		else
 		{
-			PrintToServer("%s Note: Neotokyo gamedata file %s has a nonstandard filesize %i bytes (expected %i bytes), has it been customized? \"sm_competitive_pause_mode 2\" may throw an error if the file is outdated.", g_sTag, filePath, fileSize, correctFileSize);
+			PrintToServer("%s Note: Neotokyo gamedata file %s has a nonstandard \
+filesize %i bytes (expected %i bytes), has it been customized? \
+\"sm_competitive_pause_mode 2\" may throw an error if the file is \
+outdated.", g_sTag, filePath, fileSize, correctFileSize);
+
 			g_isGamedataOutdated = false;
 		}
 	}
@@ -1574,7 +1642,8 @@ void RestoreRound(roundNumber, bool:isAdminTriggered = false, client = 0, bool:i
 {
 	if (roundNumber > g_furthestPlayedRound || roundNumber <= 0)
 	{
-		LogError("Attempted to restore a nonexistant round %i. Furthest played round is %i.", roundNumber, g_furthestPlayedRound);
+		LogError("Attempted to restore a nonexistant round %i. \
+Furthest played round is %i.", roundNumber, g_furthestPlayedRound);
 
 		new bool:adminsPresent;
 		for (new i = 1; i <= MaxClients; i++)
@@ -1587,9 +1656,14 @@ void RestoreRound(roundNumber, bool:isAdminTriggered = false, client = 0, bool:i
 		}
 
 		if (adminsPresent)
-			PrintToAdmins(_, _, "Failed restoring round %i. Check SM error logs for details.", roundNumber);
+		{
+			PrintToAdmins(_, _, "Failed restoring round %i. \
+Check SM error logs for details.", roundNumber);
+		}
 		else
+		{
 			PrintToChatAll("Round restore failed. Contact server admins for help.");
+		}
 
 		g_confirmRoundChange = false;
 		return;
@@ -1614,7 +1688,8 @@ void RestoreRound(roundNumber, bool:isAdminTriggered = false, client = 0, bool:i
 
 		if (!g_confirmRoundChange)
 		{
-			PrintToChat(client, "Restoring match from round %i, are you sure? Please press again to confirm.", roundNumber);
+			PrintToChat(client, "Restoring match from round %i, are you sure? \
+Please press again to confirm.", roundNumber);
 
 			g_confirmRoundChange = true;
 			RefereeMenu_ChangeRound(client);
@@ -1635,10 +1710,16 @@ void RestoreRound(roundNumber, bool:isAdminTriggered = false, client = 0, bool:i
 			if ( !Client_IsValid(i) || IsFakeClient(i) )
 				continue;
 
-			SetEntProp(i, Prop_Data, "m_iDeaths", g_playerDeaths[i][roundNumber]); // Restore deaths
-			SetPlayerXP(i, g_playerXP[i][roundNumber]); // Restore XP
+			// Restore deaths
+			SetEntProp(i, Prop_Data, "m_iDeaths", g_playerDeaths[i][roundNumber]);
+			// Restore XP
+			SetPlayerXP(i, g_playerXP[i][roundNumber]);
 #if DEBUG > 1
-			LogDebug("Client %i has %i XP and %i deaths at round %i.", i, g_playerXP[i][roundNumber], g_playerDeaths[i][roundNumber], roundNumber);
+			LogDebug("Client %i has %i XP and %i deaths at round %i.",
+				i,
+				g_playerXP[i][roundNumber],
+				g_playerDeaths[i][roundNumber],
+				roundNumber);
 #endif
 			UpdatePlayerRank(i);
 		}
@@ -1709,7 +1790,8 @@ void PenalizeTeam(admin, team)
 	DrawPanelText(panel, " ");
 
 	decl String:penaltyDescription[128];
-	Format( penaltyDescription, sizeof(penaltyDescription), "Penalize team %s?", g_teamName[team] );
+	Format(penaltyDescription, sizeof(penaltyDescription),
+		"Penalize team %s?", g_teamName[team]);
 
 	DrawPanelText(panel, penaltyDescription);
 	DrawPanelText(panel, "This will give 1 point to the opposing team.");
@@ -1742,7 +1824,8 @@ void ApplyPenalty(admin, team)
 		SetTeamScore(TEAM_JINRAI, g_jinraiScore[g_roundNumber]);
 	}
 
-	PrintToChatAll("%s Penalty given to team \"%s\" by admin.", g_sTag, g_teamName[team]);
+	PrintToChatAll("%s Penalty given to team \"%s\" by admin.",
+		g_sTag, g_teamName[team]);
 	PrintToChatAll("The opposing team gains +1 point.");
 
 	PlayLiveBeep(); // Sound notification about the penalty
@@ -1766,12 +1849,25 @@ void CheckMatchState()
 	decl String:msgBuffer[256];
 
 	// ** Announce match state below **
-	// Jinrai wins, NSF can't catch up anymore
-	if ( !g_isSuddenDeathRound && g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber] + roundLimit - (g_roundNumber - 1) ) // (g_roundNumber - 1) because we're counting rounds by incrementing inside the event. So first round is 1, not 0.
+	// Jinrai wins, NSF can't catch up anymore.
+	// (g_roundNumber - 1) because we're counting rounds by
+	// incrementing inside the event. So first round is 1, not 0.
+	if (
+		!g_isSuddenDeathRound &&
+		g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber] + roundLimit - (g_roundNumber - 1)
+	)
 	{
 #if DEBUG
-		LogDebug("%s %s WINS %i - %i", g_sTag, g_teamName[TEAM_JINRAI], g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
-		LogDebug("jinScore %i > nsfScore %i + roundLimit %i - roundCount %i", g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber], roundLimit, g_roundNumber);
+		LogDebug("%s %s WINS %i - %i",
+			g_sTag,
+			g_teamName[TEAM_JINRAI],
+			g_jinraiScore[g_roundNumber],
+			g_nsfScore[g_roundNumber]);
+		LogDebug("jinScore %i > nsfScore %i + roundLimit %i - roundCount %i",
+			g_jinraiScore[g_roundNumber],
+			g_nsfScore[g_roundNumber],
+			roundLimit,
+			g_roundNumber);
 #endif
 
 		Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i", g_sTag, g_teamName[TEAM_JINRAI], g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
@@ -1783,14 +1879,29 @@ void CheckMatchState()
 	}
 
 	// NSF wins, Jinrai can't catch up anymore
-	else if ( !g_isSuddenDeathRound && g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber] + roundLimit - (g_roundNumber - 1))
+	else if (
+		!g_isSuddenDeathRound &&
+		g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber] + roundLimit - (g_roundNumber - 1)
+	)
 	{
 #if DEBUG
-		LogDebug("%s %s WINS %i - %i", g_sTag, g_teamName[TEAM_NSF], g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
-		LogDebug("nsfScore %i > jinScore %i + roundLimit %i - roundCount %i", g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber], roundLimit, g_roundNumber);
+		LogDebug("%s %s WINS %i - %i",
+			g_sTag,
+			g_teamName[TEAM_NSF],
+			g_nsfScore[g_roundNumber],
+			g_jinraiScore[g_roundNumber]);
+		LogDebug("nsfScore %i > jinScore %i + roundLimit %i - roundCount %i",
+			g_nsfScore[g_roundNumber],
+			g_jinraiScore[g_roundNumber],
+			roundLimit,
+			g_roundNumber);
 #endif
 
-		Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i", g_sTag, g_teamName[TEAM_NSF], g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
+		Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i",
+			g_sTag,
+			g_teamName[TEAM_NSF],
+			g_nsfScore[g_roundNumber],
+			g_jinraiScore[g_roundNumber]);
 
 		PrintToChatAll(msgBuffer);
 		LogCompetitive(msgBuffer);
@@ -1802,7 +1913,11 @@ void CheckMatchState()
 	{
 		if (g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber])
 		{
-			Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i", g_sTag, g_teamName[TEAM_JINRAI], g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
+			Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i",
+				g_sTag,
+				g_teamName[TEAM_JINRAI],
+				g_jinraiScore[g_roundNumber],
+				g_nsfScore[g_roundNumber]);
 
 			PrintToChatAll(msgBuffer);
 			LogCompetitive(msgBuffer);
@@ -1811,7 +1926,11 @@ void CheckMatchState()
 		}
 		else if (g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber])
 		{
-			Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i", g_sTag, g_teamName[TEAM_NSF], g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
+			Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i",
+				g_sTag,
+				g_teamName[TEAM_NSF],
+				g_nsfScore[g_roundNumber],
+				g_jinraiScore[g_roundNumber]);
 
 			PrintToChatAll(msgBuffer);
 			LogCompetitive(msgBuffer);
@@ -1820,7 +1939,8 @@ void CheckMatchState()
 		}
 		else
 		{
-			Format(msgBuffer, sizeof(msgBuffer), "%s SUDDEN DEATH. Next team to score wins.", g_sTag);
+			Format(msgBuffer, sizeof(msgBuffer),
+				"%s SUDDEN DEATH. Next team to score wins.", g_sTag);
 			PrintToChatAll(msgBuffer);
 			LogCompetitive(msgBuffer);
 
@@ -1837,7 +1957,8 @@ void CheckMatchState()
 			if (!g_isSuddenDeathRound)
 			{
 				g_isSuddenDeathRound = true;
-				Format(msgBuffer, sizeof(msgBuffer), "%s SUDDEN DEATH. Next team to score wins.", g_sTag);
+				Format(msgBuffer, sizeof(msgBuffer),
+					"%s SUDDEN DEATH. Next team to score wins.", g_sTag);
 				PrintToChatAll(msgBuffer);
 				LogCompetitive(msgBuffer);
 
@@ -1848,7 +1969,8 @@ void CheckMatchState()
 		// No sudden death. End match in a tie.
 		else
 		{
-			Format(msgBuffer, sizeof(msgBuffer), "%s MATCH TIED %i - %i", g_sTag, g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
+			Format(msgBuffer, sizeof(msgBuffer), "%s MATCH TIED %i - %i",
+			g_sTag, g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
 			PrintToChatAll(msgBuffer);
 		}
 
@@ -1856,7 +1978,11 @@ void CheckMatchState()
 	}
 
 	// Check if game ended, and toggle off live mode if appropriate
-	if ((g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber] + roundLimit - (g_roundNumber - 1)) || (g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber] + roundLimit - (g_roundNumber - 1)) || ((g_roundNumber - 1) == roundLimit))
+	if (
+		(g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber] + roundLimit - (g_roundNumber - 1)) ||
+		(g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber] + roundLimit - (g_roundNumber - 1)) ||
+		((g_roundNumber - 1) == roundLimit)
+	)
 	{
 		ToggleLive();
 		LogCompetitive("Competitive match ended.");
@@ -1864,16 +1990,16 @@ void CheckMatchState()
 
 	// Match point, one team has almost won
 	else if (
-				// Jinrai is winning, and NSF can catch up exactly in the amount of rounds remaining
-				(g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber] && g_nsfScore[g_roundNumber] + roundsLeft == g_jinraiScore[g_roundNumber]) ||
-				// NSF is winning, and Jinrai can catch up exactly in the amount of rounds remaining
-				(g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber] && g_jinraiScore[g_roundNumber] + roundsLeft == g_nsfScore[g_roundNumber]) ||
-				// It is the last round
-				(g_roundNumber == roundLimit)
-			)
-			{
-				PrintToChatAll("%s Round %i/%i (MATCH POINT)", g_sTag, g_roundNumber, roundLimit);
-			}
+		// Jinrai is winning, and NSF can catch up exactly in the amount of rounds remaining
+		(g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber] && g_nsfScore[g_roundNumber] + roundsLeft == g_jinraiScore[g_roundNumber]) ||
+		// NSF is winning, and Jinrai can catch up exactly in the amount of rounds remaining
+		(g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber] && g_jinraiScore[g_roundNumber] + roundsLeft == g_nsfScore[g_roundNumber]) ||
+		// It is the last round
+		(g_roundNumber == roundLimit)
+	)
+	{
+		PrintToChatAll("%s Round %i/%i (MATCH POINT)", g_sTag, g_roundNumber, roundLimit);
+	}
 
 	// Just another round, simply announce round number
 	else
@@ -1896,7 +2022,8 @@ void CheckGhostcapPlugin()
 	if (ghostcapPlugin == null)
 	{
 		new String:ghostcapUrl[] = "https://github.com/softashell/nt-sourcemod-plugins";
-		LogError("Using sm_competitive_nozanshi 1 setting requires Soft as HELL's Ghost cap event plugin, version 1.5.4 or newer: %s", ghostcapUrl);
+		LogError("Using sm_competitive_nozanshi 1 setting requires Soft as HELL's \
+Ghost cap event plugin, version 1.5.4 or newer: %s", ghostcapUrl);
 		SetConVarBool(g_hPreventZanshiStrats, false);
 	}
 }
@@ -1930,22 +2057,25 @@ bool DidPlayerReallySpawn(client)
 {
 	if ( !Client_IsValid(client) || !IsClientInGame(client) )
 	{
-//		PrintToServer("Client is not valid %i", client);
+		//PrintToServer("Client is not valid %i", client);
 		return false;
 	}
 
 	new team = GetClientTeam(client);
 	if (team != TEAM_JINRAI && team != TEAM_NSF)
 	{
-//		PrintToServer("Team is not valid %i", team);
+		//PrintToServer("Team is not valid %i", team);
 		return false;
 	}
 
 	new Float:currentTime = GetGameTime();
-	if (currentTime - g_fRoundTime > 30 + 1) // Spawn event triggered after round spawning is finished. Player cannot have spawned.
+	// Spawn event triggered after round spawning is finished.
+	// Player cannot have spawned.
+	if (currentTime - g_fRoundTime > 30 + 1)
 	{
-//		PrintToServer("# # # NEW SPAWN Game Time: %f", currentTime);
-//		PrintToServer("Time is not valid %f - %f = %f > 15+1", currentTime, g_fRoundTime, (currentTime-g_fRoundTime) );
+		//PrintToServer("# # # NEW SPAWN Game Time: %f", currentTime);
+		/*PrintToServer("Time is not valid %f - %f = %f > 15+1",
+		currentTime, g_fRoundTime, (currentTime-g_fRoundTime) );*/
 		return false;
 	}
 
@@ -1961,10 +2091,16 @@ void CenterText_DisplayRemaining()
 
 	// Just display numbers remaining
 	if (GetConVarInt(g_hCenteredDisplayRemaining) == 1)
-		Format(message, sizeof(message), "%i -- %i", g_playersAlive[TEAM_JINRAI], g_playersAlive[TEAM_NSF]);
+	{
+		Format(message, sizeof(message), "%i -- %i",
+			g_playersAlive[TEAM_JINRAI], g_playersAlive[TEAM_NSF]);
+	}
 	// Display team name + numbers remaining
 	else
-		Format(message, sizeof(message), "JIN %i -- %i NSF", g_playersAlive[TEAM_JINRAI], g_playersAlive[TEAM_NSF]);
+	{
+		Format(message, sizeof(message), "JIN %i -- %i NSF",
+			g_playersAlive[TEAM_JINRAI], g_playersAlive[TEAM_NSF]);
+	}
 
 	new bool:specOnly;
 	if ( GetConVarInt(g_hCenteredDisplayTarget) == 1)
@@ -1988,8 +2124,9 @@ void CenterText_DisplayRemaining()
 }
 
 #if DEBUG
-// Purpose: Make sure handle holds valid KeyValues data, using the comp plugin's format.
-// This will also reset the entire traversal stack. Intended use: kv initialisation, import, export.
+// Purpose: Make sure handle holds valid KeyValues data,
+// using the comp plugin's format. This will also reset
+// the entire traversal stack. Intended use: kv initialisation, import, export.
 bool Kv_IsValid(KeyValues kv)
 {
 	if (kv == INVALID_HANDLE)
@@ -2003,7 +2140,8 @@ bool Kv_IsValid(KeyValues kv)
 
 	if ( !StrEqual(sectionName, KV_IDENTIFIER) )
 	{
-		LogError("KeyValues handle points to a KeyValues that is not standard for the competitive plugin. This is most likely an error.");
+		LogError("KeyValues handle points to a KeyValues that is not standard \
+for the competitive plugin. This is most likely an error.");
 		LogError("Section name: %s Expected: %s", sectionName, KV_IDENTIFIER);
 		return false;
 	}
@@ -2480,7 +2618,7 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 	new locatedPos;
 	new results;
 	new max_files = 128;
-	decl String:buffer[max_files][PLATFORM_MAX_PATH]; // fixme: this is expensive :-( dynamic array instead?
+	decl String:buffer[max_files][PLATFORM_MAX_PATH]; // FIXME: this is expensive :-( dynamic array instead?
 	new bool:locatedFile;
 	new bool:servedFile;
 	FileType type;
@@ -2488,7 +2626,7 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 	{
 		results++;
 
-//		PrintToServer("Testing %s against %s", buffer[i], kvFileName);
+		//PrintToServer("Testing %s against %s", buffer[i], kvFileName);
 
 		if (results > max_files)
 		{
@@ -2530,7 +2668,7 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 		}
 		else if ( StrEqual(buffer[i], kvFileName) )
 		{
-//			PrintToServer("Found it!");
+			//PrintToServer("Found it!");
 			locatedPos = i;
 			locatedFile = true;
 		}
@@ -2552,7 +2690,7 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 			}
 			else
 			{
-//				PrintToServer("Going to previous index %i: %s", prevIndex, buffer[prevIndex]);
+				//PrintToServer("Going to previous index %i: %s", prevIndex, buffer[prevIndex]);
 				Menu_KvDetails(client, buffer[prevIndex]);
 			}
 
@@ -2568,7 +2706,8 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 }
 #endif
 
-// Purpose: Store current epoch globally so multiple functions can use it for identifying themselves
+// Purpose: Store current epoch globally
+// so multiple functions can use it for identifying themselves
 void GenerateEpoch()
 {
 	new Handle:hTimeAdjustment = FindConVar("sm_time_adjustment");
@@ -2609,8 +2748,10 @@ void CancelLiveCountdown()
 			LogError("Failed killing timer g_hTimer_GoLive");
 	}
 
-	g_isLiveCountdown = false; // We are no longer in a live countdown
-	g_liveTimer = g_liveTimer_OriginalValue; // Reset live countdown timer to its original value
+	// We are no longer in a live countdown
+	g_isLiveCountdown = false;
+	// Reset live countdown timer to its original value
+	g_liveTimer = g_liveTimer_OriginalValue;
 
 	PrintToChatAll("%s Live countdown cancelled.", g_sTag);
 }
@@ -2635,7 +2776,8 @@ void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
 {
 	if (passwordLength > MAX_CVAR_LENGTH)
 	{
-		LogError("Pug_PasswordServer: Password length %i is too long, capped to %i length.", passwordLength, MAX_CVAR_LENGTH);
+		LogError("Pug_PasswordServer: Password length %i is too long, \
+		capped to %i length.", passwordLength, MAX_CVAR_LENGTH);
 		passwordLength = MAX_CVAR_LENGTH;
 	}
 
@@ -2643,8 +2785,13 @@ void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
 	GetConVarString(g_hPassword, currentPassword, sizeof(currentPassword));
 
 	// Server is already passworded
-	if (!forceNewPassword && !StrEqual(currentPassword, "") && !StrEqual(currentPassword, " "))
-		return;
+	if (!forceNewPassword)
+	{
+		if (!StrEqual(currentPassword, "") && !StrEqual(currentPassword, " "))
+		{
+			return;
+		}
+	}
 
 	decl String:newPassword[passwordLength + 1];
 	for (new i = 0; i <= passwordLength; i++)

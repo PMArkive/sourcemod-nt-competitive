@@ -19,7 +19,8 @@ bool Database_Initialize(bool checkTables = true)
 	}
 
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	db = SQL_Connect(configName, true, error, sizeof(error)); // Persistent connection
+	// Persistent connection
+	db = SQL_Connect(configName, true, error, sizeof(error));
 
 	if (db == null)
 	{
@@ -44,9 +45,9 @@ void CheckForSpookiness(const String:haystack[])
 	if (StrContains(haystack, "\"") != -1 || StrContains(haystack, ";") != -1)
 	{
 		SetFailState("Found potentially dangerous characters \" or ; \
-		inside the plugin's SQL string, which could result to \
-		incorrect SQL statements. Check your plugin source code for errors. \
-		String contents: \"%s\"", haystack);
+inside the plugin's SQL string, which could result to \
+incorrect SQL statements. Check your plugin source code for errors. \
+String contents: \"%s\"", haystack);
 	}
 }
 
@@ -115,7 +116,7 @@ void Database_AddPugger(client)
 			if (SQL_MoreRows(stmt))
 			{
 				LogError("Database_AddPugger(%i): Found more than 1 results, \
-				expected 0 or 1", client);
+expected 0 or 1", client);
 				break;
 			}
 		}
@@ -200,7 +201,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 		if (results == 0)
 		{
 			LogError("Database_RemovePugger: Found 0 results for SteamID \"%s\" \
-			in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
+in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 		}
 
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)",
@@ -260,7 +261,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 				else
 				{
 					LogError("Database_RemovePugger(): Pugger state for \"%s\" returned %i. \
-					This should never happen.", steamID, state);
+This should never happen.", steamID, state);
 				}
 			}
 		}
@@ -438,7 +439,8 @@ void Database_CleanAFKers()
 	while (SQL_FetchRow(stmt_CleanAfkers))
 	{
 		decl String:steamID[MAX_STEAMID_LENGTH];
-		SQL_FetchString(stmt_CleanAfkers, SQL_TABLE_PUGGER_STEAMID, steamID, sizeof(steamID));
+		SQL_FetchString(stmt_CleanAfkers, SQL_TABLE_PUGGER_STEAMID, steamID,
+			sizeof(steamID));
 
 		PrintDebug("Cleaning SteamID: %s", steamID);
 		Database_RemovePugger(_, true, steamID);
@@ -539,8 +541,9 @@ bool PugServer_Update_This()
 	}
 	else
 	{
-		LogError("PugServer_Update_This: Found %i rows matching this server (%s %s:%i), \
-		expected to find 1 or 0.", rowCount, sServerName, sIP, iPort);
+		LogError("PugServer_Update_This: Found %i rows matching this server \
+(%s %s:%i), expected to find 1 or 0.", rowCount, sServerName, sIP, iPort);
+
 		return false;
 	}
 
@@ -591,7 +594,8 @@ int PugServer_Get_Status(const String:sIP[], iPort)
 	}
 	else if (rows > 1)
 	{
-		LogError("PugServer_Get_Status: Server %s:%i has %i row entries in the database, expected 1 or 0.");
+		LogError("PugServer_Get_Status: Server %s:%i has %i row entries in \
+the database, expected 1 or 0.");
 		CloseHandle(stmt);
 		return PUG_SERVER_STATUS_ERROR;
 	}
@@ -608,7 +612,8 @@ int PugServer_Get_Status(const String:sIP[], iPort)
 #endif
 
 #if defined PLUGIN_PUG
-// Purpose: Add this server into the organizers database table, and set its reserve status.
+// Purpose: Add this server into the organizers database table,
+// and set its reserve status.
 bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 {
 	if (g_bIsDatabaseDown)
@@ -732,7 +737,8 @@ int Organizers_Get_Status_This()
 	if (results != 1)
 	{
 		CloseHandle(stmt_Select);
-		ThrowError("Found %i results for identifier %s, expected 1.", results, g_sIdentifier);
+		ThrowError("Found %i results for identifier %s, expected 1.",
+			results, g_sIdentifier);
 	}
 	CloseHandle(stmt_Select);
 
@@ -824,8 +830,10 @@ public Action:Command_CreateTables(client, args)
 
 	if (rows > 0)
 	{
-		ReplyToCommand(client, "%s Database returned %i already existing PUG rows!", g_sTag, rows);
-		ReplyToCommand(client, "Make sure no PUG tables exist before running this command.");
+		ReplyToCommand(client, "%s Database returned %i already existing PUG rows!",
+			g_sTag, rows);
+		ReplyToCommand(client, "Make sure no PUG tables exist before running this \
+command.");
 		ReplyToCommand(client, "No new tables were created by this command.");
 
 		decl String:clientName[MAX_NAME_LENGTH];

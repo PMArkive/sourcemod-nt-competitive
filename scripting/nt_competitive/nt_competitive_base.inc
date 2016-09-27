@@ -104,15 +104,21 @@ void ToggleRecording()
 			FormatTime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M");
 
 			new String:competitionName[32];
-			GetConVarString(g_hCompetitionName, competitionName, sizeof(competitionName));
+			GetConVarString(g_hCompetitionName, competitionName,
+				sizeof(competitionName));
 
-			new String:replayName[sizeof(steamID)+sizeof(timestamp)+sizeof(competitionName)+2];
+			new String:replayName
+				[sizeof(steamID) + sizeof(timestamp) + sizeof(competitionName) + 2];
 
 			if (strlen(competitionName) > 0)
-				Format(replayName, sizeof(replayName), "%s_%s_%s", competitionName, timestamp, steamID);
-
+			{
+				Format(replayName, sizeof(replayName), "%s_%s_%s",
+					competitionName, timestamp, steamID);
+			}
 			else
+			{
 				Format(replayName, sizeof(replayName), "%s_%s", timestamp, steamID);
+			}
 
 			// Clean up any non alphanumeric characters from the string
 			new String:replayBuffer[sizeof(replayName) + 1];
@@ -181,7 +187,8 @@ void LiveCountDown()
 	g_isLiveCountdown = true;
 
 	// This repeat timer is killed inside the callback
-	g_hTimer_LiveCountdown = CreateTimer(1.0, Timer_Live_SecondsCountdown, _, TIMER_REPEAT);
+	g_hTimer_LiveCountdown = CreateTimer(1.0, Timer_Live_SecondsCountdown, _,
+		TIMER_REPEAT);
 	g_hTimer_GoLive = CreateTimer((float(g_liveTimer) + 1.0), Timer_GoLive);
 }
 
@@ -422,8 +429,8 @@ void TogglePause()
 						CreateTimer( (fPauseLength / 2), Timer_UnpauseNotice_Half );
 				}
 
-				g_hTimer_UnPause_Countdown =
-					CreateTimer( (fPauseLength - float(g_unpauseTimer) ), Timer_StartTenSecondsLeft );
+				g_hTimer_UnPause_Countdown = CreateTimer((fPauseLength -
+					float(g_unpauseTimer)), Timer_StartTenSecondsLeft);
 			}
 
 			// Unpause
@@ -471,7 +478,10 @@ void TogglePause()
 			{
 				g_isExpectingUnPauseTimer = true;
 
-				GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 ); // Set round time to zero. This instantly ends current round and rings the tie/win music, which works to alert players about upcoming pause.
+				// Set round time to zero.
+				// This instantly ends current round and rings the tie/win music,
+				// which should alert players about the upcoming pause.
+				GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 );
 
 				new Float:transitionTime = 5.0;
 				new Float:fPauseLength;
@@ -487,16 +497,19 @@ void TogglePause()
 					fPauseLength = GetConVarFloat(g_hMaxPauseLength);
 				}
 
-				// Wait slightly before initiating pause, so players have time to read chat info about what's going on
+				// Wait slightly before initiating pause,
+				// so players have time to read chat info about what's going on
 				CreateTimer(transitionTime, Timer_EnterPauseRound);
 
 				// Close any previous unpause timer handles
 				KillTimers_UnPause();
 
 				// Create the unpause timer
-				g_hTimer_UnPause = CreateTimer( (transitionTime + fPauseLength ), Timer_Unpause );
+				g_hTimer_UnPause = CreateTimer((transitionTime + fPauseLength),
+					Timer_Unpause);
 
-				PrintToChatAll( "%s Pause maximum duration: %i seconds.", g_sTag, RoundToNearest(fPauseLength) );
+				PrintToChatAll( "%s Pause maximum duration: %i seconds.",
+					g_sTag, RoundToNearest(fPauseLength) );
 				PrintToChatAll("%s Use !unpause when ready.", g_sTag);
 			}
 
@@ -509,10 +522,12 @@ void TogglePause()
 				g_isExpectingUnPauseTimer = false;
 				g_isCurrentlyUnPausing = true;
 
-				GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 ); // Stop the pause round
+				// Stop the pause round
+				GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 );
 				SetGameState(GAMESTATE_NORMAL);
 
-				RestoreRound(g_roundNumber); // Restore everyone's XP, deaths and ranks to the state before pausing
+				// Restore everyone's XP, deaths and ranks to the state before pausing
+				RestoreRound(g_roundNumber);
 
 				g_isTeamReadyForUnPause[TEAM_JINRAI] = false;
 				g_isTeamReadyForUnPause[TEAM_NSF] = false;
@@ -557,7 +572,8 @@ public Action:Timer_EnterPauseRound(Handle:timer)
 	else
 		pauseLength = GetConVarFloat(g_hMaxPauseLength);
 
-	GameRules_SetPropFloat( "m_fRoundTimeLeft", pauseLength ); // Pause round uses max pause length roundtime
+	// Pause round uses max pause length roundtime
+	GameRules_SetPropFloat( "m_fRoundTimeLeft", pauseLength );
 
 	for (new i = 0; i < 3; i++)
 	{
@@ -566,11 +582,13 @@ public Action:Timer_EnterPauseRound(Handle:timer)
 }
 
 #if DEBUG
-public Action:Command_UnpauseOther(client, args) // Pretend the other team made an unpause request. Debug command.
+// Pretend the other team made an unpause request. Debug command.
+public Action:Command_UnpauseOther(client, args)
 {
 	if (client == 0)
 	{
-		ReplyToCommand(client, "%s This command can't be executed by the server.", g_sTag);
+		ReplyToCommand(client, "%s This command can't be executed by the server.",
+			g_sTag);
 		return Plugin_Stop;
 	}
 
@@ -587,20 +605,28 @@ public Action:Command_UnpauseOther(client, args) // Pretend the other team made 
 		if (forLoopTeam == otherTeam)
 		{
 			foundSomeoneInOtherTeam = true;
-			UnPauseRequest(i); // Make someone from the other team perform an unpause request
+			// Make someone from the other team perform an unpause request
+			UnPauseRequest(i);
 			break;
 		}
 	}
 
 	if (!foundSomeoneInOtherTeam)
-		ReplyToCommand(client, "%s Debug: Could not find any players in the other team to fake unpause.", g_sTag);
+	{
+		ReplyToCommand(client, "%s Debug: Could not find any players \
+in the other team to fake unpause.", g_sTag);
+	}
 	else
-		ReplyToCommand(client, "%s Debug: Faked unpause request from the other team.", g_sTag);
+	{
+		ReplyToCommand(client, "%s Debug: Faked unpause request from \
+the other team.", g_sTag);
+	}
 
 	return Plugin_Handled;
 }
 
-public Action:Command_OverrideStartOther(client, args) // Pretend the other team made a force start request. Debug command.
+// Pretend the other team made a force start request. Debug command.
+public Action:Command_OverrideStartOther(client, args)
 {
 	new bool:foundSomeoneInOtherTeam;
 	new team = GetClientTeam(client);
@@ -615,15 +641,23 @@ public Action:Command_OverrideStartOther(client, args) // Pretend the other team
 		if (forLoopTeam == otherTeam)
 		{
 			foundSomeoneInOtherTeam = true;
-			Command_OverrideStart(i, 0); // Make someone from the other team perform a force start request. Args (0) not used, but the command expects them.
+			// Make someone from the other team perform a force start request.
+			// Args (0) not used, but the command expects them.
+			Command_OverrideStart(i, 0);
 			break;
 		}
 	}
 
 	if (!foundSomeoneInOtherTeam)
-		ReplyToCommand(client, "%s Debug: Could not find any players in the other team to fake force start.", g_sTag);
+	{
+		ReplyToCommand(client, "%s Debug: Could not find any players \
+in the other team to fake force start.", g_sTag);
+	}
 	else
-		ReplyToCommand(client, "%s Debug: Faked force start request from the other team.", g_sTag);
+	{
+		ReplyToCommand(client, "%s Debug: Faked force start request \
+from the other team.", g_sTag);
+	}
 
 	return Plugin_Handled;
 }
@@ -642,7 +676,9 @@ void TogglePauseLoop()
 	new unspawnedClients[2];
 	new bool:forcePause;
 
-	for (new i = 1; i <= MaxClients; i++) // The server can't exec "pause" for some reason. So, instead, use the first valid client to execute it.
+	// The server can't exec "pause" command for some reason.
+	// So, instead, use the first valid client to execute it.
+	for (new i = 1; i <= MaxClients; i++)
 	{
 		unspawnedClients[0] = unspawnedClients[1];
 		if (Client_IsValid(i))
@@ -668,7 +704,10 @@ void TogglePauseLoop()
 					GetClientName(i, clientName, sizeof(clientName));
 					LogDebug("Found client to toggle pause. Client int: %i, name: %s", i, clientName);
 #endif
-				CreateTimer(0.05, Timer_DisablePause); // Pausable cvar toggling is too fast to register the pause without a tiny delay here. 0.01 was occasionally too fast, 0.05 seems pretty safe.
+				// Pausable cvar toggling is too fast to
+				// register the pause without a tiny delay here.
+				// 0.01 was occasionally too fast, 0.05 seems pretty safe.
+				CreateTimer(0.05, Timer_DisablePause);
 
 				break;
 			}
@@ -677,10 +716,13 @@ void TogglePauseLoop()
 		else
 			invalidClients++;
 
-		if (i == MaxClients && unspawnedClients[1] > 0) // This will keep looping in 1 second intervals for as long as there are valid unspawned clients
+		// This will keep looping in 1 second intervals
+		// for as long as there are valid unspawned clients
+		if (i == MaxClients && unspawnedClients[1] > 0)
 		{
 #if DEBUG > 1
-			LogDebug("Found %i invalid clients. Found %i valid unspawned clients.", invalidClients, unspawnedClients[1]);
+			LogDebug("Found %i invalid clients. Found %i valid unspawned clients.",
+				invalidClients, unspawnedClients[1]);
 #endif
 
 			if (GetGameTime() > g_fRoundTime + 13.9)
@@ -689,7 +731,8 @@ void TogglePauseLoop()
 				i = 0; // Reset loop
 
 #if DEBUG > 1
-				LogDebug("New round is about to start! Force any valid client to toggle pause...");
+				LogDebug("New round is about to start! \
+Force any valid client to toggle pause...");
 #endif
 				continue;
 			}
@@ -697,12 +740,14 @@ void TogglePauseLoop()
 			CreateTimer(1.0, Timer_TogglePauseLoop);
 
 #if DEBUG > 1
-			LogDebug("No valid spawned client found. Restarting loop in TogglePauseLoop");
+			LogDebug("No valid spawned client found. \
+Restarting loop in TogglePauseLoop");
 #endif
 		}
 
 		else if (invalidClients == MaxClients)
-			LogError("Attempted pause command whilst no valid clients were connected inside TogglePause. This shouldn't happen.");
+			LogError("Attempted pause command whilst no valid clients \
+were connected inside TogglePause. This shouldn't happen.");
 	}
 }
 
@@ -722,10 +767,15 @@ public Action:Timer_SpamLive(Handle:timer)
 	new spamLiveTimes = 3;
 	g_spamTimerCount++;
 
-	if (g_spamTimerCount == 1) // Don't spam "LIVE" during the first increment. This has to do with chat message ordering (round number msgs) during match start, in Event_RoundStart.
+	// Don't spam "LIVE" during the first increment.
+	// This has to do with chat message ordering (round number msgs)
+	// during match start, in Event_RoundStart.
+	if (g_spamTimerCount == 1)
 		return Plugin_Continue;
 
-	else if (g_spamTimerCount <= (spamLiveTimes + 1)) // spamLiveTimes+1, because we won't trigger during first increment (see comment above)
+	// spamLiveTimes+1, because we won't trigger
+	// during first increment (see comment above)
+	else if (g_spamTimerCount <= (spamLiveTimes + 1))
 		PrintToChatAll("%s LIVE", g_sTag);
 
 	else
@@ -739,7 +789,8 @@ public Action:Timer_SpamLive(Handle:timer)
 
 void SpamTimer()
 {
-	CreateTimer(0.25, Timer_SpamLive, _, TIMER_REPEAT); // This repeat timer is killed inside the callback after X repeats
+	// This repeat timer is killed inside the callback after X repeats
+	CreateTimer(0.25, Timer_SpamLive, _, TIMER_REPEAT);
 }
 
 public Action:Timer_Unpause(Handle:timer)
@@ -761,7 +812,8 @@ public Action:Timer_UnpauseNotice_Half(Handle:timer)
 	// Show notification when half of the max pause time has elapsed
 	if (g_isPaused)
 	{
-		PrintToChatAll("%s Pause time left: %i seconds", g_sTag, (RoundToNearest(GetConVarFloat(g_hMaxPauseLength)) / 2));
+		PrintToChatAll("%s Pause time left: %i seconds",
+			g_sTag, (RoundToNearest(GetConVarFloat(g_hMaxPauseLength)) / 2));
 		return Plugin_Continue;
 	}
 
@@ -773,7 +825,10 @@ public Action:Timer_UnpauseNotice_Half(Handle:timer)
 public Action:Timer_StartTenSecondsLeft(Handle:timer)
 {
 	if (g_isPaused)
-		CreateTimer(1.0, Timer_Unpause_SecondsCountdown, _, TIMER_REPEAT); // This repeat timer is killed inside the callback
+	{
+		// This repeat timer is killed inside the callback
+		CreateTimer(1.0, Timer_Unpause_SecondsCountdown, _, TIMER_REPEAT);
+	}
 
 	g_hTimer_UnPause_Countdown = INVALID_HANDLE;
 
@@ -792,14 +847,17 @@ public Action:Timer_Live_SecondsCountdown(Handle:timer)
 		return Plugin_Continue;
 	}
 
-	g_liveTimer = g_liveTimer_OriginalValue; // Reset the timer to its original value
+	// Reset the timer to its original value
+	g_liveTimer = g_liveTimer_OriginalValue;
 
 	return Plugin_Stop;
 }
 
 public Action:Timer_Unpause_SecondsCountdown(Handle:timer)
 {
-	if (!g_isLive || !g_isPaused) // Pause has properly ended or the match is not live anymore (which implies the pause was properly ended already)
+	// Pause has properly ended or the match is not live anymore
+	// (which implies the pause was properly ended already)
+	if (!g_isLive || !g_isPaused)
 		return Plugin_Stop;
 
 	if (g_unpauseTimer > 0)
@@ -811,7 +869,8 @@ public Action:Timer_Unpause_SecondsCountdown(Handle:timer)
 		return Plugin_Continue;
 	}
 
-	g_unpauseTimer = g_unpauseTimer_OriginalValue; // Reset the timer to its original value
+	// Reset the timer to its original value
+	g_unpauseTimer = g_unpauseTimer_OriginalValue;
 
 	return Plugin_Stop;
 }
@@ -826,11 +885,15 @@ void InitDirectory(const String:sDir[])
 	{
 		Format(sPath, sizeof(sPath), "%s/%s", sPath, sPieces[i]);
 		if(!DirExists(sPath))
-			CreateDirectory(sPath, 509); // Note that folders must have the execute bit set on Linux. On Windows, the mode is ignored.
+		{
+			// Note that folders must have the execute bit set on Linux.
+			// On Windows, the mode is ignored.
+			CreateDirectory(sPath, 509);
+		}
 	}
 }
 
-// todo: check for redundant code in this
+// TODO: check for redundant code in this
 void ToggleSourceTV()
 {
 	if (g_isSourceTVRecording)
@@ -866,17 +929,24 @@ void ToggleSourceTV()
 		GetCurrentMap(mapName, sizeof(mapName));
 
 		decl String:competitionName[32];
-		GetConVarString(g_hCompetitionName, competitionName, sizeof(competitionName));
+		GetConVarString(g_hCompetitionName, competitionName,
+			sizeof(competitionName));
 
-		decl String:replayName[sizeof(mapName)+sizeof(timestamp)+sizeof(competitionName)+2];
+		decl String:replayName
+			[sizeof(mapName) + sizeof(timestamp) + sizeof(competitionName) + 2];
 
 		if (strlen(competitionName) > 0)
-			Format(replayName, sizeof(replayName), "%s_%s_%s_", competitionName, timestamp, mapName);
-
+		{
+			Format(replayName, sizeof(replayName), "%s_%s_%s_",
+				competitionName, timestamp, mapName);
+		}
 		else
+		{
 			Format(replayName, sizeof(replayName), "%s_%s_", timestamp, mapName);
+		}
 
-		// Concatenate epoch to the end of filename. This can be helpful to connect a replay to related KeyValues entry
+		// Concatenate epoch to the end of filename.
+		// This can be helpful to connect a replay to related KeyValues entry.
 		decl String:epochBuffer[16];
 		IntToString( g_epoch, epochBuffer, sizeof(epochBuffer) );
 		StrCat(replayName, sizeof(replayName), epochBuffer);
@@ -887,16 +957,26 @@ void ToggleSourceTV()
 
 		for (new j = 0; j < sizeof(replayName); j++)
 		{
-			if (IsCharAlpha(replayName[j]) || IsCharNumeric(replayName[j]) || !IsCharSpace(replayName[j]))
+			if (
+				IsCharAlpha(replayName[j]) ||
+				IsCharNumeric(replayName[j]) ||
+				!IsCharSpace(replayName[j])
+			)
+			{
 				replayBuffer[bufferPos++] = replayName[j];
+			}
 		}
 		replayBuffer[bufferPos] = '\0'; // Terminate the string with 0
 
-		ReplaceString(replayBuffer, sizeof(replayBuffer), ":", ""); // Remove : characters from the SteamID. To-do: proper sanitization
+		// Remove : characters from the SteamID. TODO: proper sanitization
+		ReplaceString(replayBuffer, sizeof(replayBuffer), ":", "");
 		strcopy(replayName, sizeof(replayName), replayBuffer);
 
-		ServerCommand("tv_stoprecord"); // Stop any previous server record
-		ServerCommand("tv_record \"%s/%s\"", demoPath, replayName); // SourceTV bot needs to be connected for this to do anything. This is checked above with IsSourceTVBotConnected()
+		// Stop any previous server record
+		ServerCommand("tv_stoprecord");
+		// SourceTV bot needs to be connected for this to do anything.
+		// This is checked above with IsSourceTVBotConnected()
+		ServerCommand("tv_record \"%s/%s\"", demoPath, replayName);
 		g_isSourceTVRecording = true;
 
 #if DEBUG
@@ -909,12 +989,11 @@ void ToggleSourceTV()
 void PlayLiveBeep()
 {
 	new Float:volume	= 0.5;	// Volume between 0.0 - 1.0 (original volume is 1.0)
-	new pitch				= 175;	// Pitch between 0 - 255 (original pitch is 100)
+	new pitch					= 175;	// Pitch between 0 - 255 (original pitch is 100)
 
 	PrecacheSound(g_soundLive);
 	EmitSoundToAll(g_soundLive, _, _, _, _, volume, pitch);
 }
-
 
 bool:IsSourceTVBotConnected()
 {
@@ -932,7 +1011,8 @@ bool:IsSourceTVBotConnected()
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (!Client_IsValid(i) || !IsFakeClient(i)) // We are looking for a valid fake client (bot)
+		// We are looking for a valid fake client (bot)
+		if (!Client_IsValid(i) || !IsFakeClient(i))
 			continue;
 
 		decl String:clientName[MAX_NAME_LENGTH];
@@ -941,11 +1021,13 @@ bool:IsSourceTVBotConnected()
 #if DEBUG > 1
 		LogDebug("Found valid fake client, index: %i, name: %s", i, clientName);
 #endif
-
-		if (StrEqual(clientName, botName) || StrEqual(clientName, "SourceTV")) // Also check for default name "SourceTV", because sometimes tv_name doesn't work when bot first spawns
+		// Also check for default name "SourceTV",
+		// because sometimes tv_name doesn't work when bot first spawns
+		if (StrEqual(clientName, botName) || StrEqual(clientName, "SourceTV"))
 		{
 #if DEBUG > 1
-			LogDebug("Fake client name %s matches tv_name cvar %s or \"SourceTV\"", clientName, botName);
+			LogDebug("Fake client name %s matches tv_name cvar %s or \"SourceTV\"",
+				clientName, botName);
 #endif
 			return true;
 		}
@@ -997,7 +1079,10 @@ int GetPlayersReady()
 
 int GetDesiredCommsBehaviour()
 {
-	new behaviour = GetConVarInt(g_hCommsBehaviour); // 0: disable alltalk, 1: enable alltalk, 2: use whichever initial alltalk value (tracked with g_isAlltalkByDefault)
+	// 0: disable alltalk,
+	// 1: enable alltalk,
+	// 2: use whichever initial alltalk value (tracked with g_isAlltalkByDefault)
+	new behaviour = GetConVarInt(g_hCommsBehaviour);
 
 	if (behaviour <= 1)
 		return behaviour;
@@ -1029,7 +1114,9 @@ void LogCompetitive(const String:message[])
 	decl String:loggingPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, loggingPath, sizeof(loggingPath), "logs/competitive");
 
-	new String:debugFile[] = "logfile.log"; // Static debug file for logging. We later want to use keyvalues using match IDs etc
+	// Static debug file for logging.
+	// We later want to use keyvalues using match IDs etc
+	new String:debugFile[] = "logfile.log";
 	Format(loggingPath, sizeof(loggingPath), "%s/%s", loggingPath, debugFile);
 
 	new Handle:hFile = OpenFile(loggingPath, "a"); // C++ fopen modes
@@ -1053,7 +1140,8 @@ void PrintToConsoleAll(const String:message[], any ...)
 	}
 }
 
-void UpdatePlayersAlive() // Updates g_playersAlive array
+// Purpose: Updates g_playersAlive array
+void UpdatePlayersAlive()
 {
 	new jinraiAlive;
 	new nsfAlive;
@@ -1084,7 +1172,10 @@ void UpdatePlayersAlive() // Updates g_playersAlive array
 	g_playersAlive[TEAM_NSF] = nsfAlive;
 }
 
-void ResetPlayersAlive() // Reset g_playersAlive array. Only call this on new round start (otherwise we have to do a spawn check to avoid marking unspawned players as dead).
+// Purpose: Reset g_playersAlive array. Only call this on new round start
+// (otherwise we have to do a spawn check to avoid marking unspawned players
+// as dead).
+void ResetPlayersAlive()
 {
 	new jinraiPlayers;
 	new nsfPlayers;
@@ -1108,12 +1199,14 @@ void ResetPlayersAlive() // Reset g_playersAlive array. Only call this on new ro
 			nsfPlayers++;
 	}
 
-	// We only call this in round start, so it's safe to assume any team players are alive.
+	// We only call this in round start,
+	// so it's safe to assume any team players are alive.
 	g_playersAlive[TEAM_JINRAI] = jinraiPlayers;
 	g_playersAlive[TEAM_NSF] = nsfPlayers;
 }
 
-void ResetGlobalVariables() // Make sure all global variables are reset properly
+// Purpose: // Make sure all global variables are reset properly
+void ResetGlobalVariables()
 {
 	new i;
 
@@ -1158,27 +1251,27 @@ void ResetGlobalVariables() // Make sure all global variables are reset properly
 	// Reset global bools
 	new bool:correctBool = false; // Desired value
 
-	g_isExpectingOverride		= correctBool;
+	g_isExpectingOverride			= correctBool;
 	g_isExpectingUnPauseTimer	= correctBool;
-	g_isLive					= correctBool;
-	g_isPaused					= correctBool;
-	g_isSourceTVRecording		= correctBool;
-	g_shouldPause				= correctBool;
-	g_confirmLiveEnd			= correctBool;
-	g_confirmRoundChange	= correctBool;
-	g_isSuddenDeathRound	= correctBool;
+	g_isLive									= correctBool;
+	g_isPaused								= correctBool;
+	g_isSourceTVRecording			= correctBool;
+	g_shouldPause							= correctBool;
+	g_confirmLiveEnd					= correctBool;
+	g_confirmRoundChange			= correctBool;
+	g_isSuddenDeathRound			= correctBool;
 
 	for (i = 0; i <= MaxClients; i++)
 	{
-		g_isReady[i]	= correctBool;
-		g_isSpawned[i]	= correctBool;
+		g_isReady[i]						= correctBool;
+		g_isSpawned[i]					= correctBool;
 		g_shouldShowKillInfo[i]	= correctBool;
 	}
 
 	for (i = 0; i < sizeof(g_teamName); i++)
 	{
 		g_isTeamReadyForUnPause[i]	= correctBool;
-		g_isWantingOverride[i]		= correctBool;
+		g_isWantingOverride[i]			= correctBool;
 	}
 }
 
@@ -1211,20 +1304,29 @@ void RefereeMenu_GameInfo(client)
 
 	// Show the current competition name
 	decl String:competitionName_Cvar[64];
-	GetConVarString( g_hCompetitionName, competitionName_Cvar, sizeof(competitionName_Cvar) );
+	GetConVarString(g_hCompetitionName, competitionName_Cvar,
+		sizeof(competitionName_Cvar));
 
-	if (strlen(competitionName_Cvar) < 1) // If no competition name set, use the generic "Competitive Neotokyo" name instead
-		strcopy(competitionName_Cvar, sizeof(competitionName_Cvar), "Competitive Neotokyo");
+	// If no competition name is set,
+	// use the generic "Competitive Neotokyo" name instead
+	if (strlen(competitionName_Cvar) < 1)
+	{
+		strcopy(competitionName_Cvar, sizeof(competitionName_Cvar),
+			"Competitive Neotokyo");
+	}
 
 	decl String:competitionName[128];
-	Format( competitionName, sizeof(competitionName), "Competition name: %s", competitionName_Cvar );
+	Format( competitionName, sizeof(competitionName),
+		"Competition name: %s", competitionName_Cvar );
+
 	DrawPanelItem(panel, competitionName);
 
 	// Show the current Jinrai name
 	decl String:jinraiName_Cvar[64];
 	GetConVarString( g_hJinraiName, jinraiName_Cvar, sizeof(jinraiName_Cvar) );
 
-	if (strlen(jinraiName_Cvar) < 1) // Use default Jinrai name "Jinrai" if none is set
+	// Use default Jinrai name "Jinrai" if none is set
+	if (strlen(jinraiName_Cvar) < 1)
 		strcopy(jinraiName_Cvar, sizeof(jinraiName_Cvar), "Jinrai");
 
 	decl String:jinraiName[128];
@@ -1235,7 +1337,8 @@ void RefereeMenu_GameInfo(client)
 	decl String:nsfName_Cvar[64];
 	GetConVarString( g_hNSFName, nsfName_Cvar, sizeof(nsfName_Cvar) );
 
-	if (strlen(nsfName_Cvar) < 1) // Use default NSF name "NSF" if none is set
+	// Use default NSF name "NSF" if none is set
+	if (strlen(nsfName_Cvar) < 1)
 		strcopy(nsfName_Cvar, sizeof(nsfName_Cvar), "NSF");
 
 	decl String:nsfName[128];
@@ -1244,12 +1347,16 @@ void RefereeMenu_GameInfo(client)
 
 	// Show how many rounds are played
 	decl String:boRounds[128];
-	Format( boRounds, sizeof(boRounds), "Best of %i rounds", GetConVarInt(g_hRoundLimit) );
+	Format(boRounds, sizeof(boRounds),
+		"Best of %i rounds", GetConVarInt(g_hRoundLimit));
+
 	DrawPanelItem(panel, boRounds);
 
 	// Show how many (time-out) pauses are allowed per team per map
 	decl String:pauseAmount[128];
-	Format( pauseAmount, sizeof(pauseAmount), "Pausing: %i time-outs allowed per team per map.", GetConVarInt(g_hMaxTimeouts) );
+	Format(pauseAmount, sizeof(pauseAmount),
+		"Pausing: %i time-outs allowed per team per map.", GetConVarInt(g_hMaxTimeouts));
+
 	DrawPanelItem(panel, pauseAmount);
 
 	// Go back to previous menu
@@ -1265,7 +1372,9 @@ void RefereeMenu_ClientActions(client)
 	if (g_isCurrentlyEditingClients[client])
 	{
 		g_isCurrentlyEditingClients[client] = false;
-		LogError("g_isCurrentlyEditingClients was already enabled for client %i before accessing RefereeMenu_ClientActions. This should never happen.", client);
+		LogError("g_isCurrentlyEditingClients was already enabled \
+for client %i before accessing RefereeMenu_ClientActions. \
+This should never happen.", client);
 	}
 
 	for (new i = 1; i <= MaxClients; i++)
@@ -1277,7 +1386,8 @@ void RefereeMenu_ClientActions(client)
 		{
 			decl String:clientName[MAX_NAME_LENGTH];
 			GetClientName( i, clientName, sizeof(clientName) );
-			PrintToChat(client, "Admin %s is currently using the menu. Please wait.", clientName);
+			PrintToChat(client, "Admin %s is currently using the menu. \
+Please wait.", clientName);
 
 			return;
 		}
@@ -1313,14 +1423,17 @@ void RefereeMenu_Penalties(client)
 		if (g_isCurrentlyGivingPenalty[client])
 		{
 			g_isCurrentlyGivingPenalty[client] = false;
-			LogError("g_isCurrentlyGivingPenalty was already enabled for client %i before accessing RefereeMenu_Penalties. This should never happen.", client);
+			LogError("g_isCurrentlyGivingPenalty was already enabled \
+for client %i before accessing RefereeMenu_Penalties. \
+This should never happen.", client);
 		}
 
 		if (g_isCurrentlyGivingPenalty[i])
 		{
 			decl String:clientName[MAX_NAME_LENGTH];
 			GetClientName( i, clientName, sizeof(clientName) );
-			PrintToChat(client, "Admin %s is currently using the penalty menu. Please wait.", clientName);
+			PrintToChat(client, "Admin %s is currently using the penalty menu. \
+Please wait.", clientName);
 
 			return;
 		}
@@ -1352,7 +1465,8 @@ void RefereeMenu_ChangeRound(client)
 	if (g_isEditingSetting[client])
 	{
 		g_isEditingSetting[client] = false;
-		LogError("g_isEditingSetting was already enabled for client %i before accessing RefereeMenu_ChangeRound. This should never happen.", client);
+		LogError("g_isEditingSetting was already enabled for client %i \
+before accessing RefereeMenu_ChangeRound. This should never happen.", client);
 	}
 
 	for (new i = 1; i <= MaxClients; i++)
@@ -1364,7 +1478,8 @@ void RefereeMenu_ChangeRound(client)
 		{
 			decl String:clientName[MAX_NAME_LENGTH];
 			GetClientName( i, clientName, sizeof(clientName) );
-			PrintToChat(client, "Admin %s is currently editing a setting. Please wait.", clientName);
+			PrintToChat(client, "Admin %s is currently editing a setting. \
+Please wait.", clientName);
 
 			return;
 		}
@@ -1382,7 +1497,9 @@ void RefereeMenu_ChangeRound(client)
 	DrawPanelText(panel, currentRound);
 
 	decl String:teamScores[24];
-	Format(teamScores, sizeof(teamScores), "Jinrai: %i -- %i :NSF", g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
+	Format(teamScores, sizeof(teamScores), "Jinrai: %i -- %i :NSF",
+		g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
+
 	DrawPanelText(panel, teamScores);
 
 	DrawPanelText(panel, " ");
@@ -1392,7 +1509,9 @@ void RefereeMenu_ChangeRound(client)
 	DrawPanelText(panel, targetRound);
 
 	decl String:teamScores_target[24];
-	Format(teamScores_target, sizeof(teamScores_target), "Jinrai: %i -- %i :NSF", g_jinraiScore[g_targetRound], g_nsfScore[g_targetRound]);
+	Format(teamScores_target, sizeof(teamScores_target), "Jinrai: %i -- %i :NSF",
+		g_jinraiScore[g_targetRound], g_nsfScore[g_targetRound]);
+
 	DrawPanelText(panel, teamScores_target);
 
 	DrawPanelText(panel, " ");
@@ -1410,7 +1529,8 @@ void RefereeMenu_ChangeRound(client)
 
 	DrawPanelItem(panel, "Cancel"); // Go back
 
-	SendPanelToClient(panel, client, PanelHandler_RefereeMenu_ChangeRound, MENU_TIME_FOREVER);
+	SendPanelToClient(panel, client, PanelHandler_RefereeMenu_ChangeRound,
+		MENU_TIME_FOREVER);
 
 	CloseHandle(panel);
 }
@@ -1427,7 +1547,9 @@ void RefereeMenu_ManualEdit_TeamScore(client)
 	if (g_isEditingSetting[client])
 	{
 		g_isEditingSetting[client] = false;
-		LogError("g_isEditingSetting was already enabled for client %i before accessing RefereeMenu_ManualEdit_TeamScore. This should never happen.", client);
+		LogError("g_isEditingSetting was already enabled for client %i \
+before accessing RefereeMenu_ManualEdit_TeamScore. \
+This should never happen.", client);
 	}
 
 	for (new i = 1; i <= MaxClients; i++)
@@ -1439,7 +1561,8 @@ void RefereeMenu_ManualEdit_TeamScore(client)
 		{
 			decl String:clientName[MAX_NAME_LENGTH];
 			GetClientName( i, clientName, sizeof(clientName) );
-			PrintToChat(client, "Admin %s is currently editing a setting. Please wait.", clientName);
+			PrintToChat(client, "Admin %s is currently editing a setting. \
+Please wait.", clientName);
 
 			return;
 		}
@@ -1451,7 +1574,9 @@ void RefereeMenu_ManualEdit_TeamScore(client)
 	DrawPanelText(panel, " ");
 
 	decl String:teamScores[24];
-	Format(teamScores, sizeof(teamScores), "Jinrai: %i -- %i :NSF", g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
+	Format(teamScores, sizeof(teamScores), "Jinrai: %i -- %i :NSF",
+		g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
+
 	DrawPanelText(panel, teamScores);
 
 	DrawPanelText(panel, " ");
@@ -1460,7 +1585,8 @@ void RefereeMenu_ManualEdit_TeamScore(client)
 	DrawPanelItem(panel, "Edit NSF score");
 	DrawPanelItem(panel, "Cancel");
 
-	SendPanelToClient(panel, client, PanelHandler_ManualEdit_TeamScore, MENU_TIME_FOREVER);
+	SendPanelToClient(panel, client, PanelHandler_ManualEdit_TeamScore,
+		MENU_TIME_FOREVER);
 
 	CloseHandle(panel);
 }
@@ -1505,8 +1631,9 @@ void RefereeMenu_LoadMatch(client)
 
 		if (results > max_files)
 		{
-			//fixme: unoptimised
-			LogError("Warning: Over %i file results found. Breaking out of the loop to avoid unresponsiveness.", max_files);
+			//HACK/FIXME: unoptimised
+			LogError("Warning: Over %i file results found. \
+Breaking out of the loop to avoid unresponsiveness.", max_files);
 			break;
 		}
 
@@ -1518,7 +1645,7 @@ void RefereeMenu_LoadMatch(client)
 		if ( !Kv_IsValidFile(buffer) )
 			continue;
 
-//		PrintToServer("Found file: %s", buffer);
+		//PrintToServer("Found file: %s", buffer);
 		menu.AddItem(buffer, buffer);
 	}
 
@@ -1544,7 +1671,8 @@ void ChatCvarEdit(client, Handle:cvar)
 	if (g_isEditingSetting[client])
 	{
 		g_isEditingSetting[client] = false;
-		LogError("g_isEditingSetting was already enabled for client %i before accessing ChatCvarEdit. This should never happen.", client);
+		LogError("g_isEditingSetting was already enabled for client %i \
+before accessing ChatCvarEdit. This should never happen.", client);
 	}
 
 	for (new i = 0; i <= MaxClients; i++)
@@ -1554,7 +1682,8 @@ void ChatCvarEdit(client, Handle:cvar)
 			if ( !Client_IsValid(i) )
 			{
 				LogError("Invalid client with g_isEditingSetting bool as true.");
-				PrintToChat(client, "%s Error editing cvar via chat. Check error logs for more info.", g_sTag);
+				PrintToChat(client, "%s Error editing cvar via chat. \
+Check error logs for more info.", g_sTag);
 				return;
 			}
 
@@ -1584,14 +1713,16 @@ void ChatCvarEdit(client, Handle:cvar)
 void CheckGamedataFiles()
 {
 	// URL for the latest NT gamedata version
-	new String:gamedataUrl[] = "https://github.com/alliedmodders/sourcemod/tree/master/gamedata";
+	new String:gamedataUrl[] =
+		"https://github.com/alliedmodders/sourcemod/tree/master/gamedata";
 
 	// Gamedata file path
 	decl String:filePath[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, filePath, sizeof(filePath), "gamedata/sdktools.games/game.neotokyo.txt");
+	BuildPath(Path_SM, filePath, sizeof(filePath),
+		"gamedata/sdktools.games/game.neotokyo.txt");
 
 	// Do a filesize based check.
-	// This should be fairly safe as the NT gamedata is updated extremely rarely.
+	// This should be fairly accurate as the NT gamedata is updated extremely rarely.
 	new fileSize					= FileSize(filePath, false);	// Filesize of the currently running server gamedata version
 	new correctFileSize		= 1933;												// Filesize of the correct gamedata version (30 Dec 2015 or 10 Oct 2015)
 	new oldFileSize_2014	= 1179;												// Old version filesize (23 Dec 2014)
@@ -1615,8 +1746,8 @@ See %s for the latest gamedata version.", filePath, gamedataUrl);
 			LogError("Neotokyo gamedata file %s has mismatching filesize %i bytes \
 (expected %i bytes), it's most likely outdated. \
 \"sm_competitive_pause_mode 2\" is unavailable because of this. \
-See %s for the latest gamedata version.", filePath, fileSize,
-			correctFileSize, gamedataUrl);
+See %s for the latest gamedata version.",
+filePath, fileSize, correctFileSize, gamedataUrl);
 
 			g_isGamedataOutdated = true;
 		}
@@ -1733,10 +1864,12 @@ Please press again to confirm.", roundNumber);
 		g_confirmRoundChange = false;
 		Command_RefereeMenu(client, 1);
 
-		GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 ); // Stop the round
+		// End the current round
+		GameRules_SetPropFloat( "m_fRoundTimeLeft", 0.0 );
 
 		new Handle:endRoundTime = FindConVar("mp_chattime");
-		CreateTimer( (GetConVarFloat(endRoundTime) + 5.1), Timer_RestoreRound, roundNumber);
+		CreateTimer((GetConVarFloat(endRoundTime) + 5.1),
+			Timer_RestoreRound, roundNumber);
 		CloseHandle(endRoundTime);
 
 		g_isCurrentlyRestoringRound = true;
@@ -1870,7 +2003,9 @@ void CheckMatchState()
 			g_roundNumber);
 #endif
 
-		Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i", g_sTag, g_teamName[TEAM_JINRAI], g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
+		Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i",
+			g_sTag, g_teamName[TEAM_JINRAI],
+			g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
 
 		PrintToChatAll(msgBuffer);
 		LogCompetitive(msgBuffer);
@@ -1886,22 +2021,16 @@ void CheckMatchState()
 	{
 #if DEBUG
 		LogDebug("%s %s WINS %i - %i",
-			g_sTag,
-			g_teamName[TEAM_NSF],
-			g_nsfScore[g_roundNumber],
-			g_jinraiScore[g_roundNumber]);
+			g_sTag, g_teamName[TEAM_NSF],
+			g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
 		LogDebug("nsfScore %i > jinScore %i + roundLimit %i - roundCount %i",
-			g_nsfScore[g_roundNumber],
-			g_jinraiScore[g_roundNumber],
-			roundLimit,
-			g_roundNumber);
+			g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber],
+			roundLimit, g_roundNumber);
 #endif
 
 		Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i",
-			g_sTag,
-			g_teamName[TEAM_NSF],
-			g_nsfScore[g_roundNumber],
-			g_jinraiScore[g_roundNumber]);
+			g_sTag,  g_teamName[TEAM_NSF],
+			g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
 
 		PrintToChatAll(msgBuffer);
 		LogCompetitive(msgBuffer);
@@ -1914,10 +2043,8 @@ void CheckMatchState()
 		if (g_jinraiScore[g_roundNumber] > g_nsfScore[g_roundNumber])
 		{
 			Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i",
-				g_sTag,
-				g_teamName[TEAM_JINRAI],
-				g_jinraiScore[g_roundNumber],
-				g_nsfScore[g_roundNumber]);
+				g_sTag, g_teamName[TEAM_JINRAI],
+				g_jinraiScore[g_roundNumber], g_nsfScore[g_roundNumber]);
 
 			PrintToChatAll(msgBuffer);
 			LogCompetitive(msgBuffer);
@@ -1927,10 +2054,8 @@ void CheckMatchState()
 		else if (g_nsfScore[g_roundNumber] > g_jinraiScore[g_roundNumber])
 		{
 			Format(msgBuffer, sizeof(msgBuffer), "%s %s WINS %i - %i",
-				g_sTag,
-				g_teamName[TEAM_NSF],
-				g_nsfScore[g_roundNumber],
-				g_jinraiScore[g_roundNumber]);
+				g_sTag, g_teamName[TEAM_NSF],
+				g_nsfScore[g_roundNumber], g_jinraiScore[g_roundNumber]);
 
 			PrintToChatAll(msgBuffer);
 			LogCompetitive(msgBuffer);
@@ -2187,8 +2312,15 @@ void Kv_LogRound(KeyValues kv)
 	new team;
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if ( !Client_IsValid(i) || !IsClientConnected(i) || !IsClientAuthorized(i) || IsFakeClient(i) )
+		if (
+			!Client_IsValid(i) ||
+			!IsClientConnected(i) ||
+			!IsClientAuthorized(i) ||
+			IsFakeClient(i)
+		)
+		{
 			continue;
+		}
 
 		team = GetClientTeam(i);
 		if (0 > team > 3)
@@ -2234,8 +2366,14 @@ void Kv_Generate()
 		new bufferPos;
 		for (new j = 0; j < sizeof(compTitle); j++)
 		{
-			if (IsCharAlpha(compTitle[j]) || IsCharNumeric(compTitle[j]) || !IsCharSpace(compTitle[j]))
+			if (
+				IsCharAlpha(compTitle[j]) ||
+				IsCharNumeric(compTitle[j]) ||
+				!IsCharSpace(compTitle[j])
+			)
+			{
 				compBuffer[bufferPos++] = compTitle[j];
+			}
 		}
 		compBuffer[bufferPos] = '\0'; // Terminate the string with 0
 		StrCat(g_kvName, sizeof(g_kvName), compBuffer);
@@ -2312,8 +2450,15 @@ void Kv_PopulateMeta(KeyValues kv)
 	new team;
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if ( !Client_IsValid(i) || !IsClientConnected(i) || !IsClientAuthorized(i) || IsFakeClient(i) )
+		if (
+			!Client_IsValid(i) ||
+			!IsClientConnected(i) ||
+			!IsClientAuthorized(i) ||
+			IsFakeClient(i)
+		)
+		{
 			continue;
+		}
 
 		team = GetClientTeam(i);
 		// Valid teams are in range 0-3
@@ -2453,8 +2598,15 @@ void Kv_RestoreFromFile(const String:fileName[], bool:goLive = false)
 		new deaths;
 		for (i = 1; i <= MaxClients; i++)
 		{
-			if ( !Client_IsValid(i) || !IsClientConnected(i) || !IsClientAuthorized(i) || IsFakeClient(i) )
+			if (
+				!Client_IsValid(i) ||
+				!IsClientConnected(i) ||
+				!IsClientAuthorized(i) ||
+				IsFakeClient(i)
+			)
+			{
 				continue;
+			}
 
 			GetClientAuthId( i, AuthId_Steam2, steamID, sizeof(steamID) );
 
@@ -2489,12 +2641,13 @@ void Kv_RestoreFromFile(const String:fileName[], bool:goLive = false)
 		kv.GoBack();
 	}
 	round--;
-//	PrintToServer("Rounds found total: %i", round);
+	//PrintToServer("Rounds found total: %i", round);
 
 	Format(labelBuffer, sizeof(labelBuffer), "%s%i", roundLabel, round);
 	if (! kv.JumpToKey(labelBuffer, false) )
 	{
-		LogError("Failed restoring round %i labelled \"%s\" from KeyValues", round, labelBuffer);
+		LogError("Failed restoring round %i labelled \"%s\" from KeyValues",
+			round, labelBuffer);
 		delete kv;
 		return;
 	}
@@ -2592,7 +2745,8 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 
 	if ( !Kv_IsValidFile(kvFileName) )
 	{
-		LogError("KeyValues filename doesn't contain .kv extension. This shouldn't happen.");
+		LogError("KeyValues filename doesn't contain .kv extension. \
+This shouldn't happen.");
 		return;
 	}
 
@@ -2630,7 +2784,8 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 
 		if (results > max_files)
 		{
-			LogError("Warning: Over %i file results found. Breaking out of the loop to avoid unresponsiveness.", max_files);
+			LogError("Warning: Over %i file results found. \
+Breaking out of the loop to avoid unresponsiveness.", max_files);
 			break;
 		}
 
@@ -2690,7 +2845,8 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 			}
 			else
 			{
-				//PrintToServer("Going to previous index %i: %s", prevIndex, buffer[prevIndex]);
+				/*PrintToServer("Going to previous index %i: %s",
+					prevIndex, buffer[prevIndex]);*/
 				Menu_KvDetails(client, buffer[prevIndex]);
 			}
 

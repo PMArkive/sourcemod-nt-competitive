@@ -2930,7 +2930,7 @@ void PugMode_Initialize()
 }
 
 // Purpose: Set the default ANPA password so the server appears locked.
-// Access during games will be based on SteamIDs and admin-ness
+// Access during games will be based on SteamID and admin-ness of joiner.
 void Pug_PasswordServer()
 {
 	SetConVarString(g_hPassword, "ANPA");

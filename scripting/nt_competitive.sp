@@ -194,69 +194,22 @@ public OnConfigsExecuted()
 // Probably means adding assigned team to db entry etc.
 public OnClientAuthorized(client, const String:authID[])
 {
-	new bool:isPlayerCompeting;
-	new i;
-
-	// TODO: Abstract me
-	if (GetConVarBool(g_hPugEnabled))
+	// PUG mode is enabled but this player isn't participating
+	if (GetConVarBool(g_hPugEnabled) && !Database_IsPlayerCompeting(authID))
 	{
-		// Prepare array for player SteamIDs
-		new playerCount = Database_GetDesiredPlayerCount();
-		decl String:playerSteamID[playerCount][MAX_STEAMID_LENGTH];
-
-		// Look up SteamIDs marked as players on this server currently
-		decl String:sql[MAX_SQL_LENGTH];
-		decl String:error[MAX_SQL_ERROR_LENGTH];
-		Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
-			g_sqlTable[TABLES_PUGGERS],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT]);
-
-		decl String:sIP[MAX_IP_LENGTH];
-		GetCvarValue("ip", TYPE_STRING, sIP, sizeof(sIP));
-		new iPort = GetCvarValue("hostport", TYPE_INT);
-
-		new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-		if (stmt == INVALID_HANDLE)
-			ThrowError(error);
-
-		new paramIndex;
-		SQL_BindParamString(stmt, paramIndex++, sIP, false);
-		SQL_BindParamInt(stmt, paramIndex++, iPort);
-		SQL_Execute(stmt);
-
-		// Fill SteamID array with current players
-		while (SQL_FetchRow(stmt))
+		// Kick non-admins
+		if (!Client_IsAdmin(client))
 		{
-			SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID,
-				playerSteamID[i++], MAX_STEAMID_LENGTH);
+			KickClient(client, "This PUG match is private.");
+			return;
 		}
-		CloseHandle(stmt);
-		// Check if player is competing
-		for (i = 0; i < playerCount; i++)
-		{
-			if (StrEqual(authID, playerSteamID[i]))
-			{
-				isPlayerCompeting = true;
-				break;
-			}
-		}
-		// Player is not competing
-		if (!isPlayerCompeting)
-		{
-			if (!Client_IsAdmin(client))
-			{
-				KickClient(client, "This PUG match is private.");
-				return;
-			}
-			// Only nag if player is admin
-			PrintToChat(client, "%s This is a private PUG match.", g_sTag);
-			PrintToChat(client, "Please don't join the teams.");
-			// Notify players of non-competing admin join
-			decl String:clientName[MAX_NAME_LENGTH];
-			GetClientName(client, clientName, sizeof(clientName));
-			PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
-		}
+		// Nag to admin about ongoing PUG match
+		PrintToChat(client, "%s This is a private PUG match.", g_sTag);
+		PrintToChat(client, "Please don't join the teams.");
+		// Notify puggers of the non-competing admin join
+		decl String:clientName[MAX_NAME_LENGTH];
+		GetClientName(client, clientName, sizeof(clientName));
+		PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
 	}
 
 	if (!g_isLive)
@@ -269,9 +222,10 @@ public OnClientAuthorized(client, const String:authID[])
 		return;
 	}
 
+	new bool:isPlayerCompeting;
 	new earlierUserid;
 
-	for (i = 0; i < sizeof(g_livePlayers); i++)
+	for (new i = 0; i < sizeof(g_livePlayers); i++)
 	{
 #if DEBUG > 1
 		LogDebug("Checking array index %i, array size %i", i, sizeof(g_livePlayers));

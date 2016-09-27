@@ -1110,3 +1110,55 @@ int Database_GetEpoch()
 	return epoch;
 }
 #endif
+
+#if defined PLUGIN_COMP
+bool Database_IsPlayerCompeting(const String:steamID[])
+{
+	new bool:isCompeting;
+
+	// Prepare array for player SteamIDs
+	new playerCount = Database_GetDesiredPlayerCount();
+	decl String:playerSteamID[playerCount][MAX_STEAMID_LENGTH];
+
+	// Look up SteamIDs marked as players on this server currently
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT]);
+
+	decl String:sIP[MAX_IP_LENGTH];
+	GetCvarValue("ip", TYPE_STRING, sIP, sizeof(sIP));
+	new iPort = GetCvarValue("hostport", TYPE_INT);
+
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+
+	new paramIndex;
+	SQL_BindParamString(stmt, paramIndex++, sIP, false);
+	SQL_BindParamInt(stmt, paramIndex++, iPort);
+	SQL_Execute(stmt);
+
+	// Fill SteamID array with current players
+	new i;
+	while (SQL_FetchRow(stmt))
+	{
+		SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID,
+			playerSteamID[i++], MAX_STEAMID_LENGTH);
+	}
+	CloseHandle(stmt);
+	// Check if player is competing
+	for (i = 0; i < playerCount; i++)
+	{
+		if (StrEqual(steamID, playerSteamID[i]))
+		{
+			isCompeting = true;
+			break;
+		}
+	}
+
+	return isCompeting;
+}
+#endif

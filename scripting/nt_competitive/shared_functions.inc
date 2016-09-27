@@ -23,7 +23,7 @@ void PrintToAdmins(bool toChat = true, bool toConsole = false, const String:mess
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if ( !Client_IsValid(i) || !Client_IsAdmin(i) )
+		if ( !IsValidClient(i) || !Client_IsAdmin(i) )
 			continue;
 
 		if (toChat)

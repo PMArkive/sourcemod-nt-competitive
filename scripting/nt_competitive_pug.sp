@@ -19,6 +19,7 @@ new Float:g_fQueueTimer_DeltaTime;
 new const String:g_sTag[] = "[PUG]";
 
 #include <sourcemod>
+#include <neotokyo>
 #include "nt_competitive/shared_variables"
 #include "nt_competitive/shared_functions"
 #include "nt_competitive/nt_competitive_sql"
@@ -719,18 +720,4 @@ of the plugin source code to manually circumvent this problem.", ipAddress);
 #if DEBUG
 	PrintDebug("GenerateIdentifier_This(): %s", g_sIdentifier);
 #endif
-}
-
-bool IsValidClient(client, bool:isFakeClientAllowed = false)
-{
-	if (client <= 0 || client > MaxClients)
-		return false;
-
-	if (!IsClientConnected(client) || !IsClientAuthorized(client))
-		return false;
-
-	if (!isFakeClientAllowed && IsFakeClient(client))
-		return false;
-
-	return true;
 }

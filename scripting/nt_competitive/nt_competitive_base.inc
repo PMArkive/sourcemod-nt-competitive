@@ -2929,36 +2929,11 @@ void PugMode_Initialize()
 	PrintToAdmins(_, _, "%s PUG mode has been enabled.", g_sTag);
 }
 
-void Pug_PasswordServer(passwordLength = 10, bool:forceNewPassword = false)
+// Purpose: Set the default ANPA password so the server appears locked.
+// Access during games will be based on SteamIDs and admin-ness
+void Pug_PasswordServer()
 {
-	if (passwordLength > MAX_CVAR_LENGTH)
-	{
-		LogError("Pug_PasswordServer: Password length %i is too long, \
-		capped to %i length.", passwordLength, MAX_CVAR_LENGTH);
-		passwordLength = MAX_CVAR_LENGTH;
-	}
-
-	decl String:currentPassword[MAX_CVAR_LENGTH];
-	GetConVarString(g_hPassword, currentPassword, sizeof(currentPassword));
-
-	// Server is already passworded
-	if (!forceNewPassword)
-	{
-		if (!StrEqual(currentPassword, "") && !StrEqual(currentPassword, " "))
-		{
-			return;
-		}
-	}
-
-	decl String:newPassword[passwordLength + 1];
-	for (new i = 0; i <= passwordLength; i++)
-	{
-		// Insert random alphanumeric to char index
-		newPassword[i] = g_alphanumeric[GetRandomInt(0, strlen(g_alphanumeric))];
-	}
-	newPassword[passwordLength] = 0; // String terminator
-
-	SetConVarString(g_hPassword, newPassword);
+	SetConVarString(g_hPassword, "ANPA");
 }
 
 void Pug_KickOutsiders(bool:kickAdmins = false)

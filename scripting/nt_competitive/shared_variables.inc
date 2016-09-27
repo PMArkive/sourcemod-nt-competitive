@@ -36,7 +36,6 @@ new String:g_convarBeingEdited[128];
 new const String:g_menuSoundOk[] = "buttons/button14.wav";
 new const String:g_menuSoundCancel[] = "buttons/combine_button7.wav";
 new const String:g_soundLive[] = "buttons/button17.wav";
-new const String:g_alphanumeric[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVXYZ1234567890";
 #endif
 
 #if defined PLUGIN_COMP && DEBUG

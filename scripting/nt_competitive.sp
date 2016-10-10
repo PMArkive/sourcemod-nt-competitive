@@ -1,8 +1,9 @@
 /*
 	GPLv3
-		- Fade-to-black function borrowed from Agiel's nt_fadetoblack plugin.
+		- Fade-to-black function borrowed from Agiel's nt_fadetoblack plugin:
+			http://pastebin.com/Eeq8mxvW
 		- SourceTV recording functions borrowed from Stevo.TVR's
-			Auto Recorder plugin: http://forums.alliedmods.net/showthread.php?t=92072
+			Auto Recorder plugin: https://forums.alliedmods.net/showthread.php?t=92072
 		- IsAdmin function borrowed from the smlib library:
 			https://github.com/bcserv/smlib
 */

@@ -3,7 +3,6 @@
 		- IsAdmin function borrowed from the smlib library:
 			https://github.com/bcserv/smlib
 */
-
 #pragma semicolon 1
 
 #define PLUGIN_PUG

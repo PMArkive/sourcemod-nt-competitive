@@ -91,8 +91,8 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 }
 
 // Purpose: Return whether client is a generic admin.
-// Function borrowed from smlib stock library (GPLv3):
-// https://github.com/bcserv/smlib
+// Function basic structure borrowed from smlib library's Client_IsAdmin
+// as per GPLv3 license: https://github.com/bcserv/smlib
 bool IsAdmin(client)
 {
 #if DEBUG

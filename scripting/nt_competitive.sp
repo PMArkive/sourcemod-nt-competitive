@@ -14,6 +14,7 @@
 //#define DEBUG 0 // Release
 #define DEBUG 1 // Debug
 
+//#define DEBUG_SQL 0
 #define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
 debug the SQL as it disables some safety checks */
 

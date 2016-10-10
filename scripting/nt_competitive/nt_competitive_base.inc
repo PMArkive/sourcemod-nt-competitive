@@ -1148,7 +1148,7 @@ void UpdatePlayersAlive()
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-#if !defined DEBUG || DEBUG == 0
+#if DEBUG == 0
 		if (IsFakeClient(i))
 			continue;
 #endif
@@ -1182,7 +1182,7 @@ void ResetPlayersAlive()
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-#if !defined DEBUG || DEBUG == 0
+#if DEBUG == 0
 		if (IsFakeClient(i))
 			continue;
 #endif

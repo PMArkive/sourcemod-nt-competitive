@@ -271,7 +271,7 @@ g_roundNumber, MAX_ROUNDS_PLAYED);
 			// Save everyone's XP for this round
 			g_playerXP[i][g_roundNumber] = GetEntProp(i, Prop_Data, "m_iFrags");
 
-#if DEBUG > 1
+#if DEBUG
 			LogDebug("Client %i has %i XP and %i deaths for round %i.",
 				i, g_playerXP[i][g_roundNumber],
 				g_playerDeaths[i][g_roundNumber], g_roundNumber);

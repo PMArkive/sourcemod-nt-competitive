@@ -12,8 +12,7 @@
 #define PLUGIN_VERSION "0.3.9.14"
 
 //#define DEBUG 0 // Release
-//#define DEBUG 1 // Basic debug
-#define DEBUG 2 // Extended debug FIXME: remove 2
+#define DEBUG 1 // Debug
 
 #define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
 debug the SQL as it disables some safety checks */
@@ -228,7 +227,7 @@ public OnClientAuthorized(client, const String:authID[])
 
 	for (new i = 0; i < sizeof(g_livePlayers); i++)
 	{
-#if DEBUG > 1
+#if DEBUG
 		LogDebug("Checking array index %i, array size %i", i, sizeof(g_livePlayers));
 		LogDebug("Contents: %s", g_livePlayers[i]);
 #endif

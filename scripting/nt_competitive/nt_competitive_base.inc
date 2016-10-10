@@ -148,7 +148,7 @@ void ToggleRecording()
 			// NOTE: Replays can be overwritten using this!
 			ClientCommand(i, "record %s", replayName);
 
-#if DEBUG > 1
+#if DEBUG
 			LogDebug("Client %i is now recording to: %s", i, replayName);
 #endif
 		}
@@ -163,7 +163,7 @@ void ToggleRecording()
 
 			ClientCommand(i, "stop");
 
-#if DEBUG > 1
+#if DEBUG
 			LogDebug("Client %i has stopped recording.", i);
 #endif
 		}
@@ -696,7 +696,7 @@ void TogglePauseLoop()
 			{
 				ClientCommand(i, "pause");
 
-#if DEBUG > 1
+#if DEBUG
 					if (forcePause)
 						LogDebug("Force pause detected.");
 
@@ -720,7 +720,7 @@ void TogglePauseLoop()
 		// for as long as there are valid unspawned clients
 		if (i == MaxClients && unspawnedClients[1] > 0)
 		{
-#if DEBUG > 1
+#if DEBUG
 			LogDebug("Found %i invalid clients. Found %i valid unspawned clients.",
 				invalidClients, unspawnedClients[1]);
 #endif
@@ -730,7 +730,7 @@ void TogglePauseLoop()
 				forcePause = true;
 				i = 0; // Reset loop
 
-#if DEBUG > 1
+#if DEBUG
 				LogDebug("New round is about to start! \
 Force any valid client to toggle pause...");
 #endif
@@ -739,7 +739,7 @@ Force any valid client to toggle pause...");
 
 			CreateTimer(1.0, Timer_TogglePauseLoop);
 
-#if DEBUG > 1
+#if DEBUG
 			LogDebug("No valid spawned client found. \
 Restarting loop in TogglePauseLoop");
 #endif
@@ -1005,7 +1005,7 @@ bool:IsSourceTVBotConnected()
 
 	CloseHandle(hBotName);
 
-#if DEBUG > 1
+#if DEBUG
 	LogDebug("Looking for a SourceTV bot...");
 #endif
 
@@ -1018,14 +1018,14 @@ bool:IsSourceTVBotConnected()
 		decl String:clientName[MAX_NAME_LENGTH];
 		GetClientName(i, clientName, sizeof(clientName));
 
-#if DEBUG > 1
+#if DEBUG
 		LogDebug("Found valid fake client, index: %i, name: %s", i, clientName);
 #endif
 		// Also check for default name "SourceTV",
 		// because sometimes tv_name doesn't work when bot first spawns
 		if (StrEqual(clientName, botName) || StrEqual(clientName, "SourceTV"))
 		{
-#if DEBUG > 1
+#if DEBUG
 			LogDebug("Fake client name %s matches tv_name cvar %s or \"SourceTV\"",
 				clientName, botName);
 #endif
@@ -1845,7 +1845,7 @@ Please press again to confirm.", roundNumber);
 			SetEntProp(i, Prop_Data, "m_iDeaths", g_playerDeaths[i][roundNumber]);
 			// Restore XP
 			SetPlayerXP(i, g_playerXP[i][roundNumber]);
-#if DEBUG > 1
+#if DEBUG
 			LogDebug("Client %i has %i XP and %i deaths at round %i.",
 				i,
 				g_playerXP[i][roundNumber],

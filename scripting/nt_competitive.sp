@@ -3,6 +3,8 @@
 		- Fade-to-black function borrowed from Agiel's nt_fadetoblack plugin.
 		- SourceTV recording functions borrowed from Stevo.TVR's
 			Auto Recorder plugin: http://forums.alliedmods.net/showthread.php?t=92072
+		- IsAdmin function borrowed from the smlib library:
+			https://github.com/bcserv/smlib
 */
 #pragma semicolon 1
 
@@ -22,7 +24,6 @@ new bool:g_bIsDatabaseDown;
 
 #include <sourcemod>
 #include <sdktools>
-#include <smlib>
 #include <neotokyo>
 #include "nt_competitive/shared_variables"
 #include "nt_competitive/shared_functions"
@@ -198,7 +199,7 @@ public OnClientAuthorized(client, const String:authID[])
 	if (GetConVarBool(g_hPugEnabled) && !Database_IsPlayerCompeting(authID))
 	{
 		// Kick non-admins
-		if (!Client_IsAdmin(client))
+		if (!IsAdmin(client))
 		{
 			KickClient(client, "This PUG match is private.");
 			return;
@@ -215,7 +216,7 @@ public OnClientAuthorized(client, const String:authID[])
 	if (!g_isLive)
 		return;
 
-	if ( Client_IsValid(client) && IsFakeClient(client) )
+	if ( IsValidClient(client) && IsFakeClient(client) )
 	{
 		// This is a bot, let them join whichever team they like
 		g_assignedTeamWhenLive[client] = TEAM_NONE;
@@ -293,7 +294,7 @@ public OnClientDisconnect(client)
 
 public OnGhostCapture(client)
 {
-	if ( !Client_IsValid(client) )
+	if ( !IsValidClient(client) )
 	{
 		LogError("Returned invalid client %i", client);
 		g_ghostCapturingTeam = TEAM_NONE;
@@ -412,7 +413,7 @@ public Action:Command_Pause(client, args)
 		return Plugin_Stop;
 	}
 
-	if ( !Client_IsValid(client) )
+	if ( !IsValidClient(client) )
 		return Plugin_Stop;
 
 	if (!g_isLive)
@@ -618,7 +619,7 @@ for the next freezetime.", g_sTag, g_teamName[team]);
 
 void UnPauseRequest(client)
 {
-	if ( client == 0 || !Client_IsValid(client) || !IsClientInGame(client) )
+	if ( client == 0 || !IsValidClient(client) || !IsClientInGame(client) )
 	{
 		LogError("Invalid client %i called UnPauseRequest", client);
 #if DEBUG
@@ -687,7 +688,7 @@ public Action:Command_OverrideStart(client, args)
 	new playersInTeamReady;
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (!Client_IsValid(i))
+		if (!IsValidClient(i))
 			continue;
 
 		if (GetClientTeam(i) == team)
@@ -825,7 +826,7 @@ Use !unready to revert this.", g_sTag);
 
 			for (new i = 1; i <= MaxClients; i++)
 			{
-				if ( !Client_IsValid(i) )
+				if ( !IsValidClient(i) )
 					continue;
 
 				if ( team != GetClientTeam(i) )
@@ -912,7 +913,7 @@ Use !ready when ready.", g_sTag);
 		{
 			for (new i = 1; i <= MaxClients; i++)
 			{
-				if ( !Client_IsValid(i) )
+				if ( !IsValidClient(i) )
 					continue;
 
 				if ( team != GetClientTeam(i) )

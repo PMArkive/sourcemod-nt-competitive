@@ -1379,7 +1379,7 @@ This should never happen.", client);
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (!IsValidClient(i) || !Client_IsAdmin(i))
+		if (!IsValidClient(i) || !IsAdmin(i))
 			continue;
 
 		if (g_isCurrentlyEditingClients[i])
@@ -1417,7 +1417,7 @@ void RefereeMenu_Penalties(client)
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (!IsValidClient(i) || !Client_IsAdmin(i))
+		if (!IsValidClient(i) || !IsAdmin(i))
 			continue;
 
 		if (g_isCurrentlyGivingPenalty[client])
@@ -1471,7 +1471,7 @@ before accessing RefereeMenu_ChangeRound. This should never happen.", client);
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (!IsValidClient(i) || !Client_IsAdmin(i))
+		if (!IsValidClient(i) || !IsAdmin(i))
 			continue;
 
 		if (g_isEditingSetting[i])
@@ -1554,7 +1554,7 @@ This should never happen.", client);
 
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (!IsValidClient(i) || !Client_IsAdmin(i))
+		if (!IsValidClient(i) || !IsAdmin(i))
 			continue;
 
 		if (g_isEditingSetting[i])
@@ -1779,7 +1779,7 @@ Furthest played round is %i.", roundNumber, g_furthestPlayedRound);
 		new bool:adminsPresent;
 		for (new i = 1; i <= MaxClients; i++)
 		{
-			if (!IsValidClient(i) || !Client_IsAdmin(i))
+			if (!IsValidClient(i) || !IsAdmin(i))
 				continue;
 
 			adminsPresent = true;
@@ -1802,7 +1802,7 @@ Check SM error logs for details.", roundNumber);
 
 	if (isAdminTriggered)
 	{
-		if (!IsValidClient(client) || !Client_IsAdmin(client))
+		if (!IsValidClient(client) || !IsAdmin(client))
 		{
 			LogError("Invalid client index %i for admin trigger", client);
 
@@ -2943,7 +2943,7 @@ void Pug_KickEveryone(bool:kickAdmins = false)
 		if (!IsValidClient(i) || IsFakeClient(i))
 			continue;
 
-		if (!kickAdmins && Client_IsAdmin(i))
+		if (!kickAdmins && IsAdmin(i))
 			continue;
 
 		KickClient(i, "This server is closing for a private match");

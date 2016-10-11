@@ -507,6 +507,7 @@ bool PugServer_Update_This()
 	if (stmt_RowCount == INVALID_HANDLE)
 	{
 		LogError("PugServer_Update_This: %s", error);
+		LogError("SQL was:\n%s", sql);
 		return false;
 	}
 
@@ -524,7 +525,7 @@ bool PugServer_Update_This()
 	if (rowCount == 0)
 	{
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s, %s, %s)\
-			VALUES (?, ?, ?, ?, ?, ?)",
+			VALUES (?, ?, ?, ?, ?)",
 			g_sqlTable[TABLES_PUG_SERVERS],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT],
@@ -546,7 +547,6 @@ bool PugServer_Update_This()
 	{
 		LogError("PugServer_Update_This: Found %i rows matching this server \
 (%s %s:%i), expected to find 1 or 0.", rowCount, sServerName, sIP, iPort);
-
 		return false;
 	}
 
@@ -554,6 +554,7 @@ bool PugServer_Update_This()
 	if (stmt_ServerUpdate == INVALID_HANDLE)
 	{
 		LogError("PugServer_Update_This: %s", error);
+		LogError("SQL was:\n%s", sql);
 		return false;
 	}
 

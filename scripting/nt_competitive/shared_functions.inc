@@ -75,14 +75,10 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 				returnType);
 
 			if (doFatalFail)
-			{
 				SetFailState(error);
-			}
-			else
-			{
-				CloseHandle(hCvar);
-				ThrowError(error);
-			}
+
+			CloseHandle(hCvar);
+			ThrowError(error);
 		}
 	}
 	CloseHandle(hCvar);

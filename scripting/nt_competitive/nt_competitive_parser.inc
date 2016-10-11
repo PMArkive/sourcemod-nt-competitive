@@ -605,8 +605,20 @@ public Event_SourceTVPath(Handle:cvar, const String:oldVal[], const String:newVa
 public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[])
 {
 	new bool:enabled = view_as<bool>(StringToInt(newVal));
-	if (enabled && !PugMode_Initialize())
+	new bool:canPug = PugMode_Initialize();
+
+	// Attempted to enable PUG mode but initialization failed. Cancel cvar change.
+	if (enabled && !canPug)
+	{
 		SetConVarBool(g_hPugEnabled, false);
+		return;
+	}
+	// Enabled PUG mode but a game is happening. Stop current game.
+	else if (enabled && canPug && g_isLive)
+	{
+		PrintToChatAll("%s Match stop because PUG message here"); // TODO: message
+		ToggleLive();
+	}
 }
 
 public Action:Hook_Fade(UserMsg:msg_id, Handle:bf, const players[], playersNum, bool:reliable, bool:init)

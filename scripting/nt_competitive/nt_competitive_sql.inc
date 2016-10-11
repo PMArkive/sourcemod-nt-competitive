@@ -1157,6 +1157,9 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 		if (i > playerCount)
 			ThrowError("SQL loop count %i > playerCount %i", i, playerCount);
 
+		if (SQL_IsFieldNull(stmt, SQL_TABLE_PUGGER_STEAMID))
+			continue;
+
 		SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID,
 			playerSteamID[i++], MAX_STEAMID_LENGTH);
 	}

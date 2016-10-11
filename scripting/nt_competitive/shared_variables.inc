@@ -1,7 +1,7 @@
-#if defined _variables_included_
+#if defined _shared_variables_included_
   #endinput
 #endif
-#define _variables_included_
+#define _shared_variables_included_
 
 #define MAX_IP_LENGTH 46
 #define MAX_IDENTIFIER_LENGTH 52

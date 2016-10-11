@@ -91,16 +91,21 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 // as per GPLv3 license: https://github.com/bcserv/smlib
 bool IsAdmin(client)
 {
-#if DEBUG
-	if (!IsValidClient(client))
+	if (!IsValidClient(client, true))
 	{
 		LogError("IsAdmin: Client %i is not valid. This shouldn't happen.", client);
 		return false;
 	}
-#endif
+	if (IsClientAuthorized(client))
+	{
+		return false;
+	}
+
 	new AdminId:adminId = GetUserAdmin(client);
 	if (adminId == INVALID_ADMIN_ID)
+	{
 		return false;
+	}
 
 	return GetAdminFlag(adminId, Admin_Generic);
 }

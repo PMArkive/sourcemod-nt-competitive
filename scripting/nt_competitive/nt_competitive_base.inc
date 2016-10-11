@@ -2912,7 +2912,7 @@ void CancelLiveCountdown()
 	PrintToChatAll("%s Live countdown cancelled.", g_sTag);
 }
 
-void PugMode_Initialize()
+bool PugMode_Initialize()
 {
 	Database_Initialize();
 	Pug_PasswordServer();
@@ -2927,6 +2927,7 @@ void PugMode_Initialize()
 
 	Pug_KickEveryone();
 	PrintToAdmins(_, _, "%s PUG mode has been enabled.", g_sTag);
+	return true;
 }
 
 // Purpose: Set the default ANPA password so the server appears locked.

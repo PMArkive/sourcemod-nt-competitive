@@ -565,8 +565,10 @@ bool PugServer_Update_This()
 	SQL_BindParamInt		(stmt_ServerUpdate, paramIndex++, iStatus);
 
 	SQL_Execute(stmt_ServerUpdate);
+#if DEBUG_SQL
 	PrintDebug("PugServer_Update_This: Affected rows: %i",
 		SQL_GetAffectedRows(stmt_ServerUpdate));
+#endif
 	CloseHandle(stmt_ServerUpdate);
 
 	return true;

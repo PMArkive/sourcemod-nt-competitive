@@ -2922,7 +2922,8 @@ bool PugMode_Initialize()
 		SetConVarBool(g_hPugEnabled, false);
 		decl String:error[] = "Failed going to PUG mode, check logs";
 		PrintToAdmins(true, true, error);
-		ThrowError(error);
+		LogError("PugMode_Initialize: %s", error);
+		return false;
 	}
 
 	Pug_KickEveryone();

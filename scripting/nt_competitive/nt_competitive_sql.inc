@@ -505,7 +505,10 @@ bool PugServer_Update_This()
 
 	new Handle:stmt_RowCount = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_RowCount == INVALID_HANDLE)
-		ThrowError(error);
+	{
+		LogError("PugServer_Update_This: %s", error);
+		return false;
+	}
 
 	new paramIndex;
 	SQL_BindParamString(stmt_RowCount, paramIndex++, sIP, false);
@@ -549,7 +552,10 @@ bool PugServer_Update_This()
 
 	stmt_ServerUpdate = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_ServerUpdate == INVALID_HANDLE)
-		ThrowError(error);
+	{
+		LogError("PugServer_Update_This: %s", error);
+		return false;
+	}
 
 	paramIndex = 0;
 	SQL_BindParamString	(stmt_ServerUpdate, paramIndex++, sIP, false);

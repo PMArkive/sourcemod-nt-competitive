@@ -80,6 +80,10 @@ public OnPluginStart()
 	RegAdminCmd("sm_start_other",				Command_OverrideStartOther,	ADMFLAG_GENERIC,	"Pretend the other team requested force start. Debug command.");
 	RegAdminCmd("sm_manual_round_edit",	Command_ManualRoundEdit, 		ADMFLAG_GENERIC,	"Manually edit round int. Debug command.");
 #endif
+#if DEBUG_SQL
+	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_RCON,
+		"Create PUG tables in database. Debug command.");
+#endif
 
 	HookEvent("game_round_start",	Event_RoundStart);
 	HookEvent("player_death",			Event_PlayerDeath);

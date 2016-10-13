@@ -164,6 +164,7 @@ new Handle:g_hCenteredDisplayTarget;
 new Handle:g_hCompForceCamera;
 new Handle:g_hPugEnabled;
 new Handle:g_hPassword;
+new Handle:g_hCvar_UnloadScoreLimit;
 #endif
 
 new Handle:g_hCvar_DbConfig;

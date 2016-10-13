@@ -123,6 +123,7 @@ public OnPluginStart()
 	g_hDebugKeyValues						= CreateConVar("sm_competitive_keyvalues_test",							"1",					"Store match data into KeyValues file. Debug cvar.", _, true, 0.0, true, 1.0);
 #endif
 	g_hCvar_DbConfig 						= CreateConVar("sm_pug_db_cfg",															"pug",				"Database config entry name", FCVAR_PROTECTED);
+	g_hCvar_UnloadScoreLimit		= CreateConVar("sm_competitive_unload_score_limit",					"7",					"When unloading this plugin, which value to set neo_score_limit as. 0 = don't set.", _, true, 0.0, true, 99.0);
 
 	g_hAlltalk				= FindConVar("sv_alltalk");
 	g_hForceCamera		= FindConVar("mp_forcecamera");
@@ -172,6 +173,17 @@ public OnPluginStart()
 	CheckGamedataFiles();
 
 	AutoExecConfig(true);
+}
+
+public OnPluginEnd()
+{
+	// TODO/CLEANUP: This handle isn't needed until unloading,
+	// it doesn't really need a global. Might be other similar cases.
+	new unloadScoreLimit = GetConVarInt(g_hCvar_UnloadScoreLimit);
+	if (unloadScoreLimit < 1)
+		return;
+
+	SetConVarInt(g_hNeoScoreLimit, unloadScoreLimit);
 }
 
 public OnAllPluginsLoaded()

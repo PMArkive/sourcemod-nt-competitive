@@ -183,7 +183,41 @@ public OnPluginEnd()
 	if (unloadScoreLimit < 1)
 		return;
 
+	// Set neo_score_limit
 	SetConVarInt(g_hNeoScoreLimit, unloadScoreLimit);
+	// Limit has not yet been met, stop.
+	if (GetTeamScore(TEAM_JINRAI) < unloadScoreLimit &&
+			GetTeamScore(TEAM_NSF) < unloadScoreLimit)
+	{
+		return;
+	}
+
+	// The neo_score_limit has been met, perform mapchange.
+	// This is done manually because Mapchooser, or at least
+	// some older versions of it, has a bug where score values
+	// higher than the limit will cause mapchange to never happen.
+	new Handle:hCvar_nextMap = FindConVar("sm_nextmap");
+	if (hCvar_nextMap == null)
+	{
+		LogError("Couldn't find cvar sm_nextmap, unable to \
+switch maps on plugin unload. Restarting current map instead.");
+		SetConVarBool(g_hNeoRestartThis, true);
+		return;
+	}
+
+	decl String:nextMap[64];
+	GetConVarString(hCvar_nextMap, nextMap, sizeof(nextMap));
+	CloseHandle(hCvar_nextMap);
+
+	if (!IsMapValid(nextMap) || StrContains(nextMap, ";") != -1)
+	{
+		LogError("sm_nextmap \"%s\" was invalid. Restarting current map instead.",
+			nextMap);
+		SetConVarBool(g_hNeoRestartThis, true);
+		return;
+	}
+
+	ServerCommand("changelevel %s", nextMap);
 }
 
 public OnAllPluginsLoaded()

@@ -2706,18 +2706,13 @@ bool Kv_IsCompatible(const String:pluginVersion[])
 
 public Action:Timer_CheckPuggers(Handle:timer)
 {
-	// HACK/FIXME: These shouldn't be looped
-	decl String:ipAddress[MAX_IP_LENGTH];
-	GetConVarString(g_hIpAddress, ipAddress, sizeof(ipAddress));
-	new port = GetConVarInt(g_hPort);
-
 	new puggersPresent;
 	for (new i = 1; i <= MaxClients; i++)
 	{
 		if (!IsValidClient(i) || IsFakeClient(i))
 			continue;
 
-		new state = Pugger_GetQueuingState(i, ipAddress, port);
+		new state = Pugger_GetQueuingState(i, g_ipAddress, g_serverPort);
 		if (state == PUGGER_STATE_ACCEPTED)
 			puggersPresent++;
 	}
@@ -2938,6 +2933,14 @@ bool PugMode_Initialize()
 {
 	Database_Initialize();
 	Pug_PasswordServer();
+
+	new Handle:hIpAddress = FindConVar("ip");
+	GetConVarString(hIpAddress, g_ipAddress, sizeof(g_ipAddress));
+	CloseHandle(hIpAddress);
+
+	new Handle:hPort = FindConVar("hostport");
+	g_serverPort = GetConVarInt(hPort);
+	CloseHandle(hPort);
 
 	if (!PugServer_Update_This())
 	{

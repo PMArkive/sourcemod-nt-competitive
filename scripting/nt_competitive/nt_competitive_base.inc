@@ -2704,8 +2704,25 @@ bool Kv_IsCompatible(const String:pluginVersion[])
 }
 */
 
+void ClearTimer(Handle:timer)
+{
+	if (timer == INVALID_HANDLE)
+		return;
+
+	KillTimer(timer);
+	timer = INVALID_HANDLE;
+}
+
 public Action:Timer_CheckPuggers(Handle:timer)
 {
+	g_fPuggersPresentTimer -= 10.0;
+	if (g_fPuggersPresentTimer <= 0)
+	{
+		PrintDebug("Timer Timer_CheckPuggers finished, killing.");
+		ClearTimer(timer);
+		return Plugin_Continue;
+	}
+
 	new puggersPresent;
 	for (new i = 1; i <= MaxClients; i++)
 	{
@@ -2717,8 +2734,12 @@ public Action:Timer_CheckPuggers(Handle:timer)
 			puggersPresent++;
 	}
 
-	PrintToServer("Accepted puggers present: %i / %i",
+	PrintDebug("Accepted puggers present: %i / %i",
 		puggersPresent, Database_GetDesiredPlayerCount());
+
+	PrintDebug("Time remaining in loop: %f", g_fPuggersPresentTimer);
+
+	return Plugin_Continue;
 }
 
 public Action:Timer_RestoreClientFromKeyValues(Handle:timer, DataPack:pack)

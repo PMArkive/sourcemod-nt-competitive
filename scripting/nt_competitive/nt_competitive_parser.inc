@@ -625,6 +625,7 @@ public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[
 		KillTimer(g_hTimer_Pug_CheckPuggers);
 	}
 
+	g_fPuggersPresentTimer = 180.0;
 	g_hTimer_Pug_CheckPuggers = CreateTimer(10.0, Timer_CheckPuggers, _, TIMER_REPEAT);
 }
 

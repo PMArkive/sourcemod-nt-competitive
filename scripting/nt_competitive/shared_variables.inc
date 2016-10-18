@@ -106,6 +106,7 @@ new g_epoch;
 new g_serverPort;
 
 new Float:g_fRoundTime;
+new Float:g_fPuggersPresentTimer = 180.0;
 
 new bool:g_isAlltalkByDefault;
 new bool:g_isExpectingOverride;

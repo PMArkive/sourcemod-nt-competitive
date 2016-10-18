@@ -619,6 +619,13 @@ public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[
 		PrintToChatAll("%s Match stop because PUG message here"); // TODO: message
 		ToggleLive();
 	}
+
+	if (g_hTimer_Pug_CheckPuggers != INVALID_HANDLE)
+	{
+		KillTimer(g_hTimer_Pug_CheckPuggers);
+	}
+
+	g_hTimer_Pug_CheckPuggers = CreateTimer(10.0, Timer_CheckPuggers, _, TIMER_REPEAT);
 }
 
 public Action:Hook_Fade(UserMsg:msg_id, Handle:bf, const players[], playersNum, bool:reliable, bool:init)

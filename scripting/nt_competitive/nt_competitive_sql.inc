@@ -995,13 +995,33 @@ bool Database_DoTablesExist()
 	return true;
 }
 
-#if defined PLUGIN_PUG
-int Pugger_GetQueuingState(client)
+int Pugger_GetQueuingState(client, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0)
 {
 	if (!IsValidClient(client) || IsFakeClient(client))
 		ThrowError("Invalid client %i", client);
 
 	Database_Initialize();
+
+	// %wildcard% the IP for SQL LIKE query.
+	// If argument is not passed, it will match anything.
+	decl String:wildcardIP[MAX_IP_LENGTH+2];
+	Format(wildcardIP, sizeof(wildcardIP), "%%%s%%", connectIP);
+
+	// %wildcard% the port for SQL LIKE query.
+	// If argument is not passed, it will match anything.
+	decl String:wildcardPort[8];
+	if (connectPort > 0)
+	{
+		Format(wildcardPort, sizeof(wildcardPort), "%%%i%%", connectPort);
+	}
+	else if (connectPort == 0)
+	{
+		Format(wildcardPort, sizeof(wildcardPort), "%%%%");
+	}
+	else
+	{
+		ThrowError("Invalid server port %i specified.", connectPort);
+	}
 
 	decl String:steamID[MAX_STEAMID_LENGTH];
 	decl String:sql[MAX_SQL_LENGTH];
@@ -1009,12 +1029,19 @@ int Pugger_GetQueuingState(client)
 
 	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
 
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?",
-	g_sqlTable[TABLES_PUGGERS]);
+	Format(sql, sizeof(sql),
+		"SELECT * FROM %s WHERE %s = ? AND %s LIKE ? AND %s LIKE ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT]);
 
 	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
 
-	SQL_BindParamString(stmt, 0, steamID, false);
+	new paramIndex;
+	SQL_BindParamString(stmt, paramIndex++, steamID, false);
+	SQL_BindParamString(stmt, paramIndex++, wildcardIP, false);
+	SQL_BindParamString(stmt, paramIndex++, wildcardPort, false);
 	SQL_Execute(stmt);
 
 	new state = PUGGER_STATE_INACTIVE;
@@ -1034,6 +1061,7 @@ int Pugger_GetQueuingState(client)
 	return state;
 }
 
+#if defined PLUGIN_PUG
 int Puggers_GetCountPerState(state)
 {
 	if (0 > state > PUGGER_STATE_ENUM_COUNT)

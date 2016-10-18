@@ -132,6 +132,8 @@ public OnPluginStart()
 	g_hRoundTime			= FindConVar("neo_round_timelimit");
 	g_hNeoScoreLimit	= FindConVar("neo_score_limit");
 	g_hPassword				= FindConVar("sv_password");
+	g_hIpAddress			= FindConVar("ip"); // FIXME: Unnecessary global handle
+	g_hPort						= FindConVar("hostport"); // FIXME: Unnecessary global handle
 
 	HookConVarChange(g_hNeoRestartThis,					Event_Restart);
 	HookConVarChange(g_hSourceTVEnabled,				Event_SourceTVEnabled);

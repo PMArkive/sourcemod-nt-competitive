@@ -165,6 +165,8 @@ new Handle:g_hCompForceCamera;
 new Handle:g_hPugEnabled;
 new Handle:g_hPassword;
 new Handle:g_hCvar_UnloadScoreLimit;
+new Handle:g_hIpAddress;
+new Handle:g_hPort;
 #endif
 
 new Handle:g_hCvar_DbConfig;
@@ -179,6 +181,7 @@ new Handle:g_hTimer_GoLive = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_Countdown = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_HalfLeft = INVALID_HANDLE;
+new Handle:g_hTimer_Pug_CheckPuggers = INVALID_HANDLE;
 
 KeyValues g_kv;
 

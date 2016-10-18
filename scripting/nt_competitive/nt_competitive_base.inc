@@ -2777,15 +2777,13 @@ void Kv_Menu_Details_GetParallelFile(client, const String:kvFileName[], bool:get
 
 	if (strlen(kvFileName) < 1)
 	{
-		LogError("Attempted to restore KeyValues from zero length filename");
-		return;
+		ThrowError("Attempted to restore KeyValues from zero length filename");
 	}
 
 	if ( !Kv_IsValidFile(kvFileName) )
 	{
-		LogError("KeyValues filename doesn't contain .kv extension. \
+		ThrowError("KeyValues filename doesn't contain .kv extension. \
 This shouldn't happen.");
-		return;
 	}
 
 	decl String:fullPath[PLATFORM_MAX_PATH];
@@ -2794,16 +2792,14 @@ This shouldn't happen.");
 	new Handle:dir = OpenDirectory(fullPath);
 	if (!DirExists(fullPath) || dir == null)
 	{
-		LogError("Failed to open KeyValues directory path: %s", fullPath);
-		return;
+		ThrowError("Failed to open KeyValues directory path: %s", fullPath);
 	}
 
 	decl String:filePath[PLATFORM_MAX_PATH];
 	Format(filePath, sizeof(filePath), "%s/%s", fullPath, kvFileName);
 	if ( !FileExists(filePath) )
 	{
-		LogError("KeyValues file %s does not exist.", fullPath);
-		return;
+		ThrowError("KeyValues file %s does not exist.", fullPath);
 	}
 
 	new i;
@@ -2913,8 +2909,7 @@ void SetGameState(state)
 {
 	if (state != GAMESTATE_NORMAL && state != GAMESTATE_WARMUP)
 	{
-		LogError("Invalid gamestate %i", state);
-		return;
+		ThrowError("Invalid gamestate %i", state);
 	}
 
 	GameRules_SetProp("m_iGameState", state);

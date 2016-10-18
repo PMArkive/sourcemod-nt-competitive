@@ -2715,14 +2715,6 @@ void ClearTimer(Handle:timer)
 
 public Action:Timer_CheckPuggers(Handle:timer)
 {
-	g_fPuggersPresentTimer -= 10.0;
-	if (g_fPuggersPresentTimer <= 0)
-	{
-		PrintDebug("Timer Timer_CheckPuggers finished, killing.");
-		ClearTimer(timer);
-		return Plugin_Continue;
-	}
-
 	new puggersPresent;
 	for (new i = 1; i <= MaxClients; i++)
 	{
@@ -2734,10 +2726,34 @@ public Action:Timer_CheckPuggers(Handle:timer)
 			puggersPresent++;
 	}
 
-	PrintDebug("Accepted puggers present: %i / %i",
-		puggersPresent, Database_GetDesiredPlayerCount());
+	new desiredPlayers = Database_GetDesiredPlayerCount();
 
+	PrintDebug("Accepted puggers present: %i / %i", puggersPresent, desiredPlayers);
 	PrintDebug("Time remaining in loop: %f", g_fPuggersPresentTimer);
+
+	if (puggersPresent >= desiredPlayers)
+	{
+		if (puggersPresent > desiredPlayers)
+		{
+			LogError("Timer_CheckPuggers: More puggers present \
+(%i) than players wanted (%i)", puggersPresent, desiredPlayers);
+		}
+
+		PrintDebug("Timer_CheckPuggers: Desired players reached.");
+		PrintDebug("Killing timer, going live");
+		// TODO: Start the PUG, mark puggers live
+
+		ClearTimer(timer);
+		return Plugin_Continue;
+	}
+
+	g_fPuggersPresentTimer -= 10.0;
+	if (g_fPuggersPresentTimer <= 0)
+	{
+		PrintDebug("Timer Timer_CheckPuggers finished, killing.");
+		ClearTimer(timer);
+		return Plugin_Continue;
+	}
 
 	return Plugin_Continue;
 }

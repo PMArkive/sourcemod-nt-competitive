@@ -289,7 +289,8 @@ enum {
 	PUG_SERVER_STATUS_AVAILABLE = 2,						// Server is available for pugging
 	PUG_SERVER_STATUS_RESERVED = 3,							// An organizer has reserved this server for a pug match
 	PUG_SERVER_STATUS_AWAITING_PLAYERS = 4,			// All puggers accepted, waiting for players to join to start a match
-	PUG_SERVER_STATUS_LIVE = 5									// Match is live
+	PUG_SERVER_STATUS_LIVE = 5,									// Match is live
+  PUG_SERVER_STATUS_ENUM_COUNT = 6
 };
 // Avoid double booking games and other conflicts
 enum {

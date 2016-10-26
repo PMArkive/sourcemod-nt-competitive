@@ -2742,6 +2742,7 @@ public Action:Timer_CheckPuggers(Handle:timer)
 		PrintDebug("Timer_CheckPuggers: Desired players reached.");
 		PrintDebug("Killing timer, going live");
 		// TODO: Start the PUG, mark puggers live
+		Pug_PrepareMatch();
 
 		ClearTimer(timer);
 		return Plugin_Stop;
@@ -2755,6 +2756,34 @@ public Action:Timer_CheckPuggers(Handle:timer)
 		return Plugin_Stop;
 	}
 	return Plugin_Continue;
+}
+
+void Pug_PrepareMatch()
+{
+	Database_Initialize();
+
+	new preparedClients;
+	for (new i = 0; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i) || IsFakeClient(i))
+			continue;
+
+		new state = Pugger_GetQueuingState(i, g_ipAddress, g_serverPort);
+		if (state != PUGGER_STATE_CONFIRMING)
+			continue;
+
+		Pugger_SetQueuingState(i, PUGGER_STATE_ACCEPTED);
+		preparedClients++;
+	}
+
+	new desiredPlayers = Database_GetDesiredPlayerCount();
+	if (preparedClients != desiredPlayers)
+	{
+		PugServer_Set_Status(PUG_SERVER_STATUS_ERROR);
+		ThrowError("preparedClients %i != desired player count %i",
+			preparedClients, desiredPlayers);
+	}
+	PugServer_Set_Status(PUG_SERVER_STATUS_AWAITING_PLAYERS);
 }
 
 public Action:Timer_RestoreClientFromKeyValues(Handle:timer, DataPack:pack)

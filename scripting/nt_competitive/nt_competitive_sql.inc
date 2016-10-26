@@ -70,79 +70,6 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 }
 
 #if defined PLUGIN_PUG
-void Database_AddPugger(client)
-{
-	if (!IsValidClient(client) || IsFakeClient(client))
-		ThrowError("Invalid client %i", client);
-
-	Database_Initialize();
-
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?",
-	g_sqlTable[TABLES_PUGGERS]);
-
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt == INVALID_HANDLE)
-		ThrowError(error);
-
-	SQL_BindParamString(stmt, 0, steamID, false);
-	SQL_Execute(stmt);
-
-	// Pugger exists in database, update
-	if (SQL_GetRowCount(stmt) > 0)
-	{
-		while (SQL_FetchRow(stmt))
-		{
-			Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = NOW() WHERE %s = ?",
-			g_sqlTable[TABLES_PUGGERS],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
-
-			new Handle:updateStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-
-			new paramIndex;
-			SQL_BindParamInt(updateStmt, paramIndex++, PUGGER_STATE_QUEUING);
-			SQL_BindParamString(updateStmt, paramIndex++, steamID, false);
-
-			SQL_Execute(updateStmt);
-			CloseHandle(updateStmt);
-
-			if (SQL_MoreRows(stmt))
-			{
-				LogError("Database_AddPugger(%i): Found more than 1 results, \
-expected 0 or 1", client);
-				break;
-			}
-		}
-	}
-	// Pugger not yet in database, insert
-	else
-	{
-		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, NOW())",
-		g_sqlTable[TABLES_PUGGERS],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP]);
-
-		new Handle:insertStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-
-		new paramIndex;
-		SQL_BindParamString(insertStmt, paramIndex++, steamID, false);
-		SQL_BindParamInt(insertStmt, paramIndex++, PUGGER_STATE_QUEUING);
-
-		SQL_Execute(insertStmt);
-		CloseHandle(insertStmt);
-	}
-
-	CloseHandle(stmt);
-}
-
 void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
 	// Make sure client index is valid,
@@ -283,6 +210,79 @@ This should never happen.", steamID, state);
 	}
 }
 
+void Database_AddPugger(client)
+{
+	if (!IsValidClient(client) || IsFakeClient(client))
+		ThrowError("Invalid client %i", client);
+
+	Database_Initialize();
+
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?",
+	g_sqlTable[TABLES_PUGGERS]);
+
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+
+	SQL_BindParamString(stmt, 0, steamID, false);
+	SQL_Execute(stmt);
+
+	// Pugger exists in database, update
+	if (SQL_GetRowCount(stmt) > 0)
+	{
+		while (SQL_FetchRow(stmt))
+		{
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = NOW() WHERE %s = ?",
+			g_sqlTable[TABLES_PUGGERS],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+			new Handle:updateStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+
+			new paramIndex;
+			SQL_BindParamInt(updateStmt, paramIndex++, PUGGER_STATE_QUEUING);
+			SQL_BindParamString(updateStmt, paramIndex++, steamID, false);
+
+			SQL_Execute(updateStmt);
+			CloseHandle(updateStmt);
+
+			if (SQL_MoreRows(stmt))
+			{
+				LogError("Database_AddPugger(%i): Found more than 1 results, \
+expected 0 or 1", client);
+				break;
+			}
+		}
+	}
+	// Pugger not yet in database, insert
+	else
+	{
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, NOW())",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP]);
+
+		new Handle:insertStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+
+		new paramIndex;
+		SQL_BindParamString(insertStmt, paramIndex++, steamID, false);
+		SQL_BindParamInt(insertStmt, paramIndex++, PUGGER_STATE_QUEUING);
+
+		SQL_Execute(insertStmt);
+		CloseHandle(insertStmt);
+	}
+
+	CloseHandle(stmt);
+}
+
 void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID[MAX_STEAMID_LENGTH] = "")
 {
 	Database_Initialize();
@@ -379,43 +379,6 @@ void Database_LogIgnore(client)
 {
 	//TODO
 	PrintDebug("Database_LogIgnore(%i)", client);
-}
-
-void Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
-{
-	if (!bySteamID && !IsValidClient(client))
-		ThrowError("Invalid client %i", client);
-
-	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
-	{
-		ThrowError("Invalid state %i, expected value between 0 and %i.",
-		state, PUGGER_STATE_ENUM_COUNT-1);
-	}
-
-	Database_Initialize();
-
-	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-
-	if (!bySteamID)
-	{
-		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-	}
-
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
-	g_sqlTable[TABLES_PUGGERS],
-	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
-	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
-
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	if (stmt == INVALID_HANDLE)
-		ThrowError(error);
-
-	new paramIndex;
-	SQL_BindParamInt(stmt, paramIndex++, state);
-	SQL_BindParamString(stmt, paramIndex++, steamID, false);
-	SQL_Execute(stmt);
-	CloseHandle(stmt);
 }
 
 void Database_CleanAFKers()
@@ -573,6 +536,45 @@ bool PugServer_Update_This()
 	CloseHandle(stmt_ServerUpdate);
 
 	return true;
+}
+
+void PugServer_Set_Status(status, String:sIP[MAX_IP_LENGTH] = "", iPort = 0)
+{
+	if ((strlen(sIP) != 0 && iPort == 0) || (strlen(sIP) == 0 && iPort != 0))
+		ThrowError("Invalid IP \"%s\" and/or port %i", sIP, iPort);
+
+	if (status < PUG_SERVER_STATUS_ERROR || status >= PUG_SERVER_STATUS_ENUM_COUNT)
+	{
+		ThrowError("Invalid enum %i, expected enum between %i - %i",
+			status, PUG_SERVER_STATUS_ERROR, PUG_SERVER_STATUS_ENUM_COUNT);
+	}
+	Database_Initialize();
+
+	if (strlen(sIP) == 0)
+		strcopy(sIP, sizeof(sIP), g_ipAddress);
+
+	if (iPort == 0)
+		iPort = g_serverPort;
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
+
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+
+	new paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, status);
+	SQL_BindParamString(stmt, paramIndex++, sIP, false);
+	SQL_BindParamInt(stmt, paramIndex++, iPort);
+	SQL_Execute(stmt);
+
+	CloseHandle(stmt);
 }
 
 // Purpose: Get PUG server's status enum
@@ -1211,3 +1213,40 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 	return isCompeting;
 }
 #endif
+
+void Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
+{
+	if (!bySteamID && !IsValidClient(client))
+		ThrowError("Invalid client %i", client);
+
+	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
+	{
+		ThrowError("Invalid state %i, expected value between 0 and %i.",
+		state, PUGGER_STATE_ENUM_COUNT-1);
+	}
+
+	Database_Initialize();
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	if (!bySteamID)
+	{
+		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+	}
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+	g_sqlTable[TABLES_PUGGERS],
+	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == INVALID_HANDLE)
+		ThrowError(error);
+
+	new paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, state);
+	SQL_BindParamString(stmt, paramIndex++, steamID, false);
+	SQL_Execute(stmt);
+	CloseHandle(stmt);
+}

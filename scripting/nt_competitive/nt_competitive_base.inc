@@ -2744,7 +2744,7 @@ public Action:Timer_CheckPuggers(Handle:timer)
 		// TODO: Start the PUG, mark puggers live
 
 		ClearTimer(timer);
-		return Plugin_Continue;
+		return Plugin_Stop;
 	}
 
 	g_fPuggersPresentTimer -= 10.0;
@@ -2752,9 +2752,8 @@ public Action:Timer_CheckPuggers(Handle:timer)
 	{
 		PrintDebug("Timer Timer_CheckPuggers finished, killing.");
 		ClearTimer(timer);
-		return Plugin_Continue;
+		return Plugin_Stop;
 	}
-
 	return Plugin_Continue;
 }
 

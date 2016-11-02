@@ -2763,7 +2763,7 @@ void Pug_PrepareMatch()
 	Database_Initialize();
 
 	new preparedClients;
-	for (new i = 0; i <= MaxClients; i++)
+	for (new i = 1; i <= MaxClients; i++)
 	{
 		if (!IsValidClient(i) || IsFakeClient(i))
 			continue;

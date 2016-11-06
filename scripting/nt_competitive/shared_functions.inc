@@ -96,7 +96,7 @@ bool IsAdmin(client)
 		LogError("IsAdmin: Client %i is not valid. This shouldn't happen.", client);
 		return false;
 	}
-	if (IsClientAuthorized(client))
+	if (!IsClientAuthorized(client))
 	{
 		return false;
 	}

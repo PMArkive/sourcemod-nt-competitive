@@ -711,7 +711,8 @@ public Action:SayCallback(client, const String:command[], argc)
 #if defined PLUGIN_COMP
 public Action Timer_Pug_SendInvites(Handle timer)
 {
-	
+	// TODO: Check for available accepted clients,
+	// although there was probably some related call in the pug end for this...
 
 	return Plugin_Continue;
 }

@@ -602,6 +602,7 @@ public Event_SourceTVPath(Handle:cvar, const String:oldVal[], const String:newVa
 		InitDirectory(newVal);
 }
 
+#if defined PLUGIN_COMP
 public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[])
 {
 	new bool:enabled = view_as<bool>(StringToInt(newVal));
@@ -628,6 +629,7 @@ public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[
 	g_fPuggersPresentTimer = 180.0;
 	g_hTimer_Pug_CheckPuggers = CreateTimer(10.0, Timer_CheckPuggers, _, TIMER_REPEAT);
 }
+#endif
 
 public Action:Hook_Fade(UserMsg:msg_id, Handle:bf, const players[], playersNum, bool:reliable, bool:init)
 {
@@ -705,3 +707,12 @@ public Action:SayCallback(client, const String:command[], argc)
 
 	return Plugin_Handled;
 }
+
+#if defined PLUGIN_COMP
+public Action Timer_Pug_SendInvites(Handle timer)
+{
+	
+
+	return Plugin_Continue;
+}
+#endif

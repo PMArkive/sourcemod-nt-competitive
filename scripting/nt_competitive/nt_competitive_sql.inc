@@ -82,7 +82,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 		if (!IsValidClient(client) || IsFakeClient(client))
 			ThrowError("Invalid client %i", client);
 
-		if (!GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));)
+		if (!GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID)))
 			ThrowError("Could not fetch SteamID for client %i", client);
 	}
 

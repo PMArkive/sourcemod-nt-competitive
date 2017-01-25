@@ -2989,6 +2989,7 @@ void CancelLiveCountdown()
 	PrintToChatAll("%s Live countdown cancelled.", g_sTag);
 }
 
+#if defined PLUGIN_COMP
 bool PugMode_Initialize()
 {
 	Database_Initialize();
@@ -3036,3 +3037,4 @@ void Pug_KickEveryone(bool:kickAdmins = false)
 		KickClient(i, "This server is closing for a private match");
 	}
 }
+#endif

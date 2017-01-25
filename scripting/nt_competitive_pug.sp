@@ -74,8 +74,8 @@ public OnConfigsExecuted()
 public Action:Timer_CheckQueue(Handle:timer)
 {
 	// This is called once per interval, so it represents time elapsed.
-	// We only want to connect to db if there seem to be preparations underway,
-	// to avoid spamming it needlessly.
+	// We only want to rapidly connect to the db if there seem to be
+	// some match preparations underway, to avoid spamming it needlessly.
 	g_fQueueTimer_DeltaTime -= g_fQueueTimer_Interval;
 
 	if (!g_bIsQueueActive)
@@ -104,7 +104,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 
 	SQL_Execute(stmt_Select);
 
-	new rows;
+	new rowsConfirming;
 	while (SQL_FetchRow(stmt_Select))
 	{
 		decl String:steamID[MAX_STEAMID_LENGTH];
@@ -131,7 +131,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 				// Try to find a new match
 				OfferMatch();
 			}
-			rows++;
+			rowsConfirming++;
 
 			new client = GetClientOfAuthId(steamID);
 			// Client validity checked by function
@@ -140,7 +140,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 	}
 	CloseHandle(stmt_Select);
 
-	if (rows > 0)
+	if (rowsConfirming > 0)
 	{
 		g_bIsQueueActive = true;
 	}
@@ -175,7 +175,7 @@ void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 
 	new paramIndex;
 	SQL_BindParamString(stmt_GetMessage, paramIndex++, steamID, false);
-	SQL_BindParamInt(stmt_GetMessage, paramIndex++, view_as<int>true);
+	SQL_BindParamInt(stmt_GetMessage, paramIndex++, view_as<int>(true));
 	SQL_Execute(stmt_GetMessage);
 
 	if (SQL_GetRowCount(stmt_GetMessage) == 0)
@@ -204,7 +204,7 @@ void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 		ThrowError(error);
 
 	paramIndex = 0;
-	SQL_BindParamInt(stmt_clearMsg, paramIndex++, view_as<int>false);
+	SQL_BindParamInt(stmt_clearMsg, paramIndex++, view_as<int>(false));
 	SQL_BindParamString(stmt_clearMsg, paramIndex++, "", false);
 	SQL_BindParamString(stmt_clearMsg, paramIndex++, steamID, false);
 	SQL_Execute(stmt_clearMsg);
@@ -408,6 +408,11 @@ void AcceptMatch(client)
 		ReplyToCommand(client, "%s Joining time has ended.", g_sTag);
 		return;
 	}
+	else if (Pugger_GetQueuingState(client) == PUGGER_STATE_ACCEPTED)
+	{
+		ReplyToCommand(client, "%s You have already accepted the match.", g_sTag);
+		return;
+	}
 
 	Pugger_SetQueuingState(client, PUGGER_STATE_ACCEPTED);
 
@@ -466,8 +471,12 @@ bool PugServer_Reserve()
 
 	if (!foundServer)
 	{
+		/*	Someone not accepting their invite triggers this,
+				pretty sure this will fail gracefully instead of
+				us needing to throw an error.
 		LogError("Could not find a PUG server to reserve \
 although one was found earlier. This should never happen.");
+		*/
 		return false;
 	}
 

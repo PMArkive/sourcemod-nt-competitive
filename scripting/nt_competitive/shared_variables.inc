@@ -165,7 +165,11 @@ new Handle:g_hSuddenDeath;
 new Handle:g_hCenteredDisplayRemaining;
 new Handle:g_hCenteredDisplayTarget;
 new Handle:g_hCompForceCamera;
+
+#if defined PLUGIN_COMP
 new Handle:g_hPugEnabled;
+#endif
+
 new Handle:g_hPassword;
 new Handle:g_hCvar_UnloadScoreLimit;
 #endif
@@ -183,6 +187,7 @@ new Handle:g_hTimer_UnPause = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_Countdown = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_HalfLeft = INVALID_HANDLE;
 new Handle:g_hTimer_Pug_CheckPuggers = INVALID_HANDLE;
+new Handle:g_hTimer_Pug_SendInvites = INVALID_HANDLE;
 
 KeyValues g_kv;
 

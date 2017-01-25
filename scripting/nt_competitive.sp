@@ -9,8 +9,12 @@
 */
 #pragma semicolon 1
 
-#define PLUGIN_COMP
 #define PLUGIN_VERSION "0.3.9.14"
+
+// Compile for online matchmaking with database connectivity.
+// Comment out to disable the extra matchmaking functionality
+// and just have the regular competitive game features.
+#define PLUGIN_COMP 1
 
 //#define DEBUG 0 // Release
 #define DEBUG 1 // Debug
@@ -118,7 +122,9 @@ public OnPluginStart()
 	g_hCenteredDisplayRemaining	= CreateConVar("sm_competitive_display_remaining_players_centered",	"2", "How the number of remaining players is displayed to clients in a competitive game. 0 = disabled, 1 = show remaining player numbers, 2 = show team names and remaining player numbers", _, true, 0.0, true, 2.0);
 	g_hCenteredDisplayTarget		= CreateConVar("sm_competitive_display_remaining_players_target",		"2", "Who to center display remaining players to. 1 = spectators only, 2 = spectators and dead players", _, true, 1.0, true, 2.0);
 	g_hCompForceCamera					= CreateConVar("sm_competitive_force_camera",								"1",					"Should fade to black be forced on death when live. Can be useful to disable on pugs etc.", _, true, 0.0, true, 1.0);
+#if defined PLUGIN_COMP
 	g_hPugEnabled								= CreateConVar("sm_competitive_pug_enabled",								"1",					"Is server in PUG mode. Disable for organized events.", _, true, 0.0, true, 1.0);
+#endif
 #if DEBUG
 	g_hDebugKeyValues						= CreateConVar("sm_competitive_keyvalues_test",							"1",					"Store match data into KeyValues file. Debug cvar.", _, true, 0.0, true, 1.0);
 #endif
@@ -143,7 +149,9 @@ public OnPluginStart()
 	HookConVarChange(g_hPreventZanshiStrats,		Event_ZanshiStrats);
 	HookConVarChange(g_hJinraiScore,						Event_JinraiScore);
 	HookConVarChange(g_hNSFScore,								Event_NSFScore);
+#if defined PLUGIN_COMP
 	HookConVarChange(g_hPugEnabled,							Event_PugEnabled);
+#endif
 
 	// Hook fade to black (on death)
 	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true);
@@ -173,6 +181,10 @@ public OnPluginStart()
 	CheckGamedataFiles();
 
 	AutoExecConfig(true);
+
+#if defined PLUGIN_COMP
+	g_hTimer_Pug_SendInvites = CreateTimer(10.0, Timer_Pug_SendInvites, _, TIMER_REPEAT);
+#endif
 }
 
 public OnPluginEnd()
@@ -238,14 +250,17 @@ public OnConfigsExecuted()
 	// Set Neotokyo's own round max round count to highest value
 	SetConVarInt(g_hNeoScoreLimit, 99);
 
-	if ( GetConVarBool(g_hPugEnabled) )
+#if defined PLUGIN_COMP
+	if (GetConVarBool(g_hPugEnabled))
 		PugMode_Initialize();
+#endif
 }
 
 // TODO: Separate PUG db mode and local variable mode completely
 // Probably means adding assigned team to db entry etc.
 public OnClientAuthorized(client, const String:authID[])
 {
+#if defined PLUGIN_COMP
 	// PUG mode is enabled but this player isn't participating
 	if (GetConVarBool(g_hPugEnabled) && !Database_IsPlayerCompeting(authID))
 	{
@@ -263,6 +278,7 @@ public OnClientAuthorized(client, const String:authID[])
 		GetClientName(client, clientName, sizeof(clientName));
 		PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
 	}
+#endif
 
 	if (!g_isLive)
 		return;

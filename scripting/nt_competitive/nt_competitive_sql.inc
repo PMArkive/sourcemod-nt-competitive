@@ -18,8 +18,8 @@ bool Database_Initialize(bool checkTables = true)
 		return false;
 	}
 
-	decl String:error[MAX_SQL_ERROR_LENGTH];
 	// Persistent connection
+	decl String:error[MAX_SQL_ERROR_LENGTH];
 	db = SQL_Connect(configName, true, error, sizeof(error));
 
 	if (db == null)
@@ -40,6 +40,9 @@ bool Database_Initialize(bool checkTables = true)
 	return true;
 }
 
+// Purpose: Check string for "dangerous" SQL characters
+// that could lead to incorrect database statements.
+// Not intended for user input checking.
 void CheckForSpookiness(const String:haystack[])
 {
 	if (StrContains(haystack, "\"") != -1 || StrContains(haystack, ";") != -1)
@@ -77,11 +80,10 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 	if (!bySteamID)
 	{
 		if (!IsValidClient(client) || IsFakeClient(client))
-		{
 			ThrowError("Invalid client %i", client);
-		}
 
-		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+		if (!GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));)
+			ThrowError("Could not fetch SteamID for client %i", client);
 	}
 
 	Database_Initialize();
@@ -987,7 +989,7 @@ bool Database_DoTablesExist()
 		new bool:tableExists;
 		while (SQL_FetchRow(stmt))
 		{
-			tableExists = view_as<bool>SQL_FetchInt(stmt, 0);
+			tableExists = view_as<bool>(SQL_FetchInt(stmt, 0));
 		}
 		CloseHandle(stmt);
 

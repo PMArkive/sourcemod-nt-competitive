@@ -295,11 +295,19 @@ enum {
 	PUG_SERVER_STATUS_LIVE = 5,									// Match is live
   PUG_SERVER_STATUS_ENUM_COUNT = 6
 };
+
 // "Flags" for reserving org table write, to avoid conflicts
 enum {
 	DB_ORG_INACTIVE = 0,								    	// This org server is not editing the SQL table
 	DB_ORG_RESERVED = 1,									   	// Writing currently reserved by this org
 	DB_ORG_ENUM_COUNT = 2
+};
+
+// "Flags" for reserving pug table write, to avoid conflicts
+enum {
+  DB_PUG_INACTIVE = 0,                      // This pug server is not editing the SQL table
+  DB_PUG_RESERVED = 1,                      // Writing currently reserved by this pug
+  DB_PUG_ENUM_COUNT = 2
 };
 
 enum {

@@ -273,8 +273,6 @@ enum {
 	SQL_TABLE_PUG_SERVER_CONNECT_PORT,           // Server connect port.
 	SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD,       // Server connect password, if any.
 	SQL_TABLE_PUG_SERVER_STATUS,                 // Server status (available, waiting for players, match live etc.)
-	SQL_TABLE_PUG_SERVER_RESERVEE,               // Which organizer last reserved this server
-	SQL_TABLE_PUG_SERVER_RESERVATION_TIMESTAMP,  // When was this server last reserved
 	SQL_TABLE_PUG_SERVER_ENUM_COUNT
 };
 
@@ -356,7 +354,5 @@ new const String:g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ENUM_COUNT][] = {
 	"connect_ip",
 	"connect_port",
 	"connect_password",
-	"status",
-	"reservee",
-	"reservation_timestamp"
+	"status"
 };

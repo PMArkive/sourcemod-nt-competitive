@@ -260,8 +260,8 @@ enum {
 	SQL_TABLE_ORG_ID = 0,								// Auto incremented database id
 	SQL_TABLE_ORG_TIMESTAMP,						// Timestamp of last update
 	SQL_TABLE_ORG_NAME,								 	// Unique string identifier for this organizer, for example their IP address
-	SQL_TABLE_ORG_RESERVING,						// Only one organizer is allowed to reserve a match at a time to avoid double-booking. This int determines who is currently allowed to edit.
-	SQL_TABLE_ORG_RESERVING_TIMESTAMP,	// When did this organizer last gain permission to reserve a match
+	SQL_TABLE_ORG_RESERVING,						// Org table reserve flag
+	SQL_TABLE_ORG_RESERVING_TIMESTAMP,	// Timestamp of latest successful reserve
 	SQL_TABLE_ORG_ENUM_COUNT
 };
 // This table holds PUG game server information
@@ -273,6 +273,8 @@ enum {
 	SQL_TABLE_PUG_SERVER_CONNECT_PORT,           // Server connect port.
 	SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD,       // Server connect password, if any.
 	SQL_TABLE_PUG_SERVER_STATUS,                 // Server status (available, waiting for players, match live etc.)
+  SQL_TABLE_PUG_SERVER_RESERVING,              // Pug server reserve flag
+  SQL_TABLE_PUG_SERVER_RESERVING_TIMESTAMP,     // Timestamp of latest successful reserve
 	SQL_TABLE_PUG_SERVER_ENUM_COUNT
 };
 
@@ -362,5 +364,7 @@ new const String:g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ENUM_COUNT][] = {
 	"connect_ip",
 	"connect_port",
 	"connect_password",
-	"status"
+	"status",
+  "is_reserving",
+  "reserving_timestamp"
 };

@@ -624,6 +624,21 @@ the database, expected 1 or 0.");
 }
 #endif
 
+#if defined PLUGIN_COMP
+bool PugServer_SetReserve(int status = DB_PUG_INACTIVE)
+{
+	if (g_bIsDatabaseDown)
+		return false;
+
+	bool includeMyself = true;
+	if (reserveStatus != DB_PUG_INACTIVE &&
+			PugServers_Is_Anyone_Busy(!includeMyself))
+	{
+		return false;
+	}
+}
+#endif
+
 #if defined PLUGIN_PUG
 // Purpose: Update this server's reserve status enum in database.
 bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
@@ -631,11 +646,11 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 	if (g_bIsDatabaseDown)
 		return false;
 
-	// Cannot set busy reserve status if someone else is already busy
-	bool includeMyself = false;
+	// Cannot set busy reserve status if someone else is already busy.
+	// Server is always allowed to mark itself inactive.
+	bool includeMyself = true;
 	if (reserveStatus != DB_ORG_INACTIVE &&
-			Organizers_Is_Anyone_Busy(includeMyself)
-		)
+			Organizers_Is_Anyone_Busy(!includeMyself))
 	{
 		return false;
 	}
@@ -771,12 +786,52 @@ int Organizers_Get_Status_This()
 	return status;
 }
 */
+#endif
+
+#if defined PLUGIN_COMP
+bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUG_SERVERS]);
+
+	// TODO: Unnecessary prepared statement, replace with error returning query
+	Handle stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt_Select == null)
+		ThrowError(error);
+
+	SQL_Execute(stmt_Select);
+
+	decl String:identifier[sizeof(g_sIdentifier)];
+	int dbState;
+	while (SQL_FetchRow(stmt_Select))
+	{
+		if (!includeMyself)
+		{
+			SQL_FetchString(stmt_Select, SQL_TABLE_PUG_SERVER_NAME,
+				identifier, sizeof(identifier));
+
+			if (StrEqual(identifier, g_sIdentifier))
+				continue;
+		}
+
+		dbState = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_RESERVING);
+		if (dbState != DB_PUG_INACTIVE)
+			return true;
+	}
+	delete stmt_Select;
+	return false;
+}
+#endif
+
+#if defined PLUGIN_PUG
 bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 {
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_ORGANIZERS]);
 
+	// TODO: Unnecessary prepared statement, replace with error returning query
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
@@ -955,7 +1010,7 @@ command.");
 					%s INT NOT NULL, \
 					%s VARCHAR(%i) NOT NULL, \
 					%s INT NOT NULL, \
-					%s VARCHAR(%i) NOT NULL, \
+					%s INT NOT NULL, \
 					%s TIMESTAMP NOT NULL, \
 					PRIMARY KEY (%s)) CHARACTER SET=utf8",
 					g_sqlTable[TABLES_PUG_SERVERS],

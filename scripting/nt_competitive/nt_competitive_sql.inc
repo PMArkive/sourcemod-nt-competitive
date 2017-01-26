@@ -668,13 +668,11 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 
 	new results = SQL_GetRowCount(stmt_Select);
 	//PrintDebug("Results: %i", results);
-
 	CloseHandle(stmt_Select);
 
-	// Delete duplicate records
 	if (results > 1)
 	{
-		//FIXME: Maybe should not expect 0 rows (Command_CreateTables)
+		// Delete duplicate records
 		LogError("Organizers_Update_This(): Found %i results from database for \
 		organizer \"%s\", expected 0 or 1.", results, g_sIdentifier);
 
@@ -688,10 +686,8 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		SQL_BindParamString(stmt_Delete, 0, g_sIdentifier, false);
 		SQL_Execute(stmt_Delete);
 		CloseHandle(stmt_Delete);
-	}
-	// No record, insert new one
-	if (results > 1 || results == 0)
-	{
+
+		// Insert new record
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)",
 		g_sqlTable[TABLES_ORGANIZERS],
 		g_sqlRow_Organizers[SQL_TABLE_ORG_NAME],
@@ -706,9 +702,10 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		SQL_BindParamInt(stmt_Insert, paramIndex++, reserveStatus);
 		SQL_Execute(stmt_Insert);
 		CloseHandle(stmt_Insert);
+		return true;
 	}
 	// Record already exists, just update
-	else
+	else if (results == 1)
 	{
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
 		g_sqlTable[TABLES_ORGANIZERS],
@@ -724,9 +721,14 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		SQL_BindParamString(stmt_Update, paramIndex++, g_sIdentifier, false);
 		SQL_Execute(stmt_Update);
 		CloseHandle(stmt_Update);
+		return true;
 	}
+	// No record was found at all, this is an error!
+	LogError("Organizers_Update_This(%i): \
+Found no database entry for organizer \"%s\". This should never happen.",
+		g_sIdentifier);
 
-	return true;
+	return false;
 }
 
 /*

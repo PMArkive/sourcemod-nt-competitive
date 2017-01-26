@@ -633,14 +633,22 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 		return false;
 
 	// Cannot set busy reserve status if someone else is already busy
-	if (reserveStatus != SERVER_DB_INACTIVE && Organizers_Is_Anyone_Busy(false))
+	bool includeMyself = false;
+	if (reserveStatus != SERVER_DB_INACTIVE &&
+			Organizers_Is_Anyone_Busy(includeMyself)
+		)
+	{
 		return false;
+	}
 
-	PrintDebug("Organizers_Update_This()");
+	PrintDebug("Organizers_Update_This(%i): No one else is busy, try set new status.",
+		reserveStatus);
 
-	if (SERVER_DB_INACTIVE > reserveStatus > SERVER_DB_ENUM_COUNT)
+	if (reserveStatus < SERVER_DB_INACTIVE || reserveStatus >= SERVER_DB_ENUM_COUNT)
+	{
 		ThrowError("Invalid reserve status %i. Expected status between %i and %i",
-		reserveStatus, SERVER_DB_INACTIVE, SERVER_DB_ENUM_COUNT-1);
+			reserveStatus, SERVER_DB_INACTIVE, SERVER_DB_ENUM_COUNT-1);
+	}
 
 	Database_Initialize();
 
@@ -648,8 +656,8 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
-	g_sqlTable[TABLES_ORGANIZERS],
-	g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
+		g_sqlTable[TABLES_ORGANIZERS],
+		g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
 	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);

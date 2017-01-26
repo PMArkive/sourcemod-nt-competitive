@@ -625,7 +625,8 @@ the database, expected 1 or 0.");
 #endif
 
 #if defined PLUGIN_COMP
-bool PugServer_SetReserve(int status = DB_PUG_INACTIVE)
+// Purpose: Update this pug server's reserve status enum in db
+bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 {
 	if (g_bIsDatabaseDown)
 		return false;
@@ -636,11 +637,99 @@ bool PugServer_SetReserve(int status = DB_PUG_INACTIVE)
 	{
 		return false;
 	}
+
+	PrintDebug("PugServer_SetReserve(%i): No one else is busy, try set new status.",
+		reserveStatus);
+
+	if (reserveStatus < DB_PUG_INACTIVE || reserveStatus >= DB_PUG_ENUM_COUNT)
+	{
+		ThrowError("Invalid reserve status %i. Expected status between %i and %i",
+			reserveStatus, DB_PUG_INACTIVE, DB_PUG_ENUM_COUNT-1);
+	}
+
+	Database_Initialize();
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlTable[SQL_TABLE_PUG_SERVER_NAME]);
+
+	Handle stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
+	SQL_Execute(stmt_Select);
+
+	if (stmt_Select == null)
+		ThrowError(error);
+
+	int results = SQL_GetRowCount(stmt_Select);
+	delete stmt_Select;
+
+	if (results > 1)
+	{
+		// Delete duplicate records
+		LogError("PugServer_SetReserve(%i): Found %i results from database for \
+		organizer \"%s\", expected 0 or 1.", reserveStatus, results, g_sIdentifier);
+
+		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUG_SERVERS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
+
+		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Delete == INVALID_HANDLE)
+			ThrowError(error);
+
+		SQL_BindParamString(stmt_Delete, 0, g_sIdentifier, false);
+		SQL_Execute(stmt_Delete);
+		CloseHandle(stmt_Delete);
+
+		// Insert new record
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING]);
+
+		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Insert == INVALID_HANDLE)
+			ThrowError(error);
+
+		new paramIndex;
+		SQL_BindParamString(stmt_Insert, paramIndex++, g_sIdentifier, false);
+		SQL_BindParamInt(stmt_Insert, paramIndex++, reserveStatus);
+		SQL_Execute(stmt_Insert);
+		CloseHandle(stmt_Insert);
+		return true;
+	}
+	// Record already exists, just update
+	else if (results == 1)
+	{
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
+
+		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		if (stmt_Update == INVALID_HANDLE)
+			ThrowError(error);
+
+		new paramIndex;
+		SQL_BindParamInt(stmt_Update, paramIndex++, reserveStatus);
+		SQL_BindParamString(stmt_Update, paramIndex++, g_sIdentifier, false);
+		SQL_Execute(stmt_Update);
+		CloseHandle(stmt_Update);
+		return true;
+	}
+	// No record was found at all, this is an error!
+	LogError("PugServer_SetReserve(%i): \
+Found no database entry for pug server \"%s\". This should never happen.",
+		reserveStatus, g_sIdentifier);
+
+	return false;
 }
 #endif
 
 #if defined PLUGIN_PUG
-// Purpose: Update this server's reserve status enum in database.
+// Purpose: Update this org server's reserve status enum in db
 bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
 	if (g_bIsDatabaseDown)
@@ -687,8 +776,8 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 	if (results > 1)
 	{
 		// Delete duplicate records
-		LogError("Organizers_Update_This(): Found %i results from database for \
-		organizer \"%s\", expected 0 or 1.", results, g_sIdentifier);
+		LogError("Organizers_Update_This(%i): Found %i results from database for \
+		organizer \"%s\", expected 0 or 1.", reserveStatus, results, g_sIdentifier);
 
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
 		g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);

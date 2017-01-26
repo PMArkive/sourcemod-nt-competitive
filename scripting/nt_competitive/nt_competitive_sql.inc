@@ -625,16 +625,15 @@ the database, expected 1 or 0.");
 #endif
 
 #if defined PLUGIN_PUG
-// Purpose: Add this server into the organizers database table,
-// and set its reserve status.
-bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
+// Purpose: Update this server's reserve status enum in database.
+bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
 	if (g_bIsDatabaseDown)
 		return false;
 
 	// Cannot set busy reserve status if someone else is already busy
 	bool includeMyself = false;
-	if (reserveStatus != SERVER_DB_INACTIVE &&
+	if (reserveStatus != DB_ORG_INACTIVE &&
 			Organizers_Is_Anyone_Busy(includeMyself)
 		)
 	{
@@ -644,10 +643,10 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	PrintDebug("Organizers_Update_This(%i): No one else is busy, try set new status.",
 		reserveStatus);
 
-	if (reserveStatus < SERVER_DB_INACTIVE || reserveStatus >= SERVER_DB_ENUM_COUNT)
+	if (reserveStatus < DB_ORG_INACTIVE || reserveStatus >= DB_ORG_ENUM_COUNT)
 	{
 		ThrowError("Invalid reserve status %i. Expected status between %i and %i",
-			reserveStatus, SERVER_DB_INACTIVE, SERVER_DB_ENUM_COUNT-1);
+			reserveStatus, DB_ORG_INACTIVE, DB_ORG_ENUM_COUNT-1);
 	}
 
 	Database_Initialize();
@@ -765,9 +764,9 @@ int Organizers_Get_Status_This()
 	}
 	CloseHandle(stmt_Select);
 
-	if (SERVER_DB_INACTIVE > status >= SERVER_DB_ENUM_COUNT)
+	if (DB_ORG_INACTIVE > status >= SERVER_DB_ENUM_COUNT)
 		ThrowError("Status %i is out of enum bounds %i - %i",
-		status, SERVER_DB_INACTIVE, SERVER_DB_ENUM_COUNT-1);
+		status, DB_ORG_INACTIVE, SERVER_DB_ENUM_COUNT-1);
 
 	return status;
 }
@@ -796,7 +795,7 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 		}
 
 		dbState = SQL_FetchInt(stmt_Select, SQL_TABLE_ORG_RESERVING);
-		if (dbState != SERVER_DB_INACTIVE)
+		if (dbState != DB_ORG_INACTIVE)
 			return true;
 	}
 	CloseHandle(stmt_Select);

@@ -752,7 +752,7 @@ This should never happen.", g_iDesiredPlayers_Cached);
 	}
 	// Try to reserve the database to handle queued up players.
 	// This will return false if another pug server served the players already.
-	if (!PugServer_SetReserve(DB_PUG_RESERVED))
+	if (!PugServer_SetReserve_This(DB_PUG_RESERVED))
 	{
 		return Plugin_Continue;
 	}
@@ -765,7 +765,7 @@ This should never happen.", g_iDesiredPlayers_Cached);
 	// Nope! Release the database and give up for this loop
 	if (acceptedPlayers < realDesiredPlayers)
 	{
-		if (!PugServer_SetReserve(DB_PUG_INACTIVE))
+		if (!PugServer_SetReserve_This(DB_PUG_INACTIVE))
 		{
 			// TODO / HACK / FIXME
 			// Rip. While this should never happen,
@@ -773,7 +773,7 @@ This should never happen.", g_iDesiredPlayers_Cached);
 			// as it will result in the table getting locked.
 			// There should also be some max time
 			// someone can hog the table to themselves.
-			if (!PugServer_SetReserve(DB_PUG_INACTIVE))
+			if (!PugServer_SetReserve_This(DB_PUG_INACTIVE))
 				SetFailState("Failed releasing database!");
 		}
 		return Plugin_Continue;
@@ -792,7 +792,7 @@ This should never happen.", g_iDesiredPlayers_Cached);
 	int port;
 	if (!GetServerConnectionDetails(ipAddress, port))
 	{
-		PugServer_SetReserve(DB_PUG_INACTIVE);
+		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return Plugin_Continue;
 	}
 	// Set my status
@@ -800,7 +800,7 @@ This should never happen.", g_iDesiredPlayers_Cached);
 	// Try to send invites to players
 	if (!InvitePlayers(realDesiredPlayers))
 	{
-		PugServer_SetReserve(DB_PUG_INACTIVE);
+		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return Plugin_Continue;
 	}
 
@@ -810,10 +810,19 @@ This should never happen.", g_iDesiredPlayers_Cached);
 
 bool InvitePlayers(int inviteAmount)
 {
+	// XXX/TODO: Can this throw errors or should it return false for caller to handle it properly?
 	if (inviteAmount < 1 || inviteAmount > MaxClients)
 	{
 		ThrowError("Invalid inviteAmount %i, expected 1 - %i",
 			inviteAmount, MaxClients);
+	}
+	else if (PugServers_Is_Anyone_Busy(false))
+	{
+		ThrowError("Write conflict: someone else has marked themselves as using the db table!");
+	}
+	else if (PugServer_GetReserve_This() != DB_PUG_RESERVED)
+	{
+		ThrowError("This server has lost its db reservation or db connection failed.");
 	}
 
 	new String:players_SteamID[MAXPLAYERS+1][MAX_STEAMID_LENGTH];

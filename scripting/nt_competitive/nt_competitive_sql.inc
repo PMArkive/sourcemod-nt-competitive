@@ -626,8 +626,58 @@ the database, expected 1 or 0.");
 #endif
 
 #if defined PLUGIN_COMP
+// Purpose: Fetch this pug server's reserve status enum from db
+int PugServer_GetReserve_This()
+{
+	if (g_bIsDatabaseDown)
+	{
+		ThrowError("Failed to connect to database.");
+	}
+
+	char ipAddress[MAX_IP_LENGTH];
+	int port;
+	if (!GetServerConnectionDetails(ipAddress, port))
+	{
+		ThrowError("Failed retrieving server IP and port information.");
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
+
+	Handle stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		ThrowError(error);
+	}
+
+	SQL_BindParamString(stmt, 0, ipAddress, false);
+	SQL_BindParamInt(stmt, 1, port);
+	SQL_Execute(stmt);
+
+	int reserveStatus;
+	int results;
+	while (SQL_FetchRow(stmt))
+	{
+		results++;
+		if (results > 1)
+		{
+			LogError("PugServer_SetReserve_This(): Found more than 1 db result for \
+\"%s:%i\".", ipAddress, port);
+			break;
+		}
+		reserveStatus = SQL_FetchInt(stmt, SQL_TABLE_PUG_SERVER_RESERVING);
+	}
+	delete stmt;
+
+	return reserveStatus;
+}
+
 // Purpose: Update this pug server's reserve status enum in db
-bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
+bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 {
 	if (g_bIsDatabaseDown)
 		return false;
@@ -639,7 +689,7 @@ bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 		return false;
 	}
 
-	PrintDebug("PugServer_SetReserve(%i): No one else is busy, try set new status.",
+	PrintDebug("PugServer_SetReserve_This(%i): No one else is busy, try set new status.",
 		reserveStatus);
 
 	if (reserveStatus < DB_PUG_INACTIVE || reserveStatus >= DB_PUG_ENUM_COUNT)
@@ -679,7 +729,7 @@ bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 	if (results > 1)
 	{
 		// Delete duplicate records
-		LogError("PugServer_SetReserve(%i): Found %i results from database for \
+		LogError("PugServer_SetReserve_This(%i): Found %i results from database for \
 		pug server \"%s:%i\", expected 0 or 1.",
 			reserveStatus, results, ipAddress, port);
 
@@ -738,7 +788,7 @@ bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 		return true;
 	}
 	// No record was found at all, this is an error!
-	LogError("PugServer_SetReserve(%i): \
+	LogError("PugServer_SetReserve_This(%i): \
 Found no database entry for pug server \"%s:%i\". This should never happen.",
 		reserveStatus, ipAddress, port);
 

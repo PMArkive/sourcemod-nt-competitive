@@ -540,7 +540,7 @@ bool PugServer_Update_This()
 	return true;
 }
 
-void PugServer_Set_Status(status, String:sIP[MAX_IP_LENGTH] = "", iPort = 0)
+bool PugServer_Set_Status(status, String:sIP[MAX_IP_LENGTH] = "", iPort = 0)
 {
 	if ((strlen(sIP) != 0 && iPort == 0) || (strlen(sIP) == 0 && iPort != 0))
 		ThrowError("Invalid IP \"%s\" and/or port %i", sIP, iPort);
@@ -577,6 +577,7 @@ void PugServer_Set_Status(status, String:sIP[MAX_IP_LENGTH] = "", iPort = 0)
 	SQL_Execute(stmt);
 
 	CloseHandle(stmt);
+	return true;
 }
 
 // Purpose: Get PUG server's status enum

@@ -295,10 +295,10 @@ enum {
 	PUG_SERVER_STATUS_LIVE = 5,									// Match is live
   PUG_SERVER_STATUS_ENUM_COUNT = 6
 };
-// Avoid double booking games and other conflicts
+// "Flags" for reserving org table write, to avoid conflicts
 enum {
-	DB_ORG_INACTIVE = 0,								    	// This server is not editing the SQL database
-	DB_ORG_RESERVED = 1,									   	// This server has reserved the right to edit the SQL database
+	DB_ORG_INACTIVE = 0,								    	// This org server is not editing the SQL table
+	DB_ORG_RESERVED = 1,									   	// Writing currently reserved by this org
 	DB_ORG_ENUM_COUNT = 2
 };
 

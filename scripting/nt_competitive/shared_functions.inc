@@ -21,11 +21,32 @@ bool GetServerConnectionDetails(char[] sIPAddress, int &iPort)
 		return false;
 	}
 
-	GetConVarString(hIP, sIPAddress, MAX_IP_LENGTH);
+	decl String:ipBuffer[MAX_IP_LENGTH];
+	GetConVarString(hIP, ipBuffer, sizeof(ipBuffer));
 	iPort = GetConVarInt(hPort);
 
 	delete hIP;
 	delete hPort;
+
+// Check for localhost addresses. These can occur with routers etc.
+// SQL debug flag will skip this for easier local testing.
+#if !defined DEBUG_SQL || DEBUG_SQL == 0
+	if (IsLocalhostString(ipBuffer))
+	{
+	#if defined PLUGIN_PUG
+		ThrowError("Returned a local address %s:%i, expected to find a public address. \
+This can't be used for uniquely identifying the server. \
+You can declare a unique g_sIdentifier value near the beginning \
+of the plugin source code to manually circumvent this problem.",
+			ipBuffer, iPort);
+	#else
+		ThrowError("Returned a local address %s:%i, expected to find a public address.",
+			ipBuffer, iPort);
+	#endif
+	}
+#endif
+	// Not a localhost address, can safely serve IP and return true.
+	strcopy(sIPAddress, MAX_IP_LENGTH, ipBuffer);
 	return true;
 }
 

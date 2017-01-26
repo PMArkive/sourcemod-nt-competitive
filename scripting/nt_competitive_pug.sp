@@ -709,17 +709,6 @@ void GenerateIdentifier_This()
 		SetFailState("Failed retrieving server IP and port information.");
 	}
 
-#if DEBUG_SQL == 0 // Skip this check when debugging
-	if (IsLocalhostString(ipAddress))
-	{
-		SetFailState("Could not get real external IP address, \
-returned a local address \"%s\" instead. \
-This can't be used for uniquely identifying the server. \
-You can declare a unique g_sIdentifier value near the beginning \
-of the plugin source code to manually circumvent this problem.", ipAddress);
-	}
-#endif
-
 	Format(g_sIdentifier, sizeof(g_sIdentifier), "%s:%i", ipAddress, port);
 
 #if DEBUG

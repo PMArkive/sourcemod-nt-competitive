@@ -702,13 +702,12 @@ void GenerateIdentifier_This()
 	if (!StrEqual(g_sIdentifier, ""))
 		return;
 
-	new Handle:cvarIP = FindConVar("ip");
-	if (cvarIP == INVALID_HANDLE)
-		SetFailState("Could not find cvar \"ip\"");
-
-	decl String:ipAddress[MAX_IP_LENGTH];
-	GetConVarString(cvarIP, ipAddress, sizeof(ipAddress));
-	CloseHandle(cvarIP);
+	char ipAddress[MAX_IP_LENGTH];
+	int port;
+	if (!GetServerConnectionDetails(ipAddress, port))
+	{
+		SetFailState("Failed retrieving server IP and port information.");
+	}
 
 #if DEBUG_SQL == 0 // Skip this check when debugging
 	if (
@@ -724,13 +723,6 @@ You can declare a unique g_sIdentifier value near the beginning \
 of the plugin source code to manually circumvent this problem.", ipAddress);
 	}
 #endif
-
-	new Handle:cvarPort = FindConVar("hostport");
-	if (cvarPort == INVALID_HANDLE)
-		SetFailState("Could not find cvar \"hostport\"");
-
-	new port = GetConVarInt(cvarPort);
-	CloseHandle(cvarPort);
 
 	Format(g_sIdentifier, sizeof(g_sIdentifier), "%s:%i", ipAddress, port);
 

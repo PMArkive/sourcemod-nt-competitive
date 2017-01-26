@@ -731,7 +731,61 @@ public Action Timer_Pug_SendInvites(Handle timer)
 	// 16: set players matchmake status off
 	// 17: restart logic loop
 
-	
+	// Called before cached value was set
+	if (g_iDesiredPlayers_Cached == 0)
+	{
+		return Plugin_Continue;
+	}
+	else if (g_iDesiredPlayers_Cached < 0 ||g_iDesiredPlayers_Cached > MaxClients)
+	{
+		// Fail to avoid error log spam if this were to ever happen
+		SetFailState("g_iDesiredPlayers_Cached = %i, expected value within MaxClients. \
+This should never happen.", g_iDesiredPlayers_Cached);
+	}
+
+	int acceptedPlayers = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
+
+	// Not enough accepted players to make a match
+	if (acceptedPlayers < g_iDesiredPlayers_Cached)
+	{
+		return Plugin_Continue;
+	}
+	// Try to reserve the database to handle queued up players.
+	// This will return false if another pug server served the players already.
+	if (!PugServer_SetReserve(DB_PUG_RESERVED))
+	{
+		return Plugin_Continue;
+	}
+
+	// Check current setting jic it has been changed since the
+	// g_iDesiredPlayers_Cached was cached on last mapchange.
+	int realDesiredPlayers = Database_GetDesiredPlayerCount();
+	// Also once more check available players in case some have dropped.
+	acceptedPlayers = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
+	// Nope! Release the database and give up for this loop
+	if (acceptedPlayers < realDesiredPlayers)
+	{
+		if (!PugServer_SetReserve(DB_PUG_INACTIVE))
+		{
+			// TODO / HACK / FIXME
+			// Rip. While this should never happen,
+			// it should probably make more noise
+			// as it will result in the table getting locked.
+			// There should also be some max time
+			// someone can hog the table to themselves.
+			if (!PugServer_SetReserve(DB_PUG_INACTIVE))
+				SetFailState("Failed releasing database!");
+		}
+		return Plugin_Continue;
+	}
+
+	/* At this point,
+			- db is reserved for us
+			- this server needs its db entry updated for this match
+			- players need to be chosen and given server details to join
+			- db needs to be released after this
+			- this loop needs to break and pass on handling to another one
+	*/
 
 	return Plugin_Continue;
 }

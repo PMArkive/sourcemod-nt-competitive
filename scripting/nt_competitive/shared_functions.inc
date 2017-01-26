@@ -7,6 +7,28 @@
 // TODO: Split this in plugin specific files when it's clear which parts
 // need to be shared and which don't.
 
+bool GetServerConnectionDetails(char[] sIPAddress, int &iPort)
+{
+	Handle hIP = FindConVar("ip");
+	if (hIP == null)
+	{
+		return false;
+	}
+	Handle hPort = FindConVar("hostport");
+	if (hPort == null)
+	{
+		delete hIP;
+		return false;
+	}
+
+	GetConVarString(hIP, sIPAddress, MAX_IP_LENGTH);
+	iPort = GetConVarInt(hPort);
+
+	delete hIP;
+	delete hPort;
+	return true;
+}
+
 void PrintDebug(const String:message[], any ...)
 {
 #if DEBUG

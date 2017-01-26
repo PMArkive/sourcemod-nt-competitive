@@ -183,7 +183,8 @@ public OnPluginStart()
 	AutoExecConfig(true);
 
 #if defined PLUGIN_COMP
-	g_hTimer_Pug_SendInvites = CreateTimer(10.0, Timer_Pug_SendInvites, _, TIMER_REPEAT);
+	g_hTimer_Pug_SendInvites =
+		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT);
 #endif
 }
 
@@ -242,6 +243,10 @@ public OnMapStart()
 	SetGameState(GAMESTATE_WARMUP);
 	// Make sure all global variables are reset properly
 	ResetGlobalVariables();
+
+#if defined PLUGIN_COMP
+	g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
+#endif
 }
 
 public OnConfigsExecuted()

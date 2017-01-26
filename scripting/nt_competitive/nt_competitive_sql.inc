@@ -649,15 +649,24 @@ bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 
 	Database_Initialize();
 
+	char ipAddress[MAX_IP_LENGTH];
+	int port;
+	if (!GetServerConnectionDetails(ipAddress, port))
+	{
+		ThrowError("Failed retrieving server IP and port information.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
 		g_sqlTable[TABLES_PUG_SERVERS],
-		g_sqlTable[SQL_TABLE_PUG_SERVER_NAME]);
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
 	Handle stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
-	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
+	SQL_BindParamString(stmt_Select, 0, ipAddress, false);
+	SQL_BindParamInt(stmt_Select, 1, port);
 	SQL_Execute(stmt_Select);
 
 	if (stmt_Select == null)
@@ -670,31 +679,37 @@ bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 	{
 		// Delete duplicate records
 		LogError("PugServer_SetReserve(%i): Found %i results from database for \
-		organizer \"%s\", expected 0 or 1.", reserveStatus, results, g_sIdentifier);
+		pug server \"%s:%i\", expected 0 or 1.",
+			reserveStatus, results, ipAddress, port);
 
-		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
-		g_sqlTable[TABLES_PUG_SERVERS], g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
+		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ? AND %i = ?",
+			g_sqlTable[TABLES_PUG_SERVERS],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
 		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
 			ThrowError(error);
 
-		SQL_BindParamString(stmt_Delete, 0, g_sIdentifier, false);
+		SQL_BindParamString(stmt_Delete, 0, ipAddress, false);
+		SQL_BindParamInt(stmt_Delete, 1, port);
 		SQL_Execute(stmt_Delete);
 		CloseHandle(stmt_Delete);
 
 		// Insert new record
-		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)",
-		g_sqlTable[TABLES_PUG_SERVERS],
-		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME],
-		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING]);
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
+			g_sqlTable[TABLES_PUG_SERVERS],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING]);
 
 		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
 			ThrowError(error);
 
 		new paramIndex;
-		SQL_BindParamString(stmt_Insert, paramIndex++, g_sIdentifier, false);
+		SQL_BindParamString(stmt_Insert, paramIndex++, ipAddress, false);
+		SQL_BindParamInt(stmt_Insert, paramIndex++, port);
 		SQL_BindParamInt(stmt_Insert, paramIndex++, reserveStatus);
 		SQL_Execute(stmt_Insert);
 		CloseHandle(stmt_Insert);
@@ -703,10 +718,11 @@ bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 	// Record already exists, just update
 	else if (results == 1)
 	{
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
-		g_sqlTable[TABLES_PUG_SERVERS],
-		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING],
-		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
+			g_sqlTable[TABLES_PUG_SERVERS],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
 		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
@@ -714,15 +730,16 @@ bool PugServer_SetReserve(int reserveStatus = DB_PUG_INACTIVE)
 
 		new paramIndex;
 		SQL_BindParamInt(stmt_Update, paramIndex++, reserveStatus);
-		SQL_BindParamString(stmt_Update, paramIndex++, g_sIdentifier, false);
+		SQL_BindParamString(stmt_Update, paramIndex++, ipAddress, false);
+		SQL_BindParamInt(stmt_Update, paramIndex++, port);
 		SQL_Execute(stmt_Update);
 		CloseHandle(stmt_Update);
 		return true;
 	}
 	// No record was found at all, this is an error!
 	LogError("PugServer_SetReserve(%i): \
-Found no database entry for pug server \"%s\". This should never happen.",
-		reserveStatus, g_sIdentifier);
+Found no database entry for pug server \"%s:%i\". This should never happen.",
+		reserveStatus, ipAddress, port);
 
 	return false;
 }
@@ -880,6 +897,13 @@ int Organizers_Get_Status_This()
 #if defined PLUGIN_COMP
 bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 {
+	char ipAddress[MAX_IP_LENGTH];
+	int port;
+	if (!GetServerConnectionDetails(ipAddress, port))
+	{
+		ThrowError("Failed retrieving server IP and port information.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUG_SERVERS]);
@@ -891,17 +915,27 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 
 	SQL_Execute(stmt_Select);
 
-	decl String:identifier[sizeof(g_sIdentifier)];
+	char ipBuffer[MAX_IP_LENGTH];
+	int portBuffer;
 	int dbState;
 	while (SQL_FetchRow(stmt_Select))
 	{
 		if (!includeMyself)
 		{
-			SQL_FetchString(stmt_Select, SQL_TABLE_PUG_SERVER_NAME,
-				identifier, sizeof(identifier));
+			SQL_FetchString(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_IP,
+				ipBuffer, sizeof(ipBuffer));
+			portBuffer = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_CONNECT_PORT);
 
-			if (StrEqual(identifier, g_sIdentifier))
+			if (strlen(ipBuffer) < 1)
+			{
+				ThrowError("Failed fetching ip address from database to compare against %s",
+					ipAddress);
+			}
+			// Found this server, skip
+			if (StrEqual(ipAddress, ipBuffer) && port == portBuffer)
+			{
 				continue;
+			}
 		}
 
 		dbState = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_RESERVING);
@@ -1218,7 +1252,7 @@ int Pugger_GetQueuingState(client, const String:connectIP[MAX_IP_LENGTH] = "", c
 	return state;
 }
 
-#if defined PLUGIN_PUG
+#if defined PLUGIN_PUG || defined PLUGIN_COMP
 int Puggers_GetCountPerState(state)
 {
 	if (0 > state > PUGGER_STATE_ENUM_COUNT)
@@ -1245,7 +1279,9 @@ int Puggers_GetCountPerState(state)
 
 	return results;
 }
+#endif
 
+#if defined PLUGIN_PUG
 void CheckSQLConstants()
 {
 	CheckForSpookiness(g_sIdentifier);

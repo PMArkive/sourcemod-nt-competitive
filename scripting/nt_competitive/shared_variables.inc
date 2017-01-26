@@ -6,6 +6,10 @@
 // TODO: Split this in plugin specific files when it's clear which parts
 // need to be shared and which don't.
 
+#if defined PLUGIN_COMP
+#define MATCHMAKE_LOOKUP_TIMER 10.0
+#endif
+
 #define MAX_IP_LENGTH 46
 #define MAX_IDENTIFIER_LENGTH 52
 #define MAX_CVAR_LENGTH 64
@@ -107,6 +111,8 @@ new g_penalizedTeam;
 new g_ghostCapturingTeam;
 new g_epoch;
 new g_serverPort;
+
+int g_iDesiredPlayers_Cached;
 
 new Float:g_fRoundTime;
 new Float:g_fPuggersPresentTimer = 180.0;

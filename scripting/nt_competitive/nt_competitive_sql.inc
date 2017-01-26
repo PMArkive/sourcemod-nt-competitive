@@ -903,6 +903,11 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 	{
 		ThrowError("Failed retrieving server IP and port information.");
 	}
+	else if (IsLocalhostString(ipAddress))
+	{
+		ThrowError("Retrieved localhost address %s instead of external address.",
+			ipAddress);
+	}
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];

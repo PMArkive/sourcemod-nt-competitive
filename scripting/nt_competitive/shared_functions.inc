@@ -29,6 +29,17 @@ bool GetServerConnectionDetails(char[] sIPAddress, int &iPort)
 	return true;
 }
 
+bool IsLocalhostString(const char[] ipAddress)
+{
+	if (StrEqual(ipAddress, "localhost") ||
+			StrEqual(ipAddress, "127.0.0.1") ||
+			StrContains(ipAddress, "192.168.") == 0)
+	{
+		return true;
+	}
+	return false;
+}
+
 void PrintDebug(const String:message[], any ...)
 {
 #if DEBUG

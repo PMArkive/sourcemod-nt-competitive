@@ -710,11 +710,7 @@ void GenerateIdentifier_This()
 	}
 
 #if DEBUG_SQL == 0 // Skip this check when debugging
-	if (
-		StrEqual(ipAddress, "localhost") ||
-		StrEqual(ipAddress, "127.0.0.1") ||
-		StrContains(ipAddress, "192.168.") == 0
-	)
+	if (IsLocalhostString(ipAddress))
 	{
 		SetFailState("Could not get real external IP address, \
 returned a local address \"%s\" instead. \

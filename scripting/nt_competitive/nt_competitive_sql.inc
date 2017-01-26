@@ -1180,7 +1180,7 @@ command.");
 					%s INT NOT NULL AUTO_INCREMENT, \
 					%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
 					%s VARCHAR(%i) NOT NULL, \
-					%s VARCHAR (45) NOT NULL, \
+					%s VARCHAR (%i) NOT NULL, \
 					%s INT NOT NULL, \
 					%s VARCHAR(%i) NOT NULL, \
 					%s INT NOT NULL, \
@@ -1191,11 +1191,11 @@ command.");
 					g_sqlRow_PickupServers[arrayIndex--],
 					g_sqlRow_PickupServers[arrayIndex--],
 					g_sqlRow_PickupServers[arrayIndex--], MAX_CVAR_LENGTH,
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[arrayIndex--], MAX_CVAR_LENGTH,
+					g_sqlRow_PickupServers[arrayIndex--], MAX_IP_LENGTH,
 					g_sqlRow_PickupServers[arrayIndex--],
 					g_sqlRow_PickupServers[arrayIndex--], MAX_CVAR_LENGTH,
+					g_sqlRow_PickupServers[arrayIndex--],
+					g_sqlRow_PickupServers[arrayIndex--],
 					g_sqlRow_PickupServers[arrayIndex--],
 					g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ID]
 	);

@@ -321,7 +321,7 @@ void OfferMatch()
 		return;
 
 	// Reserve a PUG server
-	if (!PugServer_Reserve())
+	if (!ReservePugServer())
 	{
 		Database_GiveUpMatch();
 		return;
@@ -426,7 +426,7 @@ void AcceptMatch(client)
 	CloseHandle(panel);
 }
 
-bool PugServer_Reserve()
+bool ReservePugServer()
 {
 	Database_Initialize();
 

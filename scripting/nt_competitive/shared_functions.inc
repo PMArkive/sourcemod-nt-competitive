@@ -4,6 +4,9 @@
 #endif
 #define _shared_functions_included_
 
+// TODO: Split this in plugin specific files when it's clear which parts
+// need to be shared and which don't.
+
 void PrintDebug(const String:message[], any ...)
 {
 #if DEBUG

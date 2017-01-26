@@ -3,6 +3,9 @@
 #endif
 #define _shared_variables_included_
 
+// TODO: Split this in plugin specific files when it's clear which parts
+// need to be shared and which don't.
+
 #define MAX_IP_LENGTH 46
 #define MAX_IDENTIFIER_LENGTH 52
 #define MAX_CVAR_LENGTH 64

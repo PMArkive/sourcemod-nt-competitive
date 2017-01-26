@@ -787,6 +787,79 @@ This should never happen.", g_iDesiredPlayers_Cached);
 			- this loop needs to break and pass on handling to another one
 	*/
 
-	return Plugin_Continue;
+	// Get my IP and port
+	char ipAddress[MAX_IP_LENGTH];
+	int port;
+	if (!GetServerConnectionDetails(ipAddress, port))
+	{
+		PugServer_SetReserve(DB_PUG_INACTIVE);
+		return Plugin_Continue;
+	}
+	// Set my status
+	PugServer_Set_Status(PUG_SERVER_STATUS_RESERVED, ipAddress, port);
+	// Try to send invites to players
+	if (!InvitePlayers(realDesiredPlayers))
+	{
+		PugServer_SetReserve(DB_PUG_INACTIVE);
+		return Plugin_Continue;
+	}
+
+	// Everything passed! We have a match, stop this loop timer for now.
+	return Plugin_Stop;
+}
+
+bool InvitePlayers(int inviteAmount)
+{
+	if (inviteAmount < 1 || inviteAmount > MaxClients)
+	{
+		ThrowError("Invalid inviteAmount %i, expected 1 - %i",
+			inviteAmount, MaxClients);
+	}
+
+	new String:players_SteamID[MAXPLAYERS+1][MAX_STEAMID_LENGTH];
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+
+	Handle stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		ThrowError(error);
+	}
+	SQL_BindParamInt(stmt, 0, PUGGER_STATE_ACCEPTED);
+	SQL_Execute(stmt);
+
+	int players;
+	while (SQL_FetchRow(stmt))
+	{
+		if (players == inviteAmount)
+			break;
+
+		SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID,
+			players_SteamID[players], sizeof(players_SteamID[]));
+		players++;
+	}
+	delete stmt;
+
+	if (players == 0)
+	{
+		ThrowError("No players found.");
+	}
+	else if (players < inviteAmount)
+	{
+		ThrowError("Found %i players, expected to find at least %i players.",
+			players, inviteAmount);
+	}
+
+	PrintToServer("InvitePlayers(%i): Success", inviteAmount);
+	for (int i = 0; i < inviteAmount; i++)
+	{
+		PrintToServer("Player %i: %s", i, players_SteamID[i]);
+	}
+
+	return true;
 }
 #endif

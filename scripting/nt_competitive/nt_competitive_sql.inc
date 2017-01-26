@@ -726,7 +726,7 @@ bool Organizers_Update_This(reserveStatus = SERVER_DB_INACTIVE)
 	// No record was found at all, this is an error!
 	LogError("Organizers_Update_This(%i): \
 Found no database entry for organizer \"%s\". This should never happen.",
-		g_sIdentifier);
+		reserveStatus, g_sIdentifier);
 
 	return false;
 }

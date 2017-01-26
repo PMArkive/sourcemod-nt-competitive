@@ -5,7 +5,7 @@
 */
 #pragma semicolon 1
 
-#define PLUGIN_PUG
+#define PLUGIN_PUG 1
 #define PLUGIN_VERSION "0.1"
 
 #define DEBUG 1
@@ -39,6 +39,9 @@ public Plugin:myinfo = {
 
 public OnPluginStart()
 {
+#if !defined PLUGIN_PUG
+	SetFailState("Compile flag PLUGIN_PUG needs to be set in main pug.sp source file.");
+#endif
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 	RegConsoleCmd("sm_join", Command_Accept);

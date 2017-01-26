@@ -711,8 +711,27 @@ public Action:SayCallback(client, const String:command[], argc)
 #if defined PLUGIN_COMP
 public Action Timer_Pug_SendInvites(Handle timer)
 {
-	// TODO: Check for available accepted clients,
-	// although there was probably some related call in the pug end for this...
+	// TODO:
+	// 0: store desired players from db (update once per map?)
+	// 1: check if accepted players >= desired players
+	// 2: check if pug db is available for reservation
+	// 3: reserve db
+	// 4: check if accepted players still >= desired players
+	// 5: prepare server for match (ie. stop this loop as we're not looking)
+	// 6: get desired players amount and mark them for match in this server
+	// 7: release db
+	// 8: wait for players
+	// 9: if everyone doesn't show up in n time, look for replacements
+	// 10: if no replacements, give up and restart logic
+	// 11: if have desired players players, start game and mark it in db etc.
+	// 12: update game status every round
+	// 13: if server crashes, restore status from db
+	// 14: wait for game over state (match win, forfeit, etc.)
+	// 15: store final result
+	// 16: set players matchmake status off
+	// 17: restart logic loop
+
+	
 
 	return Plugin_Continue;
 }

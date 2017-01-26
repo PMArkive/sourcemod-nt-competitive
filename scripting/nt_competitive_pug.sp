@@ -40,7 +40,6 @@ public Plugin:myinfo = {
 public OnPluginStart()
 {
 #if !defined PLUGIN_PUG
-	#error Compile flag PLUGIN_PUG needs to be set in main pug.sp source file.
 #endif
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);

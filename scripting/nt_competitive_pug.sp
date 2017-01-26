@@ -40,6 +40,7 @@ public Plugin:myinfo = {
 public OnPluginStart()
 {
 #if !defined PLUGIN_PUG
+	#error Compile flag PLUGIN_PUG needs to be set in nt_competitive_pug.sp.
 #endif
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);

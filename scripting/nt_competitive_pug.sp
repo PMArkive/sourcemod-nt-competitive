@@ -317,7 +317,7 @@ void FindNewMatch()
 void OfferMatch()
 {
 	// Attempt database reservation
-	if (!Organizers_Update_This(SERVER_DB_RESERVED))
+	if (!Organizers_Update_This(DB_ORG_RESERVED))
 		return;
 
 	// Reserve a PUG server

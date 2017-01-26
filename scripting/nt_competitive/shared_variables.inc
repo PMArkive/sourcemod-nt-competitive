@@ -297,9 +297,9 @@ enum {
 };
 // Avoid double booking games and other conflicts
 enum {
-	SERVER_DB_INACTIVE = 0,								    	// This server is not editing the SQL database
-	SERVER_DB_RESERVED = 1,									   	// This server has reserved the right to edit the SQL database
-	SERVER_DB_ENUM_COUNT = 2
+	DB_ORG_INACTIVE = 0,								    	// This server is not editing the SQL database
+	DB_ORG_RESERVED = 1,									   	// This server has reserved the right to edit the SQL database
+	DB_ORG_ENUM_COUNT = 2
 };
 
 enum {

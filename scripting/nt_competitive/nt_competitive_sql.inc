@@ -224,7 +224,7 @@ void Database_AddPugger(client, bool bySteamID = false, const char[] steamID = "
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
 	if (!bySteamID)
-		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+		GetClientAuthId(client, AuthId_Steam2, steamIDBuffer, sizeof(steamIDBuffer));
 	else
 		strcopy(steamIDBuffer, sizeof(steamIDBuffer), steamID);
 

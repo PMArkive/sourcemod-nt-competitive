@@ -881,7 +881,6 @@ bool InvitePlayers(int inviteAmount)
 			ThrowError("Failed to escape string for SQL, aborting.");
 		}
 
-		//PrintToServer("Player %i: %s", i, players_SteamID[i]);
 		Format(sqlCommand, sizeof(sqlCommand),
 			"UPDATE %s SET %s = %i WHERE %s = '%s' AND %s = %i",
 			g_sqlTable[TABLES_PUGGERS],
@@ -889,27 +888,27 @@ bool InvitePlayers(int inviteAmount)
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], escapedSteamID,
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_ACCEPTED);
 		SQL_AddQuery(txnInvite, sqlCommand);
+		// "Cache" SteamIDs locally to track who's playing
+		strcopy(g_livePlayers[i], sizeof(g_livePlayers[]), escapedSteamID);
+		// Store the SQL command for any tnx error logging
 		sqlCmds.WriteString(sqlCommand);
-		// These players still need to be marked on this server
 	}
 	// Db handle must be locked for the threaded operation!
 	SQL_LockDatabase(g_hDB);
 	// Txn handle closes itself automatically here
 	SQL_ExecuteTransaction(g_hDB, txnInvite, SQLTxnSuccess_InvitePlayers, SQLTxnFailure_InvitePlayers, sqlCmds, DBPrio_High);
-	// ...and unlocked after.
+	// ...and unlocked after!
+	// Any potential errors in the txn callbacks don't
+	// interfere with this, so a safe unlock should be guaranteed.
 	SQL_UnlockDatabase(g_hDB);
-
-
-	// * Edit player db entries where (if) needed
-	// * Store SteamIDs etc for this match locally so we know who's playing
-	// * Need to release db once ready
-	// * Warmup timer sort of thing, start/cancel on time or !ready
-
+	// The SQLTxnSuccess_InvitePlayers callback takes over from here.
 	return true;
 }
 
 public void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
 {
+	// * Need to release db once ready
+	// * Warmup timer sort of thing, start/cancel on time or !ready
 	PrintToServer("yesss");
 }
 

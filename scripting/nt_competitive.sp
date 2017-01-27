@@ -266,7 +266,10 @@ public OnConfigsExecuted()
 
 #if defined PLUGIN_COMP
 	if (GetConVarBool(g_hPugEnabled))
+	{
+		Database_Initialize();
 		PugMode_Initialize();
+	}
 #endif
 }
 

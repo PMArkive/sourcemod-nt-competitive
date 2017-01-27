@@ -2921,7 +2921,6 @@ void CancelLiveCountdown()
 #if defined PLUGIN_COMP
 bool PugMode_Initialize()
 {
-	Database_Initialize();
 	Pug_PasswordServer();
 
 	if (!PugServer_Update_This())
@@ -2959,21 +2958,23 @@ void Pug_KickEveryone(bool:kickAdmins = false)
 	}
 }
 
+// Purpose: Find inviteAmount players who have accepted an invitation
+// and assign them to play on this server.
 bool InvitePlayers(int inviteAmount)
 {
-	// XXX/TODO: Can this throw errors or should it return false for caller to handle it properly?
 	if (inviteAmount < 1 || inviteAmount > MaxClients)
 	{
-		ThrowError("Invalid inviteAmount %i, expected 1 - %i",
+		LogError("InvitePlayers: Invalid inviteAmount %i, expected 1 - %i",
 			inviteAmount, MaxClients);
+		return false;
 	}
 	else if (PugServers_Is_Anyone_Busy(false))
 	{
-		ThrowError("Write conflict: someone else has marked themselves as using the db table!");
+		LogError("InvitePlayers: Write conflict; someone else has marked themselves as using the db table!");
 	}
 	else if (PugServer_GetReserve_This() != DB_PUG_RESERVED)
 	{
-		ThrowError("This server has lost its db reservation or db connection failed.");
+		LogError("InvitePlayers: This server has lost its db reservation or db connection failed.");
 	}
 
 	new String:players_SteamID[MAXPLAYERS+1][MAX_STEAMID_LENGTH];
@@ -3006,12 +3007,14 @@ bool InvitePlayers(int inviteAmount)
 
 	if (players == 0)
 	{
-		ThrowError("No players found.");
+		LogError("InvitePlayers: No players found.");
+		return false;
 	}
 	else if (players < inviteAmount)
 	{
-		ThrowError("Found %i players, expected to find at least %i players.",
+		LogError("InvitePlayers: Found %i players, expected to find at least %i players.",
 			players, inviteAmount);
+		return false;
 	}
 
 	PrintToServer("InvitePlayers(%i): Success", inviteAmount);
@@ -3029,7 +3032,9 @@ bool InvitePlayers(int inviteAmount)
 				escapedSize < 1)
 		{
 			delete txnInvite;
-			ThrowError("Failed to escape string for SQL, aborting.");
+			LogError("InvitePlayers: Failed to escape SteamID string for SQL, \
+aborting. String attempted to be escaped: %s", players_SteamID[i]);
+			return false;
 		}
 
 		Format(sqlCommand, sizeof(sqlCommand),
@@ -3045,12 +3050,14 @@ bool InvitePlayers(int inviteAmount)
 		sqlCmds.WriteString(sqlCommand);
 	}
 	// Db handle must be locked for the threaded operation!
+	PrintToServer("Locking");
 	SQL_LockDatabase(g_hDB);
 	// Txn handle closes itself automatically here
 	SQL_ExecuteTransaction(g_hDB, txnInvite, SQLTxnSuccess_InvitePlayers, SQLTxnFailure_InvitePlayers, sqlCmds, DBPrio_High);
 	// ...and unlocked after!
 	// Any potential errors in the txn callbacks don't
 	// interfere with this, so a safe unlock should be guaranteed.
+	PrintToServer("Unlocking");
 	SQL_UnlockDatabase(g_hDB);
 	// The SQLTxnSuccess_InvitePlayers callback (parser.inc) takes over from here.
 	// TODO: ensure the tnx failure callback aborts this logic

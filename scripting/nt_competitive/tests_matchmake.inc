@@ -59,10 +59,11 @@ void Test_Matchmake_Main()
 
   /*Tests start, format:
       tests++; if (Test_Function()) { passed++; } else { failed++; }*/
-  tests++; if (Test_AlwaysPass())                   { passed++; } else { failed++; }
-  tests++; if (Test_Matchmake_DatabaseConnection()) { passed++; } else { failed++; }
-  tests++; if (Test_Matchmake_DatabaseOperations()) { passed++; } else { failed++; }
-  tests++; if (Test_Matchmake_PugServer())          { passed++; } else { failed++; }
+  tests++; if (Test_AlwaysPass())                       { passed++; } else { failed++; }
+  tests++; if (Test_Matchmake_DatabaseConnection())     { passed++; } else { failed++; }
+  tests++; if (Test_Matchmake_DatabaseOperations())     { passed++; } else { failed++; }
+  tests++; if (Test_Matchmake_PugServer_Reservations()) { passed++; } else { failed++; }
+  tests++; if (Test_Matchmake_PugServer_Matchmake())    { passed++; } else { failed++; }
   // Tests end.
 
   // Results
@@ -195,9 +196,9 @@ the removed pugger's state from the db returns PUGGER_STATE_INACTIVE."
   return DidWePass_SubTest(failCount);
 }
 
-bool Test_Matchmake_PugServer()
+bool Test_Matchmake_PugServer_Reservations()
 {
-  PrintToServer("- Sub test: Test_Matchmake_PugServer...");
+  PrintToServer("- Sub test: Test_Matchmake_PugServer_Reservations...");
   int failCount;
 
   if (GetConVarInt(g_hPugEnabled) != 1)
@@ -251,6 +252,40 @@ Assuming that there are no live pug servers in this test case."
   );
   PugServer_SetReserve_This(DB_PUG_INACTIVE);
 
+
+  return DidWePass_SubTest(failCount);
+}
+
+bool Test_Matchmake_PugServer_Matchmake()
+{
+  PrintToServer("- Sub test: Test_Matchmake_PugServer_Matchmake...");
+  int failCount;
+
+  int readyPlayers = Puggers_GetCountPerState(PUGGER_STATE_READY);
+  PrintToServer("readyPlayers = %i", readyPlayers);
+  // Set up fake players whose match invitations to handle
+  decl String:steamID[MAX_STEAMID_LENGTH];
+  int fakePlayers = 10;
+  for (int i = 1; i <= fakePlayers; i++)
+  {
+    Format(steamID, sizeof(steamID), "STEAMID_%i", i);
+    Database_AddPugger(_, true, steamID);
+    Pugger_SetQueuingState(_, PUGGER_STATE_ACCEPTED, true, steamID);
+  }
+
+  Assert(
+    InvitePlayers(fakePlayers), failCount,
+    "Marking invitees with InvitePlayers() returns true."
+  );
+
+  int newReadyPlayers = Puggers_GetCountPerState(PUGGER_STATE_READY);
+  Assert(
+    newReadyPlayers == readyPlayers + fakePlayers,
+    failCount,
+    "Amount of puggers with PUGGER_STATE_READY is %i, and equals \
+the previous amount %i plus the amount of invitees from before %i.",
+      newReadyPlayers, readyPlayers, fakePlayers
+  );
 
   return DidWePass_SubTest(failCount);
 }

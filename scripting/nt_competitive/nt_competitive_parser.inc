@@ -704,26 +704,6 @@ public Action:SayCallback(client, const String:command[], argc)
 #if defined PLUGIN_COMP
 public Action Timer_Pug_SendInvites(Handle timer)
 {
-	// TODO:
-	// 0: store desired players from db (update once per map?)
-	// 1: check if accepted players >= desired players
-	// 2: check if pug db is available for reservation
-	// 3: reserve db
-	// 4: check if accepted players still >= desired players
-	// 5: prepare server for match (ie. stop this loop as we're not looking)
-	// 6: get desired players amount and mark them for match in this server
-	// 7: release db
-	// 8: wait for players
-	// 9: if everyone doesn't show up in n time, look for replacements
-	// 10: if no replacements, give up and restart logic
-	// 11: if have desired players players, start game and mark it in db etc.
-	// 12: update game status every round
-	// 13: if server crashes, restore status from db
-	// 14: wait for game over state (match win, forfeit, etc.)
-	// 15: store final result
-	// 16: set players matchmake status off
-	// 17: restart logic loop
-
 	// Called before cached value was set
 	if (g_iDesiredPlayers_Cached == 0)
 	{
@@ -750,13 +730,13 @@ This should never happen.", g_iDesiredPlayers_Cached);
 		return Plugin_Continue;
 	}
 
-	// Check current setting jic it has been changed since the
-	// g_iDesiredPlayers_Cached was cached on last mapchange.
-	int realDesiredPlayers = Database_GetDesiredPlayerCount();
+	// Re-sync current setting jic; it may have been changed since the
+	// g_iDesiredPlayers_Cached was cached on last mapchange or whenever.
+	g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
 	// Also once more check available players in case some have dropped.
 	acceptedPlayers = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
 	// Nope! Release the database and give up for this loop
-	if (acceptedPlayers < realDesiredPlayers)
+	if (acceptedPlayers < g_iDesiredPlayers_Cached)
 	{
 		if (!PugServer_SetReserve_This(DB_PUG_INACTIVE))
 		{
@@ -765,7 +745,8 @@ This should never happen.", g_iDesiredPlayers_Cached);
 			// it should probably make more noise
 			// as it will result in the table getting locked.
 			// There should also be some max time
-			// someone can hog the table to themselves.
+			// someone can hog the table to themselves,
+			// probably reservation timestamp based so anyone can solve it.
 			if (!PugServer_SetReserve_This(DB_PUG_INACTIVE))
 				SetFailState("Failed releasing database!");
 		}
@@ -791,7 +772,7 @@ This should never happen.", g_iDesiredPlayers_Cached);
 	// Set my status
 	PugServer_Set_Status(PUG_SERVER_STATUS_RESERVED, ipAddress, port);
 	// Try to send invites to players
-	if (!InvitePlayers(realDesiredPlayers))
+	if (!InvitePlayers(g_iDesiredPlayers_Cached))
 	{
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return Plugin_Continue;

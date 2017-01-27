@@ -105,8 +105,6 @@ void Pugger_Remove(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMI
 			ThrowError("Could not fetch SteamID for client %i", client);
 	}
 
-	Database_Initialize();
-
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -230,7 +228,6 @@ bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID
 		if (!IsValidClient(client) || IsFakeClient(client))
 			ThrowError("Invalid client %i", client);
 	}
-	Database_Initialize();
 
 	decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
 	decl String:sql[MAX_SQL_LENGTH];
@@ -303,8 +300,6 @@ expected 0 or 1", steamIDBuffer);
 
 void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID[MAX_STEAMID_LENGTH] = "")
 {
-	Database_Initialize();
-
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -402,8 +397,6 @@ void Database_LogIgnore(client)
 
 void Database_CleanAFKers()
 {
-	Database_Initialize();
-
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -564,7 +557,6 @@ bool PugServer_Set_Status(status, String:sIPAddress[MAX_IP_LENGTH], iPort)
 		ThrowError("Invalid enum %i, expected enum between %i - %i",
 			status, PUG_SERVER_STATUS_ERROR, PUG_SERVER_STATUS_ENUM_COUNT);
 	}
-	Database_Initialize();
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -706,8 +698,6 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 			reserveStatus, DB_PUG_INACTIVE, DB_PUG_ENUM_COUNT-1);
 	}
 
-	Database_Initialize();
-
 	char ipAddress[MAX_IP_LENGTH];
 	int port;
 	if (!GetServerConnectionDetails(ipAddress, port))
@@ -827,8 +817,6 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 			reserveStatus, DB_ORG_INACTIVE, DB_ORG_ENUM_COUNT-1);
 	}
 
-	Database_Initialize();
-
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -913,7 +901,6 @@ Found no database entry for organizer \"%s\". This should never happen.",
 int Organizers_Get_Status_This()
 {
 	PrintDebug("Organizers_Get_Status_This()");
-	Database_Initialize();
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -1306,7 +1293,6 @@ int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "
 		if (!IsValidClient(client) || IsFakeClient(client))
 			ThrowError("Invalid client %i", client);
 	}
-	Database_Initialize();
 
 	// %wildcard% the IP for SQL LIKE query.
 	// If argument is not passed, it will match anything.
@@ -1346,6 +1332,10 @@ int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT]);
 
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		ThrowError(error);
+	}
 
 	new paramIndex;
 	SQL_BindParamString(stmt, paramIndex++, steamIDBuffer, false);
@@ -1373,13 +1363,11 @@ int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "
 #if defined PLUGIN_PUG || defined PLUGIN_COMP
 int Puggers_GetCountPerState(state)
 {
-	if (0 > state > PUGGER_STATE_ENUM_COUNT)
+	if (0 > state || state > PUGGER_STATE_ENUM_COUNT)
 	{
 		ThrowError("Invalid state %i, expected state between 0 and %i",
 		state, PUGGER_STATE_ENUM_COUNT);
 	}
-
-	Database_Initialize();
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -1388,6 +1376,10 @@ int Puggers_GetCountPerState(state)
 	g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		ThrowError(error);
+	}
 
 	SQL_BindParamInt(stmt, 0, state);
 	SQL_Execute(stmt);
@@ -1414,8 +1406,6 @@ void CheckSQLConstants()
 
 int Database_GetDesiredPlayerCount()
 {
-	Database_Initialize();
-
 	decl String:sql[MAX_SQL_LENGTH];
 
 	Format(sql, sizeof(sql), "SELECT %s FROM %s",
@@ -1441,8 +1431,6 @@ int Database_GetDesiredPlayerCount()
 #if defined PLUGIN_PUG
 int Database_GetEpoch()
 {
-	Database_Initialize();
-
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP()");
 
@@ -1533,8 +1521,6 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 		ThrowError("Invalid state %i, expected value between 0 and %i.",
 		state, PUGGER_STATE_ENUM_COUNT-1);
 	}
-
-	Database_Initialize();
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];

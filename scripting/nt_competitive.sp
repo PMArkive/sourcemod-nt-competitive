@@ -16,6 +16,11 @@
 // and just have the regular competitive game features.
 #define PLUGIN_COMP 1
 
+#define TESTS_INCLUDED_MATCHMAKE 1
+#if defined TESTS_INCLUDED_MATCHMAKE && TESTS_INCLUDED_MATCHMAKE != 1
+	#error TESTS_INCLUDED_MATCHMAKE needs to be undefined or equal 1.
+#endif
+
 //#define DEBUG 0 // Release
 #define DEBUG 1 // Debug
 
@@ -36,6 +41,7 @@ new bool:g_bIsDatabaseDown;
 #include "nt_competitive/nt_competitive_panel"
 #include "nt_competitive/nt_competitive_parser"
 #include "nt_competitive/nt_competitive_sql"
+#include "nt_competitive/tests_matchmake"
 
 public Plugin:myinfo = {
 	name		=	"Neotokyo Competitive Plugin",
@@ -87,6 +93,9 @@ public OnPluginStart()
 #if DEBUG_SQL
 	RegAdminCmd("sm_pug_createdb", Command_CreateTables, ADMFLAG_RCON,
 		"Create PUG tables in database. Debug command.");
+#endif
+#if defined TESTS_INCLUDED_MATCHMAKE
+	RegAdminCmd("sm_runtest_matchmake", Command_RunTest_Matchmake, ADMFLAG_GENERIC, "Run tests for matchmaking functionality.");
 #endif
 
 	HookEvent("game_round_start",	Event_RoundStart);

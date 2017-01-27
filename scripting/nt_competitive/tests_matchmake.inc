@@ -87,6 +87,17 @@ void Test_Matchmake_Main()
   PrintToServer("\nTesting complete.\n- - - - - - - - - -\n");
 }
 
+bool Test_AlwaysPass()
+{
+  PrintToServer("- Sub test: Test_AlwaysPass...");
+  int failCount;
+
+  Assert(1 == 1, "One equals one.", failCount);
+  Assert(true, "True.", failCount);
+
+  return DidWePass_SubTest(failCount);
+}
+
 bool Test_Matchmake_InitialiseMatch()
 {
   PrintToServer("- Sub test: Test_Matchmake_InitialiseMatch...");
@@ -95,17 +106,6 @@ bool Test_Matchmake_InitialiseMatch()
   Assert(Database_Initialize(), "Database initialisation function returns true.", failCount);
   // Implied by successful Database_Initialize() in the above assertion
   Assert(g_hDB != null,         "Global db handle is not null.", failCount);
-
-  return DidWePass_SubTest(failCount);
-}
-
-bool Test_AlwaysPass()
-{
-  PrintToServer("- Sub test: Test_AlwaysPass...");
-  int failCount;
-
-  Assert(1 == 1, "One equals one.", failCount);
-  Assert(true, "True.", failCount);
 
   return DidWePass_SubTest(failCount);
 }

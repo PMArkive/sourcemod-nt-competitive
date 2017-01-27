@@ -2971,10 +2971,12 @@ bool InvitePlayers(int inviteAmount)
 	else if (PugServers_Is_Anyone_Busy(false))
 	{
 		LogError("InvitePlayers: Write conflict; someone else has marked themselves as using the db table!");
+		return false;
 	}
 	else if (PugServer_GetReserve_This() != DB_PUG_RESERVED)
 	{
 		LogError("InvitePlayers: This server has lost its db reservation or db connection failed.");
+		return false;
 	}
 
 	new String:players_SteamID[MAXPLAYERS+1][MAX_STEAMID_LENGTH];

@@ -1119,6 +1119,28 @@ command.");
 	new Handle:query_CreateRules = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreateRules);
 
+	Format(sql, sizeof(sql), "SELECT * from %s", g_sqlTable[TABLES_RULES]);
+	Handle query_SelectRules = SQL_Query(g_hDB, sql);
+	if (query_SelectRules == null)
+		ThrowError("SQL query failed, SQL: %s", sql);
+
+	rows = SQL_GetRowCount(query_SelectRules);
+	delete query_SelectRules;
+	if (rows == 0)
+	{
+		int desiredPlayerCount = 2;
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s) VALUES (%i)",
+			g_sqlTable[TABLES_RULES],
+			g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT],
+			desiredPlayerCount
+		);
+		SQL_FastQuery(g_hDB, sql);
+	}
+	else if (rows > 1)
+	{
+		ThrowError("Too many rules table rows.");
+	}
+
 	// todo: optimise INT sizes
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_PUGGER_ENUM_COUNT-1;

@@ -734,27 +734,29 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 	int results = SQL_GetRowCount(stmt_Select);
 	delete stmt_Select;
 
-	if (results > 1)
+	if (results > 1 || results == 0)
 	{
-		// Delete duplicate records
-		LogError("PugServer_SetReserve_This(%i): Found %i results from database for \
-		pug server \"%s:%i\", expected 0 or 1.",
-			reserveStatus, results, ipAddress, port);
+		if (results > 1)
+		{
+			// Delete duplicate records
+			LogError("PugServer_SetReserve_This(%i): Found %i results from database for \
+			pug server \"%s:%i\", expected 0 or 1.",
+				reserveStatus, results, ipAddress, port);
 
-		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ? AND %i = ?",
-			g_sqlTable[TABLES_PUG_SERVERS],
-			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
-			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
+			Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ? AND %i = ?",
+				g_sqlTable[TABLES_PUG_SERVERS],
+				g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+				g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-		new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
-		if (stmt_Delete == INVALID_HANDLE)
-			ThrowError(error);
+			new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+			if (stmt_Delete == INVALID_HANDLE)
+				ThrowError(error);
 
-		SQL_BindParamString(stmt_Delete, 0, ipAddress, false);
-		SQL_BindParamInt(stmt_Delete, 1, port);
-		SQL_Execute(stmt_Delete);
-		CloseHandle(stmt_Delete);
-
+			SQL_BindParamString(stmt_Delete, 0, ipAddress, false);
+			SQL_BindParamInt(stmt_Delete, 1, port);
+			SQL_Execute(stmt_Delete);
+			CloseHandle(stmt_Delete);
+		}
 		// Insert new record
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
 			g_sqlTable[TABLES_PUG_SERVERS],
@@ -795,11 +797,7 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 		CloseHandle(stmt_Update);
 		return true;
 	}
-	// No record was found at all, this is an error!
-	LogError("PugServer_SetReserve_This(%i): \
-Found no database entry for pug server \"%s:%i\". This should never happen.",
-		reserveStatus, ipAddress, port);
-
+	ThrowError("Something went wrong."); // should never happen
 	return false;
 }
 #endif
@@ -1079,6 +1077,12 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 // TODO: Always log this command to a logfile
 public Action:Command_CreateTables(client, args)
 {
+	Database_CreateTables(client);
+	return Plugin_Handled;
+}
+
+void Database_CreateTables(int client = 0)
+{
 	new rows;
 	for (int i = 0; i < TABLES_ENUM_COUNT; i++)
 	{
@@ -1088,19 +1092,19 @@ public Action:Command_CreateTables(client, args)
 
 	if (rows > 0)
 	{
-		ReplyToCommand(client, "%s Database returned %i already existing PUG rows!",
-			g_sTag, rows);
-		ReplyToCommand(client, "Make sure no PUG tables exist before running this \
-command.");
-		ReplyToCommand(client, "No new tables were created by this command.");
+		if (IsValidClient(client))
+		{
+			ReplyToCommand(client, "%s Database returned %i already existing PUG rows!",
+				g_sTag, rows);
+			ReplyToCommand(client, "Make sure no PUG tables exist before running this \
+	command.");
+			ReplyToCommand(client, "No new tables were created by this command.");
+		}
 
-		decl String:clientName[MAX_NAME_LENGTH];
-		GetClientName(client, clientName, sizeof(clientName));
-		LogError("Client %i (\"%s\") attempted to run Command_CreateTables while %i \
+		LogError("Attempted to run Command_CreateTables while %i \
 		PUG rows already exist. Command was aborted. PUG plugin debug level: %i. \
-		SQL debug level: %i", client, clientName, rows, DEBUG, DEBUG_SQL);
-
-		return Plugin_Stop;
+		SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
+		return;
 	}
 
 	Database_Initialize(false);
@@ -1262,8 +1266,6 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		);
 	new Handle:query_CreateMatches = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreateMatches);
-
-	return Plugin_Handled;
 }
 #endif
 

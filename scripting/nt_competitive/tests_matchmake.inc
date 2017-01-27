@@ -112,14 +112,22 @@ bool Test_Matchmake_DatabaseConnection()
   int failCount;
 
   Assert(
+    g_hDB != null, failCount,
+    "Global db handle is not null."
+  );
+
+  if (Database_DoTablesExist() == false)
+  {
+    Database_CreateTables();
+  }
+  Assert(
     Database_Initialize(), failCount,
     "Calling Database_Initialize() returns true."
   );
 
   Assert(
-    g_hDB != null, failCount,
-    "Global db handle is not null, assuming the above Database_Initialize() \
-assertion passed."
+    Database_DoTablesExist(), failCount,
+    "Calling Database_DoTablesExist() returns true."
   );
 
   return DidWePass_SubTest(failCount);
@@ -130,15 +138,6 @@ bool Test_Matchmake_DatabaseOperations()
 {
   PrintToServer("- Sub test: Test_Matchmake_DatabaseOperations...");
   int failCount;
-
-  if (Database_DoTablesExist() == false)
-  {
-    Command_CreateTables(0, 1);
-  }
-  Assert(
-    Database_DoTablesExist(), failCount,
-    "Calling Database_DoTablesExist() returns true."
-  );
 
   new const String:steamID[] = "STEAMID_TEST:0:123";
   Assert(

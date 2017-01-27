@@ -108,17 +108,17 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 	PrintDebug("Entering the switch statement");
 	switch(returnType)
 	{
-		case TYPE_INT:
+		case VAR_TYPE_INT:
 		{
 			PrintDebug("Type INT");
 			value = GetConVarInt(hCvar);
 		}
-		case TYPE_FLOAT:
+		case VAR_TYPE_FLOAT:
 		{
 			PrintDebug("Type FLOAT");
 			value = GetConVarFloat(hCvar);
 		}
-		case TYPE_STRING:
+		case VAR_TYPE_STRING:
 		{
 			PrintDebug("Type STRING");
 			GetConVarString(hCvar, sBuffer, iMaxStrLen);

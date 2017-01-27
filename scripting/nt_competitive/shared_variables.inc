@@ -40,7 +40,6 @@ new String:g_sIdentifier[MAX_IDENTIFIER_LENGTH];
 new String:g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing SteamIDs to allow disconnected players rejoining when live
 new String:g_killInfoBuffer[MAXPLAYERS+1][512];
 new String:g_convarBeingEdited[128];
-new String:g_ipAddress[MAX_IP_LENGTH];
 
 new const String:g_menuSoundOk[] = "buttons/button14.wav";
 new const String:g_menuSoundCancel[] = "buttons/combine_button7.wav";
@@ -111,7 +110,6 @@ new g_furthestPlayedRound;
 new g_penalizedTeam;
 new g_ghostCapturingTeam;
 new g_epoch;
-new g_serverPort;
 
 int g_iDesiredPlayers_Cached;
 
@@ -230,10 +228,14 @@ enum {
 };
 
 enum cvarReturnType {
-	TYPE_INT = 0,
-	TYPE_FLOAT,
-	TYPE_STRING
-}
+	VAR_TYPE_INT = 0,
+	VAR_TYPE_FLOAT,
+	VAR_TYPE_STRING
+};
+
+enum matchType {
+  MATCH_TYPE_PUG = 0,
+};
 
 Database g_hDB = null;
 

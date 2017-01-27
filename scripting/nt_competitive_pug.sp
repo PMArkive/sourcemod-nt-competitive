@@ -348,7 +348,7 @@ public Action:Command_UnPug(client, args)
 		return Plugin_Stop;
 	}
 
-	Database_RemovePugger(client);
+	Pugger_Remove(client);
 	return Plugin_Handled;
 }
 

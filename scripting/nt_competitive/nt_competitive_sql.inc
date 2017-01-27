@@ -72,7 +72,27 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 	return rows;
 }
 
-void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
+bool Database_RemovePugger(const char[] steamID)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
+	g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt_Delete == INVALID_HANDLE)
+	{
+		LogError(error);
+		return false;
+	}
+
+	SQL_BindParamString(stmt_Delete, 0, steamID, false);
+	SQL_Execute(stmt_Delete);
+	CloseHandle(stmt_Delete);
+	return true;
+}
+
+void Pugger_Remove(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
 	// Make sure client index is valid,
 	// unless removing player directly with SteamID instead
@@ -107,28 +127,20 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 
 	if (results > 1)
 	{
-		LogError("Database_RemovePugger: Found %i results for SteamID \"%s\" \
+		LogError("Pugger_Remove: Found %i results for SteamID \"%s\" \
 		in database, expected to find 1. Deleting duplicates.", results, steamID);
 
-		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
-		g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
-
-		new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
-		if (stmt_Delete == INVALID_HANDLE)
+		if (!Database_RemovePugger(steamID))
 		{
 			CloseHandle(stmt);
-			ThrowError(error);
+			ThrowError("Failed removing pugger.");
 		}
-
-		SQL_BindParamString(stmt_Delete, 0, steamID, false);
-		SQL_Execute(stmt_Delete);
-		CloseHandle(stmt_Delete);
 	}
 	if (results > 1 || results == 0)
 	{
 		if (results == 0)
 		{
-			LogError("Database_RemovePugger: Found 0 results for SteamID \"%s\" \
+			LogError("Pugger_Remove: Found 0 results for SteamID \"%s\" \
 in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 		}
 
@@ -188,7 +200,7 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 				}
 				else
 				{
-					LogError("Database_RemovePugger(): Pugger state for \"%s\" returned %i. \
+					LogError("Pugger_Remove(): Pugger state for \"%s\" returned %i. \
 This should never happen.", steamID, state);
 				}
 			}
@@ -413,7 +425,7 @@ void Database_CleanAFKers()
 			sizeof(steamID));
 
 		PrintDebug("Cleaning SteamID: %s", steamID);
-		Database_RemovePugger(_, true, steamID);
+		Pugger_Remove(_, true, steamID);
 	}
 	CloseHandle(stmt_CleanAfkers);
 }

@@ -2248,6 +2248,17 @@ void CenterText_DisplayRemaining()
 	}
 }
 
+/*
+void ClearTimer(Handle &timer)
+{
+	if (timer != null)
+	{
+		KillTimer(timer);
+		timer = null;
+	}
+}
+*/
+
 #if DEBUG
 // Purpose: Make sure handle holds valid KeyValues data,
 // using the comp plugin's format. This will also reset
@@ -2703,15 +2714,6 @@ bool Kv_IsCompatible(const String:pluginVersion[])
 	return true;
 }
 */
-
-void ClearTimer(Handle:timer)
-{
-	if (timer == INVALID_HANDLE)
-		return;
-
-	KillTimer(timer);
-	timer = INVALID_HANDLE;
-}
 
 public Action:Timer_RestoreClientFromKeyValues(Handle:timer, DataPack:pack)
 {

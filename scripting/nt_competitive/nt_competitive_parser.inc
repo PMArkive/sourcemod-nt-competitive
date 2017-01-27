@@ -869,13 +869,6 @@ bool InvitePlayers(int inviteAmount)
 	int escapedSize;
 	for (int i = 0; i < inviteAmount; i++)
 	{
-		//PrintToServer("Player %i: %s", i, players_SteamID[i]);
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = %i WHERE %s = %s AND %s = %i",
-			g_sqlTable[TABLES_PUGGERS],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_READY,
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], players_SteamID[i],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_ACCEPTED);
-
 		// I don't think threaded transactions support statement preparation(?),
 		// so we're just escaping user input the old fashioned way.
 		if (!SQL_EscapeString(g_hDB, players_SteamID[i],
@@ -885,6 +878,14 @@ bool InvitePlayers(int inviteAmount)
 			delete txnInvite;
 			ThrowError("Failed to escape string for SQL, aborting.");
 		}
+
+		//PrintToServer("Player %i: %s", i, players_SteamID[i]);
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = %i WHERE %s = '%s' AND %s = %i",
+			g_sqlTable[TABLES_PUGGERS],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_READY,
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], escapedSteamID,
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_ACCEPTED);
+
 		SQL_AddQuery(txnInvite, sql);
 
 		// These players still need to be marked on this server
@@ -911,6 +912,6 @@ void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, DBResult
 }
 void SQLTxnFailure_InvitePlayers(Database db, any data, int numQueries, const char[] error, int failIndex, any[] queryData)
 {
-	ThrowError("noooo~!");
+	ThrowError(error);
 }
 #endif

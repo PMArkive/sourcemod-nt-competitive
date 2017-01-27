@@ -21,6 +21,17 @@ bool Assert(bool assertion, const char[] description, int &fails)
   return true;
 }
 
+bool DidWePass_SubTest(int failCount)
+{
+  if (failCount == 0)
+  {
+    PrintToServer("- Sub test passed.\n");
+    return true;
+  }
+  PrintToServer("- Sub test failed %i times!", failCount);
+  return false;
+}
+
 void Test_Matchmake_Main()
 {
   PrintToServer("\n- - - - - - - - - -\nStarting testing...\n");
@@ -85,13 +96,7 @@ bool Test_Matchmake_InitialiseMatch()
   // Implied by successful Database_Initialize() in the above assertion
   Assert(g_hDB != null,         "Global db handle is not null.", failCount);
 
-  if (failCount == 0)
-  {
-    PrintToServer("- Sub test passed.\n");
-    return true;
-  }
-  PrintToServer("- Sub test failed %i times!", failCount);
-  return false;
+  return DidWePass_SubTest(failCount);
 }
 
 bool Test_AlwaysPass()
@@ -102,11 +107,5 @@ bool Test_AlwaysPass()
   Assert(1 == 1, "One equals one.", failCount);
   Assert(true, "True.", failCount);
 
-  if (failCount == 0)
-  {
-    PrintToServer("- Sub test passed.\n");
-    return true;
-  }
-  PrintToServer("- Sub test failed %i times!", failCount);
-  return false;
+  return DidWePass_SubTest(failCount);
 }

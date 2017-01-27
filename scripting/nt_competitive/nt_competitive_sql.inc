@@ -422,7 +422,7 @@ bool PugServer_Update_This()
 
 	// Get PUG server IP address
 	decl String:sIP[MAX_IP_LENGTH];
-	GetCvarValue("ip", TYPE_STRING, sIP, sizeof(sIP)); /*
+	GetCvarValue("ip", VAR_TYPE_STRING, sIP, sizeof(sIP)); /*
 	new Handle:hIP = FindConVar("ip");
 	if (hIP == INVALID_HANDLE)
 		SetFailState("Could not find server cvar \"ip\"");
@@ -431,7 +431,7 @@ bool PugServer_Update_This()
 	CloseHandle(hIP);*/
 
 	// Get PUG server port number
-	new iPort = GetCvarValue("hostport", TYPE_INT);/*
+	new iPort = GetCvarValue("hostport", VAR_TYPE_INT);/*
 	new Handle:hPort = FindConVar("hostport");
 	if (hPort == INVALID_HANDLE)
 		SetFailState("Could not find server cvar \"hostport\"");
@@ -440,7 +440,7 @@ bool PugServer_Update_This()
 
 	// Get PUG server password
 	decl String:sPassword[MAX_CVAR_LENGTH];
-	GetCvarValue("sv_password", TYPE_STRING, sPassword, sizeof(sPassword)); /*
+	GetCvarValue("sv_password", VAR_TYPE_STRING, sPassword, sizeof(sPassword)); /*
 	new Handle:hPassword = FindConVar("sv_password");
 	if (hPassword == INVALID_HANDLE)
 		SetFailState("Could not find server cvar \"sv_password\"");
@@ -450,7 +450,7 @@ bool PugServer_Update_This()
 
 	// Get PUG server vanity name
 	decl String:sServerName[MAX_CVAR_LENGTH];
-	GetCvarValue("hostname", TYPE_STRING, sServerName, sizeof(sServerName)); /*
+	GetCvarValue("hostname", VAR_TYPE_STRING, sServerName, sizeof(sServerName)); /*
 	new Handle:hServerName = FindConVar("hostname");
 	if (hServerName == INVALID_HANDLE)
 		SetFailState("Could not find server cvar \"hostname\"");
@@ -540,23 +540,14 @@ bool PugServer_Update_This()
 	return true;
 }
 
-bool PugServer_Set_Status(status, String:sIP[MAX_IP_LENGTH] = "", iPort = 0)
+bool PugServer_Set_Status(status, String:sIPAddress[MAX_IP_LENGTH], iPort)
 {
-	if ((strlen(sIP) != 0 && iPort == 0) || (strlen(sIP) == 0 && iPort != 0))
-		ThrowError("Invalid IP \"%s\" and/or port %i", sIP, iPort);
-
 	if (status < PUG_SERVER_STATUS_ERROR || status >= PUG_SERVER_STATUS_ENUM_COUNT)
 	{
 		ThrowError("Invalid enum %i, expected enum between %i - %i",
 			status, PUG_SERVER_STATUS_ERROR, PUG_SERVER_STATUS_ENUM_COUNT);
 	}
 	Database_Initialize();
-
-	if (strlen(sIP) == 0)
-		strcopy(sIP, sizeof(sIP), g_ipAddress);
-
-	if (iPort == 0)
-		iPort = g_serverPort;
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -572,7 +563,7 @@ bool PugServer_Set_Status(status, String:sIP[MAX_IP_LENGTH] = "", iPort = 0)
 
 	new paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, status);
-	SQL_BindParamString(stmt, paramIndex++, sIP, false);
+	SQL_BindParamString(stmt, paramIndex++, sIPAddress, false);
 	SQL_BindParamInt(stmt, paramIndex++, iPort);
 	SQL_Execute(stmt);
 
@@ -1438,8 +1429,8 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT]);
 
 	decl String:sIP[MAX_IP_LENGTH];
-	GetCvarValue("ip", TYPE_STRING, sIP, sizeof(sIP));
-	new iPort = GetCvarValue("hostport", TYPE_INT);
+	GetCvarValue("ip", VAR_TYPE_STRING, sIP, sizeof(sIP));
+	new iPort = GetCvarValue("hostport", VAR_TYPE_INT);
 
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)

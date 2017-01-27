@@ -101,7 +101,7 @@ public Action:Timer_CheckQueue(Handle:timer)
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUGGERS]);
 
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -172,7 +172,7 @@ void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG]);
 
 	Database_Initialize();
-	new Handle:stmt_GetMessage = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_GetMessage = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_GetMessage == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -202,7 +202,7 @@ void Pugger_DisplayMessage(const String:steamID[MAX_STEAMID_LENGTH])
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_MSG],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-	new Handle:stmt_clearMsg = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_clearMsg = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_clearMsg == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -237,7 +237,7 @@ Returning to PUG queue.", g_sTag);
 	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
 	Database_Initialize();
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -437,7 +437,7 @@ bool ReservePugServer()
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUG_SERVERS]);
 
-	new Handle:query_Pugs = SQL_Query(db, sql);
+	new Handle:query_Pugs = SQL_Query(g_hDB, sql);
 
 	new bool:foundServer;
 	new status;
@@ -457,7 +457,7 @@ bool ReservePugServer()
 				g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS],
 				g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME]);
 
-			new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+			new Handle:stmt_Update = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 			if (stmt_Update == INVALID_HANDLE)
 				ThrowError(error);
 
@@ -499,7 +499,7 @@ bool Puggers_Reserve()
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		PUGGER_STATE_QUEUING, g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]);
 
-	new Handle:query_Puggers = SQL_Query(db, sql);
+	new Handle:query_Puggers = SQL_Query(g_hDB, sql);
 
 	new rows = SQL_GetRowCount(query_Puggers);
 	if (rows < Database_GetDesiredPlayerCount())
@@ -526,7 +526,7 @@ WHERE %s = ?",
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_INVITE_TIMESTAMP],
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Update = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -584,7 +584,7 @@ void Pugger_ShowMatchOfferMenu(client)
 	g_sqlTable[TABLES_PUG_SERVERS],
 	g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
 
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
 

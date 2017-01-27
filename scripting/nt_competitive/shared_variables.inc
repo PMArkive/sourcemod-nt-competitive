@@ -234,7 +234,7 @@ enum cvarReturnType {
 	TYPE_STRING
 }
 
-Database db = null;
+Database g_hDB = null;
 
 #define MAX_SQL_LENGTH 768
 #define MAX_SQL_ERROR_LENGTH 512

@@ -20,9 +20,9 @@ bool Database_Initialize(bool checkTables = true)
 
 	// Persistent connection
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	db = SQL_Connect(configName, true, error, sizeof(error));
+	g_hDB = SQL_Connect(configName, true, error, sizeof(error));
 
-	if (db == null)
+	if (g_hDB == null)
 	{
 		g_bIsDatabaseDown = true;
 		LogError("Database_Initialize: %s", error);
@@ -65,7 +65,7 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", tableName);
-	new Handle:query = SQL_Query(db, sql);
+	new Handle:query = SQL_Query(g_hDB, sql);
 	new rows = SQL_GetRowCount(query);
 
 	CloseHandle(query);
@@ -94,7 +94,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?",
 	g_sqlTable[TABLES_PUGGERS]);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -114,7 +114,7 @@ void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MA
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
 		g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
 		{
 			CloseHandle(stmt);
@@ -138,7 +138,7 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
-		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Insert = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
 		{
 			CloseHandle(stmt);
@@ -228,7 +228,7 @@ void Database_AddPugger(client)
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?",
 	g_sqlTable[TABLES_PUGGERS]);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -246,7 +246,7 @@ void Database_AddPugger(client)
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP],
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-			new Handle:updateStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+			new Handle:updateStmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 
 			new paramIndex;
 			SQL_BindParamInt(updateStmt, paramIndex++, PUGGER_STATE_QUEUING);
@@ -272,7 +272,7 @@ expected 0 or 1", client);
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP]);
 
-		new Handle:insertStmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:insertStmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 
 		new paramIndex;
 		SQL_BindParamString(insertStmt, paramIndex++, steamID, false);
@@ -294,7 +294,7 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUGGERS]);
 
-	new Handle:stmt_SelectPuggers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_SelectPuggers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_SelectPuggers == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -338,7 +338,7 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-		new Handle:stmt_UpdatePuggers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_UpdatePuggers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_UpdatePuggers == INVALID_HANDLE)
 		{
 			CloseHandle(stmt_SelectPuggers);
@@ -363,7 +363,7 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 
 	PrintDebug("SQL: %s", sql);
 
-	new Handle:stmt_SelectPugServers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_SelectPugServers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_SelectPugServers == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -394,7 +394,7 @@ void Database_CleanAFKers()
 	g_sqlTable[TABLES_PUGGERS],
 	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
-	new Handle:stmt_CleanAfkers = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_CleanAfkers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_CleanAfkers == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -468,7 +468,7 @@ bool PugServer_Update_This()
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-	new Handle:stmt_RowCount = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_RowCount = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_RowCount == INVALID_HANDLE)
 	{
 		LogError("PugServer_Update_This: %s", error);
@@ -515,7 +515,7 @@ bool PugServer_Update_This()
 		return false;
 	}
 
-	stmt_ServerUpdate = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	stmt_ServerUpdate = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_ServerUpdate == INVALID_HANDLE)
 	{
 		LogError("PugServer_Update_This: %s", error);
@@ -566,7 +566,7 @@ bool PugServer_Set_Status(status, String:sIP[MAX_IP_LENGTH] = "", iPort = 0)
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -591,7 +591,7 @@ int PugServer_Get_Status(const String:sIP[], iPort)
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -648,7 +648,7 @@ int PugServer_GetReserve_This()
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-	Handle stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		ThrowError(error);
@@ -715,7 +715,7 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-	Handle stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	Handle stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, ipAddress, false);
 	SQL_BindParamInt(stmt_Select, 1, port);
 	SQL_Execute(stmt_Select);
@@ -738,7 +738,7 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -754,7 +754,7 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING]);
 
-		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Insert = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -775,7 +775,7 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
-		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Update = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -830,7 +830,7 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 		g_sqlTable[TABLES_ORGANIZERS],
 		g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
 	SQL_Execute(stmt_Select);
 
@@ -850,7 +850,7 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
 		g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
-		new Handle:stmt_Delete = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Delete == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -864,7 +864,7 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 		g_sqlRow_Organizers[SQL_TABLE_ORG_NAME],
 		g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING]);
 
-		new Handle:stmt_Insert = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Insert = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -883,7 +883,7 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 		g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING],
 		g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
-		new Handle:stmt_Update = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt_Update = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -914,7 +914,7 @@ int Organizers_Get_Status_This()
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
 	g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
 
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
 	SQL_Execute(stmt_Select);
 
@@ -960,7 +960,7 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUG_SERVERS]);
 
 	// TODO: Unnecessary prepared statement, replace with error returning query
-	Handle stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	Handle stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == null)
 		ThrowError(error);
 
@@ -1006,7 +1006,7 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_ORGANIZERS]);
 
 	// TODO: Unnecessary prepared statement, replace with error returning query
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -1042,7 +1042,7 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 	g_sqlTable[TABLES_PUGGERS],
 	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-	new Handle:stmt_Select = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -1109,7 +1109,7 @@ command.");
 	);
 	PrintDebug("SQL: %s", sql);
 
-	new Handle:query_CreateRules = SQL_Query(db, sql);
+	new Handle:query_CreateRules = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreateRules);
 
 	// todo: optimise INT sizes
@@ -1151,7 +1151,7 @@ command.");
 					g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
 	);
 
-	new Handle:query_CreatePuggers = SQL_Query(db, sql);
+	new Handle:query_CreatePuggers = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreatePuggers);
 
 	// Reversed array index for Format() order of operations
@@ -1171,7 +1171,7 @@ command.");
 					g_sqlRow_Organizers[arrayIndex--],
 					g_sqlRow_Organizers[SQL_TABLE_ORG_ID]
 	);
-	new Handle:query_CreateOrganizers = SQL_Query(db, sql);
+	new Handle:query_CreateOrganizers = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreateOrganizers);
 
 	// Reversed array index for Format() order of operations
@@ -1200,7 +1200,7 @@ command.");
 					g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ID]
 	);
 
-	new Handle:query_CreatePugServers = SQL_Query(db, sql);
+	new Handle:query_CreatePugServers = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreatePugServers);
 
 	return Plugin_Handled;
@@ -1218,7 +1218,7 @@ bool Database_DoTablesExist()
 		THEN 1 ELSE 0 END) AS TableExists FROM information_schema.tables",
 		g_sqlTable[i]);
 
-		new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+		new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt == INVALID_HANDLE)
 			ThrowError(error);
 
@@ -1278,7 +1278,7 @@ int Pugger_GetQueuingState(client, const String:connectIP[MAX_IP_LENGTH] = "", c
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT]);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 
 	new paramIndex;
 	SQL_BindParamString(stmt, paramIndex++, steamID, false);
@@ -1320,7 +1320,7 @@ int Puggers_GetCountPerState(state)
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
 	g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 
 	SQL_BindParamInt(stmt, 0, state);
 	SQL_Execute(stmt);
@@ -1354,7 +1354,7 @@ int Database_GetDesiredPlayerCount()
 	Format(sql, sizeof(sql), "SELECT %s FROM %s",
 	g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT], g_sqlTable[TABLES_RULES]);
 
-	new Handle:query = SQL_Query(db, sql);
+	new Handle:query = SQL_Query(g_hDB, sql);
 	if (SQL_GetAffectedRows(query) == 0)
 	{
 		CloseHandle(query);
@@ -1379,7 +1379,7 @@ int Database_GetEpoch()
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP()");
 
-	new Handle:query = SQL_Query(db, sql);
+	new Handle:query = SQL_Query(g_hDB, sql);
 
 	new epoch;
 	while (SQL_FetchRow(query))
@@ -1413,7 +1413,7 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 	GetCvarValue("ip", TYPE_STRING, sIP, sizeof(sIP));
 	new iPort = GetCvarValue("hostport", TYPE_INT);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 
@@ -1482,7 +1482,7 @@ void Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:st
 	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
-	new Handle:stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
 		ThrowError(error);
 

@@ -833,7 +833,7 @@ bool InvitePlayers(int inviteAmount)
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
-	Handle stmt = SQL_PrepareQuery(db, sql, error, sizeof(error));
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		ThrowError(error);
@@ -878,7 +878,7 @@ bool InvitePlayers(int inviteAmount)
 
 		// I don't think threaded transactions support statement preparation(?),
 		// so we're just escaping user input the old fashioned way.
-		if (!SQL_EscapeString(db, players_SteamID[i],
+		if (!SQL_EscapeString(g_hDB, players_SteamID[i],
 				escapedSteamID, sizeof(escapedSteamID), escapedSize) ||
 				escapedSize < 1)
 		{
@@ -890,11 +890,11 @@ bool InvitePlayers(int inviteAmount)
 		// These players still need to be marked on this server
 	}
 	// Db handle must be locked for the threaded operation!
-	SQL_LockDatabase(db);
+	SQL_LockDatabase(g_hDB);
 	// Txn handle closes itself automatically here
-	SQL_ExecuteTransaction(db, txnInvite, SQLTxnSuccess_InvitePlayers, SQLTxnFailure_InvitePlayers, _, DBPrio_High);
+	SQL_ExecuteTransaction(g_hDB, txnInvite, SQLTxnSuccess_InvitePlayers, SQLTxnFailure_InvitePlayers, _, DBPrio_High);
 	// ...and unlocked after.
-	SQL_UnlockDatabase(db);
+	SQL_UnlockDatabase(g_hDB);
 
 
 	// * Edit player db entries where (if) needed
@@ -905,11 +905,11 @@ bool InvitePlayers(int inviteAmount)
 	return true;
 }
 
-void SQLTxnSuccess_InvitePlayers(Database _db, any data, int numQueries, DBResultSet[] results, any[] queryData)
+void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
 {
 	PrintToServer("yesss");
 }
-void SQLTxnFailure_InvitePlayers(Database _db, any data, int numQueries, const char[] error, int failIndex, any[] queryData)
+void SQLTxnFailure_InvitePlayers(Database db, any data, int numQueries, const char[] error, int failIndex, any[] queryData)
 {
 	ThrowError("noooo~!");
 }

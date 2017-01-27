@@ -1072,11 +1072,10 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 public Action:Command_CreateTables(client, args)
 {
 	new rows;
-	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_PUGGERS], false);
-	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_ORGANIZERS], false);
-	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_PUG_SERVERS], false);
-	rows += Database_GetRowCountForTableName(g_sqlTable[TABLES_RULES], false);
-
+	for (int i = 0; i < TABLES_ENUM_COUNT; i++)
+	{
+		rows += Database_GetRowCountForTableName(g_sqlTable[i], false);
+	}
 	PrintDebug("Command_CreateTables() rows: %i", rows);
 
 	if (rows > 0)
@@ -1116,39 +1115,39 @@ command.");
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_PUGGER_ENUM_COUNT-1;
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
-					%s INT NOT NULL AUTO_INCREMENT, \
-					%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
-					%s VARCHAR(%i) NOT NULL, \
-					%s INT NOT NULL, \
-					%s VARCHAR(45) NOT NULL, \
-					%s INT NOT NULL, \
-					%s VARCHAR(%i) NOT NULL, \
-					%s INT NOT NULL, \
-					%s TIMESTAMP NOT NULL, \
-					%s VARCHAR(128) NOT NULL, \
-					%s INT NOT NULL, \
-					%s TIMESTAMP NOT NULL, \
-					%s TIMESTAMP NOT NULL, \
-					%s BOOL NOT NULL, \
-					%s VARCHAR(128) NOT NULL, \
-					PRIMARY KEY (%s)) CHARACTER SET=utf8",
-					g_sqlTable[TABLES_PUGGERS],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--], MAX_STEAMID_LENGTH,
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--], MAX_CVAR_LENGTH,
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[arrayIndex--],
-					g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
+%s INT NOT NULL AUTO_INCREMENT, \
+%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+%s VARCHAR(45) NOT NULL, \
+%s INT NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+%s TIMESTAMP NOT NULL, \
+%s VARCHAR(128) NOT NULL, \
+%s INT NOT NULL, \
+%s TIMESTAMP NOT NULL, \
+%s TIMESTAMP NOT NULL, \
+%s BOOL NOT NULL, \
+%s VARCHAR(128) NOT NULL, \
+PRIMARY KEY (%s)) CHARACTER SET=utf8",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--], MAX_STEAMID_LENGTH,
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--], MAX_CVAR_LENGTH,
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[arrayIndex--],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
 	);
 
 	new Handle:query_CreatePuggers = SQL_Query(g_hDB, sql);
@@ -1157,19 +1156,19 @@ command.");
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_ORG_ENUM_COUNT-1;
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
-					%s INT NOT NULL AUTO_INCREMENT, \
-					%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
-					%s VARCHAR(%i) NOT NULL, \
-					%s INT NOT NULL, \
-					%s TIMESTAMP NOT NULL, \
-					PRIMARY KEY (%s)) CHARACTER SET=utf8",
-					g_sqlTable[TABLES_ORGANIZERS],
-					g_sqlRow_Organizers[arrayIndex--],
-					g_sqlRow_Organizers[arrayIndex--],
-					g_sqlRow_Organizers[arrayIndex--], MAX_CVAR_LENGTH,
-					g_sqlRow_Organizers[arrayIndex--],
-					g_sqlRow_Organizers[arrayIndex--],
-					g_sqlRow_Organizers[SQL_TABLE_ORG_ID]
+%s INT NOT NULL AUTO_INCREMENT, \
+%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+%s TIMESTAMP NOT NULL, \
+PRIMARY KEY (%s)) CHARACTER SET=utf8",
+		g_sqlTable[TABLES_ORGANIZERS],
+		g_sqlRow_Organizers[arrayIndex--],
+		g_sqlRow_Organizers[arrayIndex--],
+		g_sqlRow_Organizers[arrayIndex--], MAX_CVAR_LENGTH,
+		g_sqlRow_Organizers[arrayIndex--],
+		g_sqlRow_Organizers[arrayIndex--],
+		g_sqlRow_Organizers[SQL_TABLE_ORG_ID]
 	);
 	new Handle:query_CreateOrganizers = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreateOrganizers);
@@ -1177,31 +1176,62 @@ command.");
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_PUG_SERVER_ENUM_COUNT-1;
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
-					%s INT NOT NULL AUTO_INCREMENT, \
-					%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
-					%s VARCHAR(%i) NOT NULL, \
-					%s VARCHAR (%i) NOT NULL, \
-					%s INT NOT NULL, \
-					%s VARCHAR(%i) NOT NULL, \
-					%s INT NOT NULL, \
-					%s INT NOT NULL, \
-					%s TIMESTAMP NOT NULL, \
-					PRIMARY KEY (%s)) CHARACTER SET=utf8",
-					g_sqlTable[TABLES_PUG_SERVERS],
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[arrayIndex--], MAX_CVAR_LENGTH,
-					g_sqlRow_PickupServers[arrayIndex--], MAX_IP_LENGTH,
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[arrayIndex--], MAX_CVAR_LENGTH,
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[arrayIndex--],
-					g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ID]
+%s INT NOT NULL AUTO_INCREMENT, \
+%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
+%s VARCHAR(%i) NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+%s INT NOT NULL, \
+%s TIMESTAMP NOT NULL, \
+PRIMARY KEY (%s)) CHARACTER SET=utf8",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[arrayIndex--],
+		g_sqlRow_PickupServers[arrayIndex--],
+		g_sqlRow_PickupServers[arrayIndex--], MAX_CVAR_LENGTH,
+		g_sqlRow_PickupServers[arrayIndex--], MAX_IP_LENGTH,
+		g_sqlRow_PickupServers[arrayIndex--],
+		g_sqlRow_PickupServers[arrayIndex--], MAX_CVAR_LENGTH,
+		g_sqlRow_PickupServers[arrayIndex--],
+		g_sqlRow_PickupServers[arrayIndex--],
+		g_sqlRow_PickupServers[arrayIndex--],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ID]
 	);
-
 	new Handle:query_CreatePugServers = SQL_Query(g_hDB, sql);
 	CloseHandle(query_CreatePugServers);
+
+	// Reversed array index for Format() order of operations
+	arrayIndex = SQL_TABLE_MATCHES_ENUM_COUNT-1;
+	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
+%s INT NOT NULL AUTO_INCREMENT, \
+%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
+%s VARCHAR(%i) NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+%s INT NOT NULL, \
+%s INT NOT NULL, \
+%s TIMESTAMP NOT NULL, \
+PRIMARY KEY (%s)) CHARACTER SET=utf8",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--], MAX_MATCH_TITLE_LENGTH,
+		g_sqlRow_Matches[arrayIndex--], MAX_IP_LENGTH,
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--], MAX_CVAR_LENGTH,
+		g_sqlRow_Matches[arrayIndex--], MAX_CVAR_LENGTH,
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+		);
+	new Handle:query_CreateMatches = SQL_Query(g_hDB, sql);
+	CloseHandle(query_CreateMatches);
 
 	return Plugin_Handled;
 }

@@ -16,6 +16,7 @@
 #define MAX_STEAMID_LENGTH 44
 #define PUG_INVITE_TIME 60
 #define QUEUE_CHECK_TIMER 30
+#define MAX_MATCH_TITLE_LENGTH 32
 #define MAX_ROUNDS_PLAYED 255 // This is just a random large number used for 1d int arrays because it's cheap and simple. A single comp game should never have more rounds than this to avoid weirdness.
 
 #if defined PLUGIN_COMP
@@ -288,6 +289,21 @@ enum {
 };
 
 enum {
+  SQL_TABLE_MATCHES_ID = 0,
+  SQL_TABLE_MATCHES_TIMESTAMP,
+  SQL_TABLE_MATCHES_VANITY_TITLE,
+  SQL_TABLE_MATCHES_HOST_IP,
+  SQL_TABLE_MATCHES_HOST_PORT,
+  SQL_TABLE_MATCHES_HOST_VANITY_NAME,
+  SQL_TABLE_MATCHES_MATCH_PASSWORD,
+  SQL_TABLE_MATCHES_MATCH_TYPE,
+  SQL_TABLE_MATCHES_STATUS,
+  SQL_TABLE_MATCHES_PLAYER_COUNT,
+  SQL_TABLE_MATCHES_LAST_EDITED,
+  SQL_TABLE_MATCHES_ENUM_COUNT
+};
+
+enum {
 	PUGGER_STATE_INACTIVE = 0,						   		// This pugger is not currently queuing or playing at all
 	PUGGER_STATE_QUEUING = 1,										// Queuing for a match
 	PUGGER_STATE_CONFIRMING = 2,								// Match has been offered, waiting for this pugger to accept
@@ -326,6 +342,7 @@ enum {
 	TABLES_ORGANIZERS,
 	TABLES_PUG_SERVERS,
 	TABLES_PUGGERS,
+  TABLES_MATCHES,
 	TABLES_ENUM_COUNT
 }
 
@@ -334,6 +351,7 @@ new const String:g_sqlTable[TABLES_ENUM_COUNT][] = {
 	"organizers",
 	"pickup_servers",
 	"puggers",
+  "matches"
 };
 
 new const String:g_sqlRow_Rules[SQL_TABLE_RULES_ENUM_COUNT][] = {
@@ -345,7 +363,7 @@ new const String:g_sqlRow_Organizers[SQL_TABLE_ORG_ENUM_COUNT][] = {
 	"timestamp",
 	"unique_name",
 	"is_reserving",
-	"reserving_timestamp",
+	"reserving_timestamp"
 };
 
 new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
@@ -376,4 +394,18 @@ new const String:g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ENUM_COUNT][] = {
 	"status",
   "is_reserving",
   "reserving_timestamp"
+};
+
+new const String:g_sqlRow_Matches[SQL_TABLE_MATCHES_ENUM_COUNT][] = {
+  "match_id",
+  "timestamp",
+  "match_vanity_title",
+  "host_ip",
+  "host_port",
+  "host_vanity_name",
+  "match_password",
+  "match_type",
+  "status",
+  "playercount",
+  "last_edited"
 };

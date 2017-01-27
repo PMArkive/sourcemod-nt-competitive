@@ -212,11 +212,13 @@ This should never happen.", steamID, state);
 	}
 }
 
-void Database_AddPugger(client, bool bySteamID = false, const char[] steamID = "")
+bool Database_AddPugger(client, bool bySteamID = false, const char[] steamID = "")
 {
-	if (!IsValidClient(client) || IsFakeClient(client))
-		ThrowError("Invalid client %i", client);
-
+	if (!bySteamID)
+	{
+		if (!IsValidClient(client) || IsFakeClient(client))
+			ThrowError("Invalid client %i", client);
+	}
 	Database_Initialize();
 
 	decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
@@ -285,6 +287,7 @@ expected 0 or 1", client);
 		CloseHandle(insertStmt);
 	}
 	CloseHandle(stmt);
+	return true;
 }
 
 void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID[MAX_STEAMID_LENGTH] = "")

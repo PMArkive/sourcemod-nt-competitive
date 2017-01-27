@@ -865,8 +865,10 @@ bool InvitePlayers(int inviteAmount)
 
 	PrintToServer("InvitePlayers(%i): Success", inviteAmount);
 	Transaction txnInvite = SQL_CreateTransaction();
-	char escapedSteamID[MAX_STEAMID_LENGTH*2+1];
+	decl String:escapedSteamID[MAX_STEAMID_LENGTH*2+1];
 	int escapedSize;
+	decl String:sqlCommand[MAX_SQL_LENGTH];
+	DataPack sqlCmds = new DataPack();
 	for (int i = 0; i < inviteAmount; i++)
 	{
 		// I don't think threaded transactions support statement preparation(?),
@@ -880,20 +882,20 @@ bool InvitePlayers(int inviteAmount)
 		}
 
 		//PrintToServer("Player %i: %s", i, players_SteamID[i]);
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = %i WHERE %s = '%s' AND %s = %i",
+		Format(sqlCommand, sizeof(sqlCommand),
+			"UPDATE %s SET %s = %i WHERE %s = '%s' AND %s = %i",
 			g_sqlTable[TABLES_PUGGERS],
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_READY,
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], escapedSteamID,
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_ACCEPTED);
-
-		SQL_AddQuery(txnInvite, sql);
-
+		SQL_AddQuery(txnInvite, sqlCommand);
+		sqlCmds.WriteString(sqlCommand);
 		// These players still need to be marked on this server
 	}
 	// Db handle must be locked for the threaded operation!
 	SQL_LockDatabase(g_hDB);
 	// Txn handle closes itself automatically here
-	SQL_ExecuteTransaction(g_hDB, txnInvite, SQLTxnSuccess_InvitePlayers, SQLTxnFailure_InvitePlayers, _, DBPrio_High);
+	SQL_ExecuteTransaction(g_hDB, txnInvite, SQLTxnSuccess_InvitePlayers, SQLTxnFailure_InvitePlayers, sqlCmds, DBPrio_High);
 	// ...and unlocked after.
 	SQL_UnlockDatabase(g_hDB);
 
@@ -906,12 +908,25 @@ bool InvitePlayers(int inviteAmount)
 	return true;
 }
 
-void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
+public void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
 {
 	PrintToServer("yesss");
 }
-void SQLTxnFailure_InvitePlayers(Database db, any data, int numQueries, const char[] error, int failIndex, any[] queryData)
+
+public void SQLTxnFailure_InvitePlayers(Database db, DataPack sqlCmd, int numQueries, const char[] error, int failIndex, any[] queryData)
 {
-	ThrowError(error);
+	decl String:sqlDump[MAX_SQL_LENGTH*32 + 24*32 + 1];
+	decl String:catBuffer[MAX_SQL_LENGTH + 24 + 1];
+	decl String:cmdBuffer[MAX_SQL_LENGTH];
+
+	sqlCmd.Reset();
+	for (int i = 0; i < numQueries; i++)
+	{
+		sqlCmd.ReadString(cmdBuffer, sizeof(cmdBuffer));
+		Format(catBuffer, sizeof(catBuffer), "\"SQL command %i\": %s ", i, cmdBuffer);
+		StrCat(sqlDump, sizeof(sqlDump), catBuffer);
+	}
+	delete sqlCmd;
+	ThrowError("%s %s", error, sqlDump);
 }
 #endif

@@ -72,7 +72,6 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 	return rows;
 }
 
-#if defined PLUGIN_PUG
 void Database_RemovePugger(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
 	// Make sure client index is valid,
@@ -382,6 +381,7 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 	Organizers_Update_This();
 }
 
+#if defined PLUGIN_PUG
 void Database_LogIgnore(client)
 {
 	//TODO
@@ -1263,11 +1263,13 @@ bool Database_DoTablesExist()
 	return true;
 }
 
-int Pugger_GetQueuingState(client, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0)
+int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")
 {
-	if (!IsValidClient(client) || IsFakeClient(client))
-		ThrowError("Invalid client %i", client);
-
+	if (!bySteamID)
+	{
+		if (!IsValidClient(client) || IsFakeClient(client))
+			ThrowError("Invalid client %i", client);
+	}
 	Database_Initialize();
 
 	// %wildcard% the IP for SQL LIKE query.
@@ -1291,11 +1293,14 @@ int Pugger_GetQueuingState(client, const String:connectIP[MAX_IP_LENGTH] = "", c
 		ThrowError("Invalid server port %i specified.", connectPort);
 	}
 
-	decl String:steamID[MAX_STEAMID_LENGTH];
+	decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+	if (!bySteamID)
+		GetClientAuthId(client, AuthId_Steam2, steamIDBuffer, sizeof(steamIDBuffer));
+	else
+		strcopy(steamIDBuffer, sizeof(steamIDBuffer), steamID);
 
 	Format(sql, sizeof(sql),
 		"SELECT * FROM %s WHERE %s = ? AND %s LIKE ? AND %s LIKE ?",
@@ -1307,7 +1312,7 @@ int Pugger_GetQueuingState(client, const String:connectIP[MAX_IP_LENGTH] = "", c
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 
 	new paramIndex;
-	SQL_BindParamString(stmt, paramIndex++, steamID, false);
+	SQL_BindParamString(stmt, paramIndex++, steamIDBuffer, false);
 	SQL_BindParamString(stmt, paramIndex++, wildcardIP, false);
 	SQL_BindParamString(stmt, paramIndex++, wildcardPort, false);
 	SQL_Execute(stmt);
@@ -1482,7 +1487,7 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 }
 #endif
 
-void Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
+bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
 	if (!bySteamID && !IsValidClient(client))
 		ThrowError("Invalid client %i", client);
@@ -1517,4 +1522,5 @@ void Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:st
 	SQL_BindParamString(stmt, paramIndex++, steamID, false);
 	SQL_Execute(stmt);
 	CloseHandle(stmt);
+	return true;
 }

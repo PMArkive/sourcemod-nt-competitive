@@ -1395,8 +1395,6 @@ int Database_GetEpoch()
 #if defined PLUGIN_COMP
 bool Database_IsPlayerCompeting(const String:steamID[])
 {
-	new bool:isCompeting;
-
 	// Prepare array for player SteamIDs
 	new playerCount = Database_GetDesiredPlayerCount();
 	decl String:playerSteamID[playerCount][MAX_STEAMID_LENGTH];
@@ -1436,6 +1434,11 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 			playerSteamID[i++], MAX_STEAMID_LENGTH);
 	}
 	CloseHandle(stmt);
+
+	// Nobody is playing on this server
+	if (i == 0)
+		return false;
+
 	// Check if player is competing
 	for (i = 0; i < playerCount; i++)
 	{
@@ -1444,15 +1447,12 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 			LogError("Database_IsPlayerCompeting: Zero length SteamID in array");
 			continue;
 		}
-
-		if (StrEqual(steamID, playerSteamID[i]))
+		else if (StrEqual(steamID, playerSteamID[i]))
 		{
-			isCompeting = true;
-			break;
+			return true;
 		}
 	}
-
-	return isCompeting;
+	return false;
 }
 #endif
 

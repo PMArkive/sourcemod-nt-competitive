@@ -131,6 +131,10 @@ bool Test_Matchmake_DatabaseOperations()
   PrintToServer("- Sub test: Test_Matchmake_DatabaseOperations...");
   int failCount;
 
+  if (Database_DoTablesExist() == false)
+  {
+    Command_CreateTables(0, 1);
+  }
   Assert(
     Database_DoTablesExist(), failCount,
     "Calling Database_DoTablesExist() returns true."

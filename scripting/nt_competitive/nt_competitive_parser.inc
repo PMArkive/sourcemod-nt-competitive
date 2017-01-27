@@ -614,20 +614,13 @@ public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[
 		SetConVarBool(g_hPugEnabled, false);
 		return;
 	}
-	// Enabled PUG mode but a game is happening. Stop current game.
+	// Enabled PUG mode but a game is happening.
 	else if (enabled && canPug && g_isLive)
 	{
-		PrintToChatAll("%s Match stop because PUG message here"); // TODO: message
-		ToggleLive();
+		PrintToAdmins(true, true, "%s Cannot enable pug mode while a match is live.", g_sTag);
+		SetConVarBool(g_hPugEnabled, false);
+		return;
 	}
-
-	if (g_hTimer_Pug_CheckPuggers != INVALID_HANDLE)
-	{
-		KillTimer(g_hTimer_Pug_CheckPuggers);
-	}
-
-	g_fPuggersPresentTimer = 180.0;
-	g_hTimer_Pug_CheckPuggers = CreateTimer(10.0, Timer_CheckPuggers, _, TIMER_REPEAT);
 }
 #endif
 
@@ -808,13 +801,82 @@ This should never happen.", g_iDesiredPlayers_Cached);
 	return Plugin_Stop;
 }
 
+// Purpose: A successful invitation has been sent to players,
+// and an array of SteamIDs is available locally.
+// Get no. of players included in the match, and store it
+// locally to be later used for SteamID indices.
+// Get all other values required for a sql match table entry,
+// and create it.
+// On a success, start a timer looking for this match
+// that takes over the logic.
+// On a failure, log error and start the initial timer scanning for players again.
 public void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
 {
 	// * Need to release db once ready
 	// * Warmup timer sort of thing, start/cancel on time or !ready
-	PrintToServer("yesss");
+	PrintToServer("SQLTxnSuccess_InvitePlayers");
+
+	// Get all the information needed
+	// to create a match entry to db.
+	char matchVanityTitle[MAX_CVAR_LENGTH];
+	GetConVarString(g_hCompetitionName, matchVanityTitle, sizeof(matchVanityTitle));
+
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+
+	Handle hCvar_Hostname = FindConVar("hostname");
+	if (hCvar_Hostname == null)
+		ThrowError("Failed to get server cvar \"hostname\"");
+
+	char serverVanityTitle[MAX_CVAR_LENGTH];
+	GetConVarString(hCvar_Hostname, serverVanityTitle, sizeof(serverVanityTitle));
+	delete hCvar_Hostname;
+
+	char serverPassword[MAX_CVAR_LENGTH];
+	GetConVarString(g_hPassword, serverPassword, sizeof(serverPassword));
+
+	int iMatchType = MATCH_TYPE_PUG;
+	int iStatus = GAMESTATE_WARMUP;
+	int iPlayerCount = numQueries;
+
+	// SQL for match insertion
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql),
+		"INSERT INTO %s (%s,%s,%s,%s,%s,%s,%s,%s) VALUES (?,?,?,?,?,?,?,?)",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_VANITY_TITLE],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_IP],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_PORT],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_VANITY_NAME],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_MATCH_PASSWORD],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_MATCH_TYPE],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_PLAYER_COUNT]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	int paramIndex;
+	SQL_BindParamString(stmt, paramIndex++, matchVanityTitle, false);
+	SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
+	SQL_BindParamInt(stmt, paramIndex++, port);
+	SQL_BindParamString(stmt, paramIndex++, serverVanityTitle, false);
+	SQL_BindParamString(stmt, paramIndex++, serverPassword, false);
+	SQL_BindParamInt(stmt, paramIndex++, iMatchType);
+	SQL_BindParamInt(stmt, paramIndex++, iStatus);
+	SQL_BindParamInt(stmt, paramIndex++, iPlayerCount);
+	SQL_Execute(stmt);
+	delete stmt;
+
+	//g_hTimer_Pug_SendInvites
 }
 
+// Purpose: Log a failed pug invite SQL transaction
+// TODO: ensure this callback (and the lack of TnxSuccess) implies invite failure
 public void SQLTxnFailure_InvitePlayers(Database db, DataPack sqlCmd, int numQueries, const char[] error, int failIndex, any[] queryData)
 {
 	decl String:sqlDump[MAX_SQL_LENGTH*32 + 24*32 + 1];

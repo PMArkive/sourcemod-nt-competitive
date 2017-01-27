@@ -212,7 +212,7 @@ This should never happen.", steamID, state);
 	}
 }
 
-bool Database_AddPugger(client, bool bySteamID = false, const char[] steamID = "")
+bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID = "")
 {
 	if (!bySteamID)
 	{
@@ -262,8 +262,8 @@ bool Database_AddPugger(client, bool bySteamID = false, const char[] steamID = "
 
 			if (SQL_MoreRows(stmt))
 			{
-				LogError("Database_AddPugger(%i): Found more than 1 results, \
-expected 0 or 1", client);
+				LogError("Database_AddPugger: Found more than 1 results for %s, \
+expected 0 or 1", steamIDBuffer);
 				break;
 			}
 		}

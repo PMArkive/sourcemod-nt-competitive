@@ -234,7 +234,7 @@ bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID
 
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
-		ThrowError(error);
+		ThrowError(error); // TODO: fail gracefully
 
 	SQL_BindParamString(stmt, 0, steamIDBuffer, false);
 	SQL_Execute(stmt);
@@ -1487,7 +1487,7 @@ bool Database_IsPlayerCompeting(const String:steamID[])
 }
 #endif
 
-bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
+bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const char[] steamID = "")
 {
 	if (!bySteamID && !IsValidClient(client))
 		ThrowError("Invalid client %i", client);
@@ -1503,10 +1503,11 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:st
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
+	decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
 	if (!bySteamID)
-	{
-		GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-	}
+		GetClientAuthId(client, AuthId_Steam2, steamIDBuffer, sizeof(steamIDBuffer));
+	else
+		strcopy(steamIDBuffer, sizeof(steamIDBuffer), steamID);
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
 	g_sqlTable[TABLES_PUGGERS],
@@ -1519,7 +1520,7 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, String:st
 
 	new paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, state);
-	SQL_BindParamString(stmt, paramIndex++, steamID, false);
+	SQL_BindParamString(stmt, paramIndex++, steamIDBuffer, false);
 	SQL_Execute(stmt);
 	CloseHandle(stmt);
 	return true;

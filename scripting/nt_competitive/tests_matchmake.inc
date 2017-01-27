@@ -56,21 +56,13 @@ void Test_Matchmake_Main()
   int tests = 0;
   int passed = 0;
   int failed = 0;
-  /*
-  Test format:
-    if (Test_Function()) { passed++; } else { failed++; }
-    tests++;
-  */
 
-  // Tests start.
-  if (Test_AlwaysPass()) { passed++; } else { failed++; }
-  tests++;
-  if (Test_Matchmake_DatabaseConnection())  { passed++; } else { failed++; }
-  tests++;
-  if (Test_Matchmake_DatabaseOperations())  { passed++; } else { failed++; }
-  tests++;
-  if (Test_Matchmake_PugServer())           { passed++; } else { failed++; }
-  tests++;
+  /*Tests start, format:
+      tests++; if (Test_Function()) { passed++; } else { failed++; }*/
+  tests++; if (Test_AlwaysPass())                   { passed++; } else { failed++; }
+  tests++; if (Test_Matchmake_DatabaseConnection()) { passed++; } else { failed++; }
+  tests++; if (Test_Matchmake_DatabaseOperations()) { passed++; } else { failed++; }
+  tests++; if (Test_Matchmake_PugServer())          { passed++; } else { failed++; }
   // Tests end.
 
   // Results

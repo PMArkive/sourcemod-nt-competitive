@@ -195,12 +195,12 @@ public OnPluginStart()
 	if (GetConVarBool(g_hPugEnabled))
 	{
 		Database_Initialize();
+		if (!Database_DoTablesExist())
+		{
+			Database_CreateTables();
+		}
+		PugMode_Initialize();
 	}
-	if (!Database_DoTablesExist())
-	{
-		Database_CreateTables();
-	}
-	PugMode_Initialize();
 	/*g_hTimer_Pug_SendInvites =
 		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT);*/
 #endif
@@ -263,7 +263,8 @@ public OnMapStart()
 	ResetGlobalVariables();
 
 #if defined PLUGIN_COMP
-	g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
+	if (GetConVarBool(g_hPugEnabled))
+		g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
 #endif
 }
 

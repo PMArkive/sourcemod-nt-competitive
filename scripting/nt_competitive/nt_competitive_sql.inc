@@ -962,6 +962,11 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 	char ipBuffer[MAX_IP_LENGTH];
 	int portBuffer;
 	int dbState;
+	if (!SQL_HasResultSet(stmt_Select))
+	{
+		delete stmt_Select;
+		return false;
+	}
 	while (SQL_FetchRow(stmt_Select))
 	{
 		if (!includeMyself)

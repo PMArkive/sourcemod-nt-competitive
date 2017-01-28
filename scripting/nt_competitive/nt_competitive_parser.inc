@@ -772,12 +772,18 @@ This should never happen.", g_iDesiredPlayers_Cached);
 	// Set my status
 	PugServer_Set_Status(PUG_SERVER_STATUS_RESERVED, ipAddress, port);
 	// Try to send invites to players
-	if (!InvitePlayers(g_iDesiredPlayers_Cached))
+	if (!AcceptPlayers(g_iDesiredPlayers_Cached))
 	{
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return Plugin_Continue;
 	}
-
+	// Try to create a match for invited players
+	if (!CreateMatch(g_iDesiredPlayers_Cached))
+	{
+		// TODO: Cancel player invites and return them to queue if this failed
+		PugServer_SetReserve_This(DB_PUG_INACTIVE);
+		return Plugin_Continue;
+	}
 	// Everything passed! We have a match, stop this loop timer for now.
 	return Plugin_Stop;
 }
@@ -791,12 +797,8 @@ This should never happen.", g_iDesiredPlayers_Cached);
 // On a success, start a timer looking for this match
 // that takes over the logic.
 // On a failure, log error and start the initial timer scanning for players again.
-public void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
+bool CreateMatch(int numPlayers)
 {
-	// * Need to release db once ready
-	// * Warmup timer sort of thing, start/cancel on time or !ready
-	PrintToServer("SQLTxnSuccess_InvitePlayers");
-
 	// Get all the information needed
 	// to create a match entry to db.
 	char matchVanityTitle[MAX_CVAR_LENGTH];
@@ -819,7 +821,7 @@ public void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, D
 
 	int iMatchType = MATCH_TYPE_PUG;
 	int iStatus = GAMESTATE_WARMUP;
-	int iPlayerCount = numQueries;
+	int iPlayerCount = numPlayers;
 
 	// SQL for match insertion
 	decl String:sql[MAX_SQL_LENGTH];
@@ -853,25 +855,6 @@ public void SQLTxnSuccess_InvitePlayers(Database db, any data, int numQueries, D
 	SQL_Execute(stmt);
 	delete stmt;
 
+	return true;
 	//g_hTimer_Pug_SendInvites
 }
-
-// Purpose: Log a failed pug invite SQL transaction
-// TODO: ensure this callback (and the lack of TnxSuccess) implies invite failure
-public void SQLTxnFailure_InvitePlayers(Database db, DataPack sqlCmd, int numQueries, const char[] error, int failIndex, any[] queryData)
-{
-	decl String:sqlDump[MAX_SQL_LENGTH*32 + 24*32 + 1];
-	decl String:catBuffer[MAX_SQL_LENGTH + 24 + 1];
-	decl String:cmdBuffer[MAX_SQL_LENGTH];
-
-	sqlCmd.Reset();
-	for (int i = 0; i < numQueries; i++)
-	{
-		sqlCmd.ReadString(cmdBuffer, sizeof(cmdBuffer));
-		Format(catBuffer, sizeof(catBuffer), "\"SQL command %i\": %s ", i, cmdBuffer);
-		StrCat(sqlDump, sizeof(sqlDump), catBuffer);
-	}
-	delete sqlCmd;
-	ThrowError("%s %s", error, sqlDump);
-}
-#endif

@@ -261,30 +261,64 @@ bool Test_Matchmake_PugServer_Matchmake()
   PrintToServer("- Sub test: Test_Matchmake_PugServer_Matchmake...");
   int failCount;
 
-  int readyPlayers = Puggers_GetCountPerState(PUGGER_STATE_READY);
-  PrintToServer("readyPlayers = %i", readyPlayers);
   // Set up fake players whose match invitations to handle
-  decl String:steamID[MAX_STEAMID_LENGTH];
-  int fakePlayers = 10;
-  for (int i = 1; i <= fakePlayers; i++)
+  #define FAKE_PLAYERS 3
+  decl String:steamID[FAKE_PLAYERS][MAX_STEAMID_LENGTH];
+  bool AddPuggerPassed = true;
+  bool SetPuggerStatePassed = true;
+  for (int i = 0; i < sizeof(steamID); i++)
   {
-    Format(steamID, sizeof(steamID), "STEAMID_%i", i);
-    Database_AddPugger(_, true, steamID);
-    Pugger_SetQueuingState(_, PUGGER_STATE_ACCEPTED, true, steamID);
+    // Add players to table
+    Format(steamID[i], sizeof(steamID[]), "STEAMID_%i", i);
+    if (!Database_AddPugger(_, true, steamID[i]))
+      AddPuggerPassed = false;
+    // Set players state
+    if (!Pugger_SetQueuingState(_, PUGGER_STATE_READY, true, steamID[i]))
+      SetPuggerStatePassed = false;
   }
 
-  Assert(
-    InvitePlayers(fakePlayers), failCount,
-    "Marking invitees with InvitePlayers() returns true."
+  Assert(AddPuggerPassed, failCount,
+    "All Database_AddPugger() calls returned true."
   );
 
-  int newReadyPlayers = Puggers_GetCountPerState(PUGGER_STATE_READY);
+  Assert(SetPuggerStatePassed, failCount,
+    "All Pugger_SetQueuingState() calls returned true."
+  );
+
+  Assert(PugServer_SetReserve_This(DB_PUG_RESERVED), failCount,
+    "Reserving db with PugServer_SetReserve_This() returns true."
+  );
+
+  int acceptedPlayersOld = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
   Assert(
-    newReadyPlayers == readyPlayers + fakePlayers,
+    AcceptPlayers(FAKE_PLAYERS), failCount,
+    "Accepting invitees with AcceptPlayers() returns true."
+  );
+
+  Assert(
+    CreateMatch(FAKE_PLAYERS), failCount,
+    "Match creation with CreateMatch() returns true."
+  );
+
+  int acceptedPlayers = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
+  Assert(
+    acceptedPlayers == acceptedPlayersOld + FAKE_PLAYERS,
     failCount,
     "Amount of puggers with PUGGER_STATE_READY is %i, and equals \
 the previous amount %i plus the amount of invitees from before %i.",
-      newReadyPlayers, readyPlayers, fakePlayers
+      acceptedPlayers, acceptedPlayersOld, FAKE_PLAYERS
+  );
+
+  bool removeLoopPassed = true;
+  for (int i = 0; i < sizeof(steamID); i++)
+  {
+    if (!Database_RemovePugger(steamID[i]))
+      removeLoopPassed = false;
+  }
+
+  Assert(
+    removeLoopPassed, failCount,
+    "All calls to Database_RemovePugger() returned true."
   );
 
   return DidWePass_SubTest(failCount);

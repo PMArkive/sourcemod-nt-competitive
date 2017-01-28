@@ -2960,7 +2960,7 @@ void Pug_KickEveryone(bool:kickAdmins = false)
 
 // Purpose: Find inviteAmount players who have accepted an invitation
 // and assign them to play on this server.
-bool InvitePlayers(int inviteAmount)
+bool AcceptPlayers(int inviteAmount)
 {
 	if (inviteAmount < 1 || inviteAmount > MaxClients)
 	{
@@ -2992,7 +2992,7 @@ bool InvitePlayers(int inviteAmount)
 	{
 		ThrowError(error);
 	}
-	SQL_BindParamInt(stmt, 0, PUGGER_STATE_ACCEPTED);
+	SQL_BindParamInt(stmt, 0, PUGGER_STATE_READY);
 	SQL_Execute(stmt);
 
 	int players;
@@ -3009,58 +3009,40 @@ bool InvitePlayers(int inviteAmount)
 
 	if (players == 0)
 	{
-		LogError("InvitePlayers: No players found.");
+		LogError("AcceptPlayers: No players found.");
 		return false;
 	}
 	else if (players < inviteAmount)
 	{
-		LogError("InvitePlayers: Found %i players, expected to find at least %i players.",
+		LogError("AcceptPlayers: Found %i players, expected to find at least %i players.",
 			players, inviteAmount);
 		return false;
 	}
 
-	PrintToServer("InvitePlayers(%i): Success", inviteAmount);
-	Transaction txnInvite = SQL_CreateTransaction();
-	decl String:escapedSteamID[MAX_STEAMID_LENGTH*2+1];
-	int escapedSize;
-	decl String:sqlCommand[MAX_SQL_LENGTH];
-	DataPack sqlCmds = new DataPack();
+	PrintToServer("AcceptPlayers(%i): Success", inviteAmount);
+
+	Format(sql, sizeof(sql),
+		"UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
+	);
 	for (int i = 0; i < inviteAmount; i++)
 	{
-		// I don't think threaded transactions support statement preparation(?),
-		// so we're just escaping user input the old fashioned way.
-		if (!SQL_EscapeString(g_hDB, players_SteamID[i],
-				escapedSteamID, sizeof(escapedSteamID), escapedSize) ||
-				escapedSize < 1)
-		{
-			delete txnInvite;
-			LogError("InvitePlayers: Failed to escape SteamID string for SQL, \
-aborting. String attempted to be escaped: %s", players_SteamID[i]);
-			return false;
-		}
+		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+		if (stmt == null)
+			ThrowError(error);
 
-		Format(sqlCommand, sizeof(sqlCommand),
-			"UPDATE %s SET %s = %i WHERE %s = '%s' AND %s = %i",
-			g_sqlTable[TABLES_PUGGERS],
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_READY,
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], escapedSteamID,
-			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_ACCEPTED);
-		SQL_AddQuery(txnInvite, sqlCommand);
+		int paramIndex;
+		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_ACCEPTED);
+		SQL_BindParamString(stmt, paramIndex++, players_SteamID[i], false);
+		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_READY);
+		SQL_Execute(stmt);
+		delete stmt;
 		// "Cache" SteamIDs locally to track who's playing
-		strcopy(g_livePlayers[i], sizeof(g_livePlayers[]), escapedSteamID);
-		// Store the SQL command for any tnx error logging
-		sqlCmds.WriteString(sqlCommand);
+		strcopy(g_livePlayers[i], sizeof(g_livePlayers[]), players_SteamID[i]);
 	}
-	// Db handle must be locked for the threaded operation!
-	PrintToServer("Locking");
-	SQL_LockDatabase(g_hDB);
-	// Txn handle closes itself automatically here
-	SQL_ExecuteTransaction(g_hDB, txnInvite, SQLTxnSuccess_InvitePlayers, SQLTxnFailure_InvitePlayers, sqlCmds, DBPrio_High);
-	// ...and unlocked after!
-	// Any potential errors in the txn callbacks don't
-	// interfere with this, so a safe unlock should be guaranteed.
-	PrintToServer("Unlocking");
-	SQL_UnlockDatabase(g_hDB);
 	// The SQLTxnSuccess_InvitePlayers callback (parser.inc) takes over from here.
 	// TODO: ensure the tnx failure callback aborts this logic
 	return true;

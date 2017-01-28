@@ -97,7 +97,7 @@ void PrintToAdmins(bool toChat = true, bool toConsole = false, const String:mess
 // Will return int and float as any, strings by reference.
 any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxStrLen = 0, bool:doFatalFail = true)
 {
-	PrintDebug("GetCvarValue()");
+	//PrintDebug("GetCvarValue()");
 
 	new Handle:hCvar = FindConVar(sCvar);
 	if (hCvar == INVALID_HANDLE && doFatalFail)
@@ -105,22 +105,22 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 
 	any value;
 
-	PrintDebug("Entering the switch statement");
+	//PrintDebug("Entering the switch statement");
 	switch(returnType)
 	{
 		case VAR_TYPE_INT:
 		{
-			PrintDebug("Type INT");
+			//PrintDebug("Type INT");
 			value = GetConVarInt(hCvar);
 		}
 		case VAR_TYPE_FLOAT:
 		{
-			PrintDebug("Type FLOAT");
+			//PrintDebug("Type FLOAT");
 			value = GetConVarFloat(hCvar);
 		}
 		case VAR_TYPE_STRING:
 		{
-			PrintDebug("Type STRING");
+			//PrintDebug("Type STRING");
 			GetConVarString(hCvar, sBuffer, iMaxStrLen);
 		}
 		default:
@@ -139,7 +139,6 @@ any GetCvarValue(const String:sCvar[], returnType, String:sBuffer[] = "", iMaxSt
 		}
 	}
 	CloseHandle(hCvar);
-
 	return value;
 }
 

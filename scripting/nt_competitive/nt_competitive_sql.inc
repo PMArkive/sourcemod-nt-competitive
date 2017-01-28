@@ -1457,6 +1457,10 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 %s INT NOT NULL, \
 %s INT NOT NULL, \
 %s INT NOT NULL, \
+%s INT NOT NULL, \
+%s INT NOT NULL, \
+%s INT NOT NULL, \
+%s INT NOT NULL, \
 %s TIMESTAMP NOT NULL, \
 PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlTable[TABLES_MATCHES],
@@ -1467,6 +1471,10 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[arrayIndex--], MAX_CVAR_LENGTH,
 		g_sqlRow_Matches[arrayIndex--], MAX_CVAR_LENGTH,
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--],
+		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[arrayIndex--],

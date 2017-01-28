@@ -248,6 +248,11 @@ enum matchType {
   MATCH_TYPE_PUG = 0,
 };
 
+enum scoreType {
+  SCORE_TYPE_BEST_OF = 0,
+  SCORE_TYPE_FIRST_TO
+};
+
 Database g_hDB = null;
 
 #define MAX_SQL_LENGTH 768
@@ -312,6 +317,10 @@ enum {
   SQL_TABLE_MATCHES_MATCH_TYPE,
   SQL_TABLE_MATCHES_STATUS,
   SQL_TABLE_MATCHES_PLAYER_COUNT,
+  SQL_TABLE_MATCHES_SCORE_JINRAI,
+  SQL_TABLE_MATCHES_SCORE_NSF,
+  SQL_TABLE_MATCHES_SCORE_TYPE,
+  SQL_TABLE_MATCHES_SCORE_LIMIT,
   SQL_TABLE_MATCHES_LAST_EDITED,
   SQL_TABLE_MATCHES_ENUM_COUNT
 };
@@ -420,5 +429,9 @@ new const String:g_sqlRow_Matches[SQL_TABLE_MATCHES_ENUM_COUNT][] = {
   "match_type",
   "status",
   "playercount",
+  "score_jinrai",
+  "score_nsf",
+  "score_type",
+  "score_limit",
   "last_edited"
 };

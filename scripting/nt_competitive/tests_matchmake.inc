@@ -296,10 +296,15 @@ bool Test_Matchmake_PugServer_Matchmake()
     "Reserving db with PugServer_SetReserve_This() returns true."
   );
 
+  int match_id = PugServer_CreateMatch(fakePlayers);
   Assert(
-    CreateMatch(fakePlayers), failCount,
-    "Match creation with CreateMatch() returns true."
+    match_id != INVALID_MATCH_ID, failCount,
+    "Match creation with PugServer_CreateMatch() doesn't return INVALID_MATCH_ID."
   );
+
+  // TODO: function to check if match exists in db
+
+
 
   /*
   int acceptedPlayersOld = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
@@ -332,6 +337,17 @@ the previous amount %i plus the amount of invitees from before %i.",
     removeLoopPassed, failCount,
     "All calls to Database_RemovePugger() returned true."
   );
+
+  Assert(
+    PugServer_MatchState_Set(match_id, MATCHMAKE_CANCELLED), failCount,
+    "Cancelling match with PugServer_MatchState_Set() returns true."
+  );
+
+  // Clear status after test
+  decl String:ipAddress[MAX_IP_LENGTH];
+  int port;
+  GetServerConnectionDetails(ipAddress, port);
+  PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 
   return DidWePass_SubTest(failCount);
 }

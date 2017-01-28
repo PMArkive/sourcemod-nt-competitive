@@ -580,6 +580,221 @@ bool PugServer_Set_Status(status, String:sIPAddress[MAX_IP_LENGTH], iPort)
 	return true;
 }
 
+bool PugServer_MatchState_Set(const int match_id, const int state)
+{
+	if (state < 0 || state > MATCHMAKE_ENUM_COUNT)
+	{
+		LogError("Invalid state %i, expected value between 0 - %i",
+			MATCHMAKE_ENUM_COUNT);
+		return false;
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError("PugServer_MatchState_Set: %s, SQL: %s", error, sql);
+		return false;
+	}
+
+	SQL_BindParamInt(stmt, 0, state);
+	SQL_BindParamInt(stmt, 1, match_id);
+	SQL_Execute(stmt);
+	delete stmt;
+
+	return true;
+}
+
+// Purpose: Create a new match, and assign players to it.
+// Returns matchid on success, INVALID_MATCH_ID on failure.
+int PugServer_CreateMatch(int numPlayers)
+{
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+
+	int currentStatus = PugServer_Get_Status(ipAddress, port);
+	if (currentStatus != PUG_SERVER_STATUS_AVAILABLE)
+	{
+		LogError("PugServer_CreateMatch: Tried creating new match while server is not free! \
+Pug server returns status %i, expected PUG_SERVER_STATUS_AVAILABLE (%i)",
+currentStatus, PUG_SERVER_STATUS_AVAILABLE);
+		return INVALID_MATCH_ID;
+	}
+
+	// Mark this server as reserved
+	if (!PugServer_Set_Status(PUG_SERVER_STATUS_RESERVED, ipAddress, port))
+	{
+		LogError("PugServer_CreateMatch: Failed to set pug server status %i",
+			PUG_SERVER_STATUS_RESERVED);
+		return INVALID_MATCH_ID;
+	}
+
+	// Get all the information needed
+	// to create a match entry to db.
+	char matchVanityTitle[MAX_CVAR_LENGTH];
+	GetConVarString(g_hCompetitionName, matchVanityTitle, sizeof(matchVanityTitle));
+
+	Handle hCvar_Hostname = FindConVar("hostname");
+	if (hCvar_Hostname == null)
+		ThrowError("Failed to get server cvar \"hostname\"");
+
+	char serverVanityTitle[MAX_CVAR_LENGTH];
+	GetConVarString(hCvar_Hostname, serverVanityTitle, sizeof(serverVanityTitle));
+	delete hCvar_Hostname;
+
+	char serverPassword[MAX_CVAR_LENGTH];
+	GetConVarString(g_hPassword, serverPassword, sizeof(serverPassword));
+
+	// SQL for match insertion
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql),
+		"INSERT INTO %s (%s,%s,%s,%s,%s,%s,%s,%s) VALUES (?,?,?,?,?,?,?,?)",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_VANITY_TITLE],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_IP],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_PORT],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_VANITY_NAME],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_MATCH_PASSWORD],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_MATCH_TYPE],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_PLAYER_COUNT],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError("%s, SQL: %s", error, sql);
+
+	int paramIndex;
+	SQL_BindParamString(stmt, paramIndex++, matchVanityTitle, false);
+	SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
+	SQL_BindParamInt(stmt, paramIndex++, port);
+	SQL_BindParamString(stmt, paramIndex++, serverVanityTitle, false);
+	SQL_BindParamString(stmt, paramIndex++, serverPassword, false);
+	SQL_BindParamInt(stmt, paramIndex++, MATCH_TYPE_PUG);
+	SQL_BindParamInt(stmt, paramIndex++, MATCHMAKE_WARMUP);
+	SQL_BindParamInt(stmt, paramIndex++, numPlayers);
+	SQL_Execute(stmt);
+	delete stmt;
+
+	DBResultSet result = SQL_Query(g_hDB, "SELECT LAST_INSERT_ID()");
+	if (result == null || !SQL_HasResultSet(result))
+	{
+		if (result != null)
+			delete result;
+		LogError("PugServer_CreateMatch: SQL statement has no result set.");
+		return INVALID_MATCH_ID;
+	}
+	int rows;
+	int match_id = 0;
+	while (SQL_FetchRow(result))
+	{
+		rows++;
+		if (rows > 1)
+		{
+			LogError("PugServer_CreateMatch: \
+SQL statement returned multiple results; SQL: %s", sql);
+			delete result;
+			return INVALID_MATCH_ID;
+		}
+		match_id = SQL_FetchInt(result, SQL_TABLE_MATCHES_ID);
+	}
+	delete result;
+	// Could not invite players to this match for whatever reason.
+	// Mark match as cancelled (TODO) and make this server available again.
+	if (!PugServer_InvitePlayers(match_id, numPlayers))
+	{
+		//CancelMatch(match_id); // TODO
+		PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+		return INVALID_MATCH_ID;
+	}
+	return match_id;
+}
+
+bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
+{
+	// Get all players who are queuing
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+	SQL_BindParamInt(stmt, 0, PUGGER_STATE_QUEUING);
+	SQL_Execute(stmt);
+	// There were no players queuing, this is an error
+	if (!SQL_HasResultSet(stmt))
+	{
+		LogError("AssignPlayers: SQL has no result set; SQL: %s", sql);
+		delete stmt;
+		return false;
+	}
+	int results = SQL_GetRowCount(stmt);
+	// There aren't enough players queuing, this is an error
+	if (results < numPlayers)
+	{
+		LogError("AssignPlayers: Not enough players to assign a match for!");
+		delete stmt;
+		return false;
+	}
+	// Loop through numPlayers players and grab SteamIDs to invite
+	decl String:steamIDs[MAXPLAYERS+1][MAX_STEAMID_LENGTH];
+	int i;
+	for (i = 0; SQL_FetchRow(stmt); i++)
+	{
+		// done!
+		if (i == numPlayers)
+			break;
+
+		SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID,
+			steamIDs[i], sizeof(steamIDs[]));
+	}
+	delete stmt;
+	// This should never happen
+	if (i != numPlayers)
+	{
+		LogError("AssignPlayers: Failed fetching enough players for some reason. \
+Loop i = %i, numPlayers = %i. SQL was: %s", i, numPlayers, sql);
+		return false;
+	}
+
+	// Update players table to send offers for queuing players
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
+	);
+
+	for (i = 0; i < numPlayers; i++)
+	{
+		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+		if (stmt == null)
+			ThrowError(error);
+
+		int paramIndex;
+		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_CONFIRMING);
+		SQL_BindParamInt(stmt, paramIndex++, match_id);
+		SQL_BindParamString(stmt, paramIndex++, steamIDs[i], false);
+		SQL_Execute(stmt);
+		delete stmt;
+	}
+	return true;
+}
+
 // Purpose: Get PUG server's status enum
 int PugServer_Get_Status(const String:sIP[], iPort)
 {

@@ -263,8 +263,10 @@ public OnMapStart()
 	ResetGlobalVariables();
 
 #if defined PLUGIN_COMP
+/*
 	if (GetConVarBool(g_hPugEnabled))
 		g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
+*/
 #endif
 }
 

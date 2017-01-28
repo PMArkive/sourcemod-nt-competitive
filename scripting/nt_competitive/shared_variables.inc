@@ -112,10 +112,13 @@ new g_penalizedTeam;
 new g_ghostCapturingTeam;
 new g_epoch;
 
-int g_iDesiredPlayers_Cached;
+//int g_iDesiredPlayers_Cached;
 
 new Float:g_fRoundTime;
+
+#if defined PLUGIN_PUG
 new Float:g_fPuggersPresentTimer = 180.0;
+#endif
 
 new bool:g_isAlltalkByDefault;
 new bool:g_isExpectingOverride;
@@ -195,8 +198,8 @@ new Handle:g_hTimer_GoLive = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_Countdown = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_HalfLeft = INVALID_HANDLE;
-new Handle:g_hTimer_Pug_CheckPuggers = INVALID_HANDLE;
-new Handle:g_hTimer_Pug_SendInvites = INVALID_HANDLE;
+//new Handle:g_hTimer_Pug_CheckPuggers = INVALID_HANDLE;
+//new Handle:g_hTimer_Pug_SendInvites = INVALID_HANDLE;
 
 KeyValues g_kv;
 

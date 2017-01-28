@@ -621,6 +621,7 @@ public Event_PugEnabled(Handle:cvar, const String:oldVal[], const String:newVal[
 		SetConVarBool(g_hPugEnabled, false);
 		return;
 	}
+	PugMode_Initialize();
 }
 #endif
 

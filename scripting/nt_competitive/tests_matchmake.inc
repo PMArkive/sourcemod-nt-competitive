@@ -303,9 +303,17 @@ bool Test_Matchmake_PugServer_Matchmake()
     "Match creation with PugServer_CreateMatch() doesn't return INVALID_MATCH_ID."
   );
 
-  // TODO: function to check if match exists in db
+  Assert(
+    Database_MatchExists(match_id), failCount,
+    "Calling Database_MatchExists() to check for the just created match \
+returns true."
+  );
 
-
+  Assert(
+    Database_MatchExists(INVALID_MATCH_ID) == false, failCount,
+    "Calling Database_MatchExists() to check for INVALID_MATCH_ID \
+returns false."
+  );
 
   /*
   int acceptedPlayersOld = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);

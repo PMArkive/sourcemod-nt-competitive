@@ -92,6 +92,7 @@ bool Database_RemovePugger(const char[] steamID)
 	return true;
 }
 
+#if defined PLUGIN_PUG
 void Pugger_Remove(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
 	// Make sure client index is valid,
@@ -220,6 +221,7 @@ This should never happen.", steamID, state);
 		FindNewMatch();
 	}
 }
+#endif
 
 bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID = "")
 {
@@ -298,6 +300,7 @@ expected 0 or 1", steamIDBuffer);
 	return true;
 }
 
+#if defined PLUGIN_PUG
 void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID[MAX_STEAMID_LENGTH] = "")
 {
 	decl String:sql[MAX_SQL_LENGTH];
@@ -387,6 +390,7 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 
 	Organizers_Update_This();
 }
+#endif
 
 #if defined PLUGIN_PUG
 void Database_LogIgnore(client)
@@ -609,6 +613,41 @@ bool PugServer_MatchState_Set(const int match_id, const int state)
 	SQL_Execute(stmt);
 	delete stmt;
 
+	return true;
+}
+
+bool Database_MatchExists(const int match_id)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError("Database_MatchExists: %s", error);
+		return false;
+	}
+	SQL_BindParamInt(stmt, 0, match_id);
+	SQL_Execute(stmt);
+	if (!SQL_HasResultSet(stmt))
+	{
+		delete stmt;
+		return false;
+	}
+	int rows = SQL_GetRowCount(stmt);
+	delete stmt;
+	if (rows == 0)
+	{
+		return false;
+	}
+	else if (rows > 1)
+	{
+		LogError("Database_MatchExists: %i matches matched match_id %i, \
+expected 0 or 1.", rows, match_id);
+	}
 	return true;
 }
 

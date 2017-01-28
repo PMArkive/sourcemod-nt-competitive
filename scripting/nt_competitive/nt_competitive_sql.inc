@@ -682,6 +682,8 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 	if (g_bIsDatabaseDown)
 		return false;
 
+	// Only allow reserve state edit if releasing reservation
+	// or if there is nobody else with a reservation active.
 	bool includeMyself = true;
 	if (reserveStatus != DB_PUG_INACTIVE &&
 			PugServers_Is_Anyone_Busy(!includeMyself))
@@ -1552,3 +1554,5 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 	CloseHandle(stmt);
 	return true;
 }
+
+//PugServer_Get_Active_MatchID(ipAddress, port);

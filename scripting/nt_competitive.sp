@@ -192,9 +192,17 @@ public OnPluginStart()
 	AutoExecConfig(true);
 
 #if defined PLUGIN_COMP
-	Database_Initialize();
-	g_hTimer_Pug_SendInvites =
-		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT);
+	if (GetConVarBool(g_hPugEnabled))
+	{
+		Database_Initialize();
+	}
+	if (!Database_DoTablesExist())
+	{
+		Database_CreateTables();
+	}
+	PugMode_Initialize();
+	/*g_hTimer_Pug_SendInvites =
+		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT);*/
 #endif
 }
 

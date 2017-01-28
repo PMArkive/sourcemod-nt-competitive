@@ -10,6 +10,7 @@
 #define MATCHMAKE_LOOKUP_TIMER 10.0
 #endif
 
+#define INVALID_MATCH_ID = 0
 #define MAX_IP_LENGTH 46
 #define MAX_IDENTIFIER_LENGTH 52
 #define MAX_CVAR_LENGTH 64
@@ -217,6 +218,15 @@ enum {
 };
 
 enum {
+  MATCHMAKE_ERROR = 0,
+  MATCHMAKE_WARMUP,
+  MATCHMAKE_LIVE,
+  MATCHMAKE_PAUSED,
+  MATCHMAKE_FINISHED,
+  MATCHMAKE_CANCELLED
+};
+
+enum {
 	PAUSEMODE_FORBIDDEN = 0,
 	PAUSEMODE_NORMAL,
 	PAUSEMODE_STOP_CLOCK
@@ -309,8 +319,8 @@ enum {
 	PUGGER_STATE_INACTIVE = 0,						   		// This pugger is not currently queuing or playing at all
 	PUGGER_STATE_QUEUING = 1,										// Queuing for a match
 	PUGGER_STATE_CONFIRMING = 2,								// Match has been offered, waiting for this pugger to accept
-	PUGGER_STATE_ACCEPTED = 3,									// Pugger has accepted a match invite
-	PUGGER_STATE_READY = 4,											// Pugger is expected to go live soon
+	PUGGER_STATE_ACCEPTED = 3,									// Pugger has accepted a match invite, waiting for a pug server to process the acceptance
+	PUGGER_STATE_READY = 4,											// Pugger has been assigned a match
 	PUGGER_STATE_LIVE = 5,											// Currently playing
 	PUGGER_STATE_ENUM_COUNT = 6
 };
@@ -346,7 +356,7 @@ enum {
 	TABLES_PUGGERS,
   TABLES_MATCHES,
 	TABLES_ENUM_COUNT
-}
+};
 
 new const String:g_sqlTable[TABLES_ENUM_COUNT][] = {
 	"global_rules",

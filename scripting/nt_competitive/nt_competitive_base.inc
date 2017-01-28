@@ -2922,6 +2922,11 @@ void CancelLiveCountdown()
 bool PugMode_Initialize()
 {
 	Pug_PasswordServer();
+	// TODO: Check for existing games
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 
 	if (!PugServer_Update_This())
 	{
@@ -2958,6 +2963,7 @@ void Pug_KickEveryone(bool:kickAdmins = false)
 	}
 }
 
+/*
 // Purpose: Find inviteAmount players who have accepted an invitation
 // and assign them to play on this server.
 bool AcceptPlayers(int inviteAmount)
@@ -3047,4 +3053,5 @@ bool AcceptPlayers(int inviteAmount)
 	// TODO: ensure the tnx failure callback aborts this logic
 	return true;
 }
+*/
 #endif

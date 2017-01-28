@@ -105,6 +105,11 @@ bool Test_Matchmake_DatabaseConnection()
   int failCount;
 
   Assert(
+    Database_Initialize(), failCount,
+    "Calling Database_Initialize() returns true."
+  );
+
+  Assert(
     g_hDB != null, failCount,
     "Global db handle is not null."
   );
@@ -113,10 +118,6 @@ bool Test_Matchmake_DatabaseConnection()
   {
     Database_CreateTables();
   }
-  Assert(
-    Database_Initialize(), failCount,
-    "Calling Database_Initialize() returns true."
-  );
 
   Assert(
     Database_DoTablesExist(), failCount,

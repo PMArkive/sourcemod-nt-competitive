@@ -1348,11 +1348,9 @@ void Database_CreateTables(int client = 0)
 	command.");
 			ReplyToCommand(client, "No new tables were created by this command.");
 		}
-
-		LogError("Attempted to run Command_CreateTables while %i \
-		PUG rows already exist. Command was aborted. PUG plugin debug level: %i. \
-		SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
-		return;
+		ThrowError("Attempted to run Command_CreateTables while %i \
+PUG rows already exist. Command was aborted. PUG plugin debug level: %i. \
+SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
 	}
 
 	Database_Initialize(false);
@@ -1402,7 +1400,8 @@ void Database_CreateTables(int client = 0)
 	}
 	else if (rows > 1)
 	{
-		ThrowError("Too many rules table rows.");
+		ThrowError("Too many rows (%i) in table \"%s\", expected 1 or 0.",
+			rows, g_sqlTable[TABLES_RULES]);
 	}
 
 	// todo: optimise INT sizes

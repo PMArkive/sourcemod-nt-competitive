@@ -2939,9 +2939,58 @@ bool PugMode_Initialize()
 	Pug_PasswordServer();
 	// At the beginning there is no match, thus match status should return an error
 	SetMatchStatus(MATCHMAKE_ERROR);
+	Players_ClearState();
+	Players_UpdateState();
 	Pug_KickEveryone();
 	PrintToAdmins(_, _, "%s PUG mode has been enabled.", g_sTag);
 	return true;
+}
+
+void Players_ClearState()
+{
+	for (int i = 0; i < sizeof(g_iPlayerStatus); i++)
+	{
+		g_iPlayerStatus[i] = PLAYER_STATUS_UNKNOWN;
+	}
+}
+
+void Players_UpdateState()
+{
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+
+	for (int i = 0; i < sizeof(g_iPlayerStatus); i++)
+	{
+		if (!IsValidClient(i) || !IsClientAuthorized(i) || IsFakeClient(i))
+		{
+			g_iPlayerStatus[i] = PLAYER_STATUS_UNKNOWN;
+			continue;
+		}
+
+		int matchid = PugServer_GetMatchID_This();
+		if (matchid == MATCHMAKE_ERROR)
+			return;
+
+		int state = PugServer_Get_Status(ipAddress, port);
+		if (state == PUG_SERVER_STATUS_ERROR ||
+				state == PUG_SERVER_STATUS_AVAILABLE ||
+				state == PUG_SERVER_STATUS_RESERVED)
+		{
+			ThrowError("Pug server returns status %i, even though there exists \
+a matchid %i for the server. Expected PUG_SERVER_STATUS_AWAITING_PLAYERS %i, \
+PUG_SERVER_STATUS_LIVE %i, or PUG_SERVER_STATUS_BUSY %i.", state, matchid,
+PUG_SERVER_STATUS_AWAITING_PLAYERS,
+PUG_SERVER_STATUS_LIVE, PUG_SERVER_STATUS_BUSY);
+		}
+
+		if (g_isLive)
+			g_iPlayerStatus[i] = PLAYER_STATUS_LIVE;
+		else if (g_isReady[i])
+			g_iPlayerStatus[i] = PLAYER_STATUS_READY;
+		else
+			g_iPlayerStatus[i] = PLAYER_STATUS_NOT_READY;
+	}
 }
 
 void AdminFilter(int client)

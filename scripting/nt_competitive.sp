@@ -299,9 +299,12 @@ public OnClientAuthorized(client, const String:authID[])
 			AdminFilter(client);
 			return;
 		}
-		// Player belongs to this match,
+		// Player belongs to this match (and there is a match),
 		// maybe assign their team or do something here.
 		// Also count how many have joined / disconnected.
+
+		
+
 		return;
 	}
 #endif

@@ -113,6 +113,7 @@ new g_ghostCapturingTeam;
 new g_epoch;
 
 int g_iMatchmakeStatus;
+int g_iPlayerStatus[MAXPLAYERS+1];
 
 //int g_iDesiredPlayers_Cached;
 
@@ -256,6 +257,15 @@ enum matchType {
 enum scoreType {
   SCORE_TYPE_BEST_OF = 0,
   SCORE_TYPE_FIRST_TO
+};
+
+enum {
+  PLAYER_STATUS_UNKNOWN = 0,
+  PLAYER_STATUS_NOT_READY,
+  PLAYER_STATUS_READY,
+  PLAYER_STATUS_LIVE,
+  PLAYER_STATUS_ABANDONED,
+  PLAYER_STATUS_ENUM_COUNT
 };
 
 Database g_hDB = null;

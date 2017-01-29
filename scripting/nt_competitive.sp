@@ -303,7 +303,6 @@ public OnClientAuthorized(client, const String:authID[])
 		// maybe assign their team or do something here.
 		// Also count how many have joined / disconnected.
 
-		
 
 		return;
 	}
@@ -386,6 +385,25 @@ public OnClientDisconnect(client)
 	g_isReady[client] = false;
 	g_survivedLastRound[client] = false;
 	g_isSpawned[client] = false;
+
+	// PUG matchmake related checks below
+	if (!GetConVarBool(g_hPugEnabled))
+		return;
+
+	int matchid = PugServer_GetMatchID_This();
+	if (matchid == MATCHMAKE_ERROR)
+		g_iPlayerStatus[client] = PLAYER_STATUS_UNKNOWN;
+
+	int status = PugServer_Get_Status_This();
+	if (status == PUG_SERVER_STATUS_LIVE &&
+			g_iPlayerStatus[client] == PLAYER_STATUS_LIVE)
+	{
+		g_iPlayerStatus[client] = PLAYER_STATUS_ABANDONED;
+	}
+	else
+	{
+		g_iPlayerStatus[client] = PLAYER_STATUS_UNKNOWN;
+	}
 }
 
 public OnGhostCapture(client)

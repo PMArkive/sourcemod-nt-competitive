@@ -1357,6 +1357,7 @@ void Database_CreateTables(int client = 0)
 
 	Database_Initialize(false);
 	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
 
 	// Reversed array index for Format() order of operations
 	new arrayIndex = SQL_TABLE_RULES_ENUM_COUNT-1;
@@ -1366,18 +1367,24 @@ void Database_CreateTables(int client = 0)
 									g_sqlTable[TABLES_RULES],
 									g_sqlRow_Rules[arrayIndex--]
 	);
-	PrintDebug("SQL: %s", sql);
-
-	new Handle:query_CreateRules = SQL_Query(g_hDB, sql);
-	CloseHandle(query_CreateRules);
+	if (!SQL_FastQuery(g_hDB, sql))
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
 
 	Format(sql, sizeof(sql), "SELECT * from %s", g_sqlTable[TABLES_RULES]);
 	Handle query_SelectRules = SQL_Query(g_hDB, sql);
 	if (query_SelectRules == null)
-		ThrowError("SQL query failed, SQL: %s", sql);
-
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
 	rows = SQL_GetRowCount(query_SelectRules);
 	delete query_SelectRules;
+
 	if (rows == 0)
 	{
 		int desiredPlayerCount = 10;
@@ -1386,7 +1393,12 @@ void Database_CreateTables(int client = 0)
 			g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT],
 			desiredPlayerCount
 		);
-		SQL_FastQuery(g_hDB, sql);
+		if (!SQL_FastQuery(g_hDB, sql))
+		{
+			if (SQL_GetError(g_hDB, error, sizeof(error)))
+				ThrowError(error);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
 	else if (rows > 1)
 	{
@@ -1431,9 +1443,12 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
 	);
-
-	new Handle:query_CreatePuggers = SQL_Query(g_hDB, sql);
-	CloseHandle(query_CreatePuggers);
+	if (!SQL_FastQuery(g_hDB, sql))
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
 
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_ORG_ENUM_COUNT-1;
@@ -1452,8 +1467,12 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Organizers[arrayIndex--],
 		g_sqlRow_Organizers[SQL_TABLE_ORG_ID]
 	);
-	new Handle:query_CreateOrganizers = SQL_Query(g_hDB, sql);
-	CloseHandle(query_CreateOrganizers);
+	if (!SQL_FastQuery(g_hDB, sql))
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
 
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_PUG_SERVER_ENUM_COUNT-1;
@@ -1480,8 +1499,12 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_PickupServers[arrayIndex--],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ID]
 	);
-	new Handle:query_CreatePugServers = SQL_Query(g_hDB, sql);
-	CloseHandle(query_CreatePugServers);
+	if (!SQL_FastQuery(g_hDB, sql))
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
 
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_MATCHES_ENUM_COUNT-1;
@@ -1520,8 +1543,12 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 		);
-	new Handle:query_CreateMatches = SQL_Query(g_hDB, sql);
-	CloseHandle(query_CreateMatches);
+	if (!SQL_FastQuery(g_hDB, sql))
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
 }
 #endif
 

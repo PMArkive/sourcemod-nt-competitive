@@ -2956,10 +2956,6 @@ void Players_ClearState()
 
 void Players_UpdateState()
 {
-	decl String:ipAddress[MAX_IP_LENGTH];
-	int port;
-	GetServerConnectionDetails(ipAddress, port);
-
 	for (int i = 0; i < sizeof(g_iPlayerStatus); i++)
 	{
 		if (!IsValidClient(i) || !IsClientAuthorized(i) || IsFakeClient(i))
@@ -2972,14 +2968,14 @@ void Players_UpdateState()
 		if (matchid == MATCHMAKE_ERROR)
 			return;
 
-		int state = PugServer_Get_Status(ipAddress, port);
-		if (state == PUG_SERVER_STATUS_ERROR ||
-				state == PUG_SERVER_STATUS_AVAILABLE ||
-				state == PUG_SERVER_STATUS_RESERVED)
+		int status = PugServer_Get_Status_This();
+		if (status == PUG_SERVER_STATUS_ERROR ||
+				status == PUG_SERVER_STATUS_AVAILABLE ||
+				status == PUG_SERVER_STATUS_RESERVED)
 		{
 			ThrowError("Pug server returns status %i, even though there exists \
 a matchid %i for the server. Expected PUG_SERVER_STATUS_AWAITING_PLAYERS %i, \
-PUG_SERVER_STATUS_LIVE %i, or PUG_SERVER_STATUS_BUSY %i.", state, matchid,
+PUG_SERVER_STATUS_LIVE %i, or PUG_SERVER_STATUS_BUSY %i.", status, matchid,
 PUG_SERVER_STATUS_AWAITING_PLAYERS,
 PUG_SERVER_STATUS_LIVE, PUG_SERVER_STATUS_BUSY);
 		}

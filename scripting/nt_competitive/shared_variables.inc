@@ -113,6 +113,7 @@ new g_ghostCapturingTeam;
 new g_epoch;
 
 int g_iMatchmakeStatus;
+
 int g_iPlayerStatus[MAXPLAYERS+1];
 
 //int g_iDesiredPlayers_Cached;

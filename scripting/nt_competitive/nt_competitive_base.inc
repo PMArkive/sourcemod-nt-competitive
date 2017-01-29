@@ -2946,16 +2946,100 @@ bool PugMode_Initialize()
 	return true;
 }
 
+void PlayerStateChanged()
+{
+	if (!GetConVarBool(g_hPugEnabled))
+	{
+		ThrowError("This should never get called when pug mode is disabled.");
+	}
+
+	int matchid = PugServer_GetMatchID_This();
+	if (matchid == INVALID_MATCH_ID)
+		return;
+
+	int desiredPlayers = Match_GetDesiredPlayers(matchid);
+	int status = PugServer_Get_Status_This();
+
+	if (status == PUG_SERVER_STATUS_LIVE)
+	{
+		int livePlayers;
+		for (int i = 0; i < MaxClients; i++)
+		{
+			if (g_iPlayerStatus[i] == PLAYER_STATUS_LIVE)
+				livePlayers++;
+		}
+		if (livePlayers > desiredPlayers)
+		{
+			ThrowError("livePlayers %i > %i desiredPlayers",
+				livePlayers, desiredPlayers);
+		}
+		else if (livePlayers < desiredPlayers)
+		{
+			// Someone just left a live pug match.
+			// Should probably do something here about it,
+			// try to find replacement players etc.
+			// after a set time.
+			PrintToChatAll("pug missing player trigger");
+		}
+	}
+	else if (status == PUG_SERVER_STATUS_AWAITING_PLAYERS)
+	{
+		int readyPlayers;
+		for (int i = 0; i < MaxClients; i++)
+		{
+			if (g_iPlayerStatus[i] == PLAYER_STATUS_READY)
+				readyPlayers++;
+		}
+
+		if (readyPlayers > desiredPlayers)
+		{
+			ThrowError("readyPlayers %i > %i desiredPlayers",
+				readyPlayers, desiredPlayers);
+		}
+		else if (readyPlayers == desiredPlayers)
+		{
+			// go live
+			// This happens automatically gameplay wise,
+			// still need to set pug server status
+			// and match info.
+			//PugMode_GoLive();
+			PrintToChatAll("pug go live trigger");
+		}
+	}
+}
+
+void Player_SetState(int client, int state)
+{
+	if (client < 1 || client > MaxClients)
+	{
+		ThrowError("Invalid client index %i, expected value between 0 - %i",
+			client, MaxClients);
+	}
+	if (state < 0 || state > PLAYER_STATUS_ENUM_COUNT)
+	{
+		ThrowError("Invalid state %i, expected value between 0 - %i",
+			PLAYER_STATUS_ENUM_COUNT);
+	}
+	g_iPlayerStatus[client] = state;
+	PlayerStateChanged();
+}
+
 void Players_ClearState()
 {
 	for (int i = 0; i < sizeof(g_iPlayerStatus); i++)
 	{
 		g_iPlayerStatus[i] = PLAYER_STATUS_UNKNOWN;
 	}
+	PlayerStateChanged();
 }
 
 void Players_UpdateState()
 {
+	int matchid = PugServer_GetMatchID_This();
+	if (matchid == MATCHMAKE_ERROR)
+		return;
+
+	int status = PugServer_Get_Status_This();
 	for (int i = 0; i < sizeof(g_iPlayerStatus); i++)
 	{
 		if (!IsValidClient(i) || !IsClientAuthorized(i) || IsFakeClient(i))
@@ -2964,11 +3048,6 @@ void Players_UpdateState()
 			continue;
 		}
 
-		int matchid = PugServer_GetMatchID_This();
-		if (matchid == MATCHMAKE_ERROR)
-			return;
-
-		int status = PugServer_Get_Status_This();
 		if (status == PUG_SERVER_STATUS_ERROR ||
 				status == PUG_SERVER_STATUS_AVAILABLE ||
 				status == PUG_SERVER_STATUS_RESERVED)
@@ -2987,6 +3066,7 @@ PUG_SERVER_STATUS_LIVE, PUG_SERVER_STATUS_BUSY);
 		else
 			g_iPlayerStatus[i] = PLAYER_STATUS_NOT_READY;
 	}
+	PlayerStateChanged();
 }
 
 void AdminFilter(int client)

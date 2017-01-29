@@ -1910,6 +1910,43 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 	return true;
 }
 
+int Match_GetDesiredPlayers(int match_id)
+{
+	if (!Database_MatchExists(match_id))
+	{
+		ThrowError("Couldn't find match with id %i", match_id);
+	}
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		ThrowError(error);
+	}
+	SQL_BindParamInt(stmt, 0, match_id);
+	SQL_Execute(stmt);
+
+	if (!SQL_HasResultSet(stmt) || SQL_GetRowCount(stmt) == 0)
+	{
+		ThrowError("Query returned 0 results for match id %i.", match_id);
+	}
+	int playercount;
+	while (SQL_FetchRow(stmt))
+	{
+		SQL_FetchInt(stmt, SQL_TABLE_MATCHES_PLAYER_COUNT);
+	}
+	delete stmt;
+	return playercount;
+}
+
 int PugServer_GetMatchID_This()
 {
 	decl String:ipAddress[MAX_IP_LENGTH];

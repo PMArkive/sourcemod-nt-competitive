@@ -392,17 +392,20 @@ public OnClientDisconnect(client)
 
 	int matchid = PugServer_GetMatchID_This();
 	if (matchid == MATCHMAKE_ERROR)
-		g_iPlayerStatus[client] = PLAYER_STATUS_UNKNOWN;
+	{
+		Player_SetState(client, PLAYER_STATUS_UNKNOWN);
+		return;
+	}
 
 	int status = PugServer_Get_Status_This();
 	if (status == PUG_SERVER_STATUS_LIVE &&
 			g_iPlayerStatus[client] == PLAYER_STATUS_LIVE)
 	{
-		g_iPlayerStatus[client] = PLAYER_STATUS_ABANDONED;
+		Player_SetState(client, PLAYER_STATUS_ABANDONED);
 	}
 	else
 	{
-		g_iPlayerStatus[client] = PLAYER_STATUS_UNKNOWN;
+		Player_SetState(client, PLAYER_STATUS_UNKNOWN);
 	}
 }
 

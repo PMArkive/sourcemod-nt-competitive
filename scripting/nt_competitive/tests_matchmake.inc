@@ -229,7 +229,7 @@ bool Test_PugServer_Reservations()
 
   Assert(
     PugServer_GetReserve_This() == DB_PUG_INACTIVE, failCount,
-    "PugServer_GetReserve_This returns DB_PUG_RESERVED in accordance \
+    "PugServer_GetReserve_This returns DB_PUG_INACTIVE in accordance \
 with the previous assertion."
   );
 

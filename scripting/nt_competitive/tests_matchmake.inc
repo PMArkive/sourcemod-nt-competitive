@@ -39,6 +39,7 @@ bool DidWePass_SubTest(const int failCount)
 void Test_Matchmake_Main()
 {
   PrintToServer("\n- - - - - - - - - -\nStarting testing...\n");
+  float startTime = GetEngineTime();
   /* Test needed (match initialisation)
     - Get accepted players, and handle them in cases:
       - accepted == desired
@@ -85,7 +86,10 @@ void Test_Matchmake_Main()
   {
     PrintToServer("Some tests failed!");
   }
-  PrintToServer("\nTesting complete.\n- - - - - - - - - -\n");
+
+  float endTime = GetEngineTime();
+  PrintToServer("\nTesting complete in %f seconds.", endTime - startTime);
+  PrintToServer("- - - - - - - - - -\n");
 }
 
 bool Test_AlwaysPass()

@@ -58,7 +58,7 @@ void Test_Matchmake_Main()
   int failed = 0;
 
   /*Tests start, format:
-      tests++; if (Test_Function()) { passed++; } else { failed++; }*/
+    tests++; if (Test_Function()) { passed++; } else { failed++; }*/
   tests++; if (Test_AlwaysPass())                       { passed++; } else { failed++; }
   tests++; if (Test_Matchmake_DatabaseConnection())     { passed++; } else { failed++; }
   tests++; if (Test_Matchmake_DatabaseOperations())     { passed++; } else { failed++; }
@@ -315,31 +315,11 @@ returns true."
 returns false."
   );
 
-  /*
-  int acceptedPlayersOld = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
-  Assert(
-    AcceptPlayers(fakePlayers), failCount,
-    "Accepting invitees with AcceptPlayers() returns true."
-  );
-
-  int acceptedPlayers = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
-  Assert(
-    acceptedPlayers == acceptedPlayersOld + fakePlayers,
-    failCount,
-    "Amount of puggers with PUGGER_STATE_READY is %i, and equals \
-the previous amount %i plus the amount of invitees from before %i.",
-      acceptedPlayers, acceptedPlayersOld, fakePlayers
-  );
-  */
-
   bool removeLoopPassed = true;
   for (int i = 0; i < fakePlayers; i++)
   {
-    Pugger_SetQueuingState(_, PUGGER_STATE_INACTIVE, true, steamID[i]);
-    /*
-    if (!Database_RemovePugger(steamID[i]))
+    if (!Pugger_SetQueuingState(_, PUGGER_STATE_INACTIVE, true, steamID[i]))
       removeLoopPassed = false;
-    */
   }
 
   Assert(

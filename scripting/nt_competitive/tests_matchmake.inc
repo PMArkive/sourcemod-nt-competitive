@@ -104,6 +104,13 @@ bool Test_Matchmake_DatabaseConnection()
   PrintToServer("- Sub test: Test_Matchmake_DatabaseConnection...");
   int failCount;
 
+  decl String:configName[MAX_CVAR_LENGTH];
+  GetConVarString(g_hCvar_DbConfig, configName, sizeof(configName));
+  Assert(
+    SQL_CheckConfig(configName), failCount,
+    "SourceMod database config exists for nt_competitive."
+  );
+
   Assert(
     Database_Initialize(), failCount,
     "Calling Database_Initialize() returns true."
@@ -122,13 +129,6 @@ bool Test_Matchmake_DatabaseConnection()
   Assert(
     Database_DoTablesExist(), failCount,
     "Calling Database_DoTablesExist() returns true."
-  );
-
-  decl String:configName[MAX_CVAR_LENGTH];
-  GetConVarString(g_hCvar_DbConfig, configName, sizeof(configName));
-  Assert(
-    SQL_CheckConfig(configName), failCount,
-    "SourceMod database config exists for nt_competitive."
   );
 
   return DidWePass_SubTest(failCount);

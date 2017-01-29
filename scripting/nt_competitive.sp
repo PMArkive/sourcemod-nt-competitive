@@ -290,22 +290,19 @@ public OnConfigsExecuted()
 public OnClientAuthorized(client, const String:authID[])
 {
 #if defined PLUGIN_COMP
-	// PUG mode is enabled but this player isn't participating
-	if (GetConVarBool(g_hPugEnabled) && !Database_IsPlayerCompeting(authID))
+	// Matchmake pug mode
+	if (!GetConVarBool(g_hPugEnabled))
 	{
-		// Kick non-admins
-		if (!IsAdmin(client))
+		int matchid = PugServer_GetMatchID_This();
+		if (matchid == MATCHMAKE_ERROR || !Pugger_DoesPlayInMatch(matchid, authID))
 		{
-			KickClient(client, "This PUG match is private.");
+			AdminFilter(client);
 			return;
 		}
-		// Nag to admin about ongoing PUG match
-		PrintToChat(client, "%s This is a private PUG match.", g_sTag);
-		PrintToChat(client, "Please don't join the teams.");
-		// Notify puggers of the non-competing admin join
-		decl String:clientName[MAX_NAME_LENGTH];
-		GetClientName(client, clientName, sizeof(clientName));
-		PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
+		// Player belongs to this match,
+		// maybe assign their team or do something here.
+		// Also count how many have joined / disconnected.
+		return;
 	}
 #endif
 

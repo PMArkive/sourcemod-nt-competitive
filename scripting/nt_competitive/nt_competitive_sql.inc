@@ -823,7 +823,6 @@ Loop i = %i, numPlayers = %i. SQL was: %s", i, numPlayers, sql);
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
 	);
-
 	for (i = 0; i < numPlayers; i++)
 	{
 		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
@@ -836,6 +835,61 @@ Loop i = %i, numPlayers = %i. SQL was: %s", i, numPlayers, sql);
 		SQL_BindParamString(stmt, paramIndex++, steamIDs[i], false);
 		SQL_Execute(stmt);
 		delete stmt;
+
+		Puggers_LogMatchParticipation(match_id, steamIDs[i]);
+	}
+	return true;
+}
+
+bool Puggers_LogMatchParticipation(const int match_id, const char[] steamID)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_MATCH_HISTORY],
+		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
+		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
+	);
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		return false;
+	}
+	SQL_BindParamInt(stmt, 0, match_id);
+	SQL_BindParamString(stmt, 1, steamID, false);
+	SQL_Execute(stmt);
+	int rows;
+	if (SQL_HasResultSet(stmt))
+		rows = SQL_GetRowCount(stmt);
+	delete stmt;
+
+	if (rows == 0)
+	{
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)",
+			g_sqlTable[TABLES_MATCH_HISTORY],
+			g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
+			g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
+		);
+		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+		if (stmt == null)
+		{
+			LogError(error);
+			return false;
+		}
+		SQL_BindParamInt(stmt, 0, match_id);
+		SQL_BindParamString(stmt, 1, steamID, false);
+		SQL_Execute(stmt);
+		delete stmt;
+	}
+	else
+	{
+		if (rows > 1)
+		{
+			LogError("Puggers_LogMatchParticipation: \
+Found multiple matches for match id %i and steamID %s.", match_id, steamID);
+		}
 	}
 	return true;
 }
@@ -1547,7 +1601,29 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
-		);
+	);
+	if (!SQL_FastQuery(g_hDB, sql))
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
+
+	// Reversed array index for Format() order of operations
+	arrayIndex = SQL_TABLE_MATCH_HISTORY_ENUM_COUNT-1;
+	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
+%s INT NOT NULL AUTO_INCREMENT, \
+%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
+%s VARCHAR(%i) NOT NULL, \
+%s INT NOT NULL, \
+PRIMARY KEY (%s)) CHARACTER SET=utf8",
+		g_sqlTable[TABLES_MATCH_HISTORY],
+		g_sqlRow_MatchHistory[arrayIndex--],
+		g_sqlRow_MatchHistory[arrayIndex--],
+		g_sqlRow_MatchHistory[arrayIndex--], MAX_STEAMID_LENGTH,
+		g_sqlRow_MatchHistory[arrayIndex--],
+		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_ID]
+	);
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))

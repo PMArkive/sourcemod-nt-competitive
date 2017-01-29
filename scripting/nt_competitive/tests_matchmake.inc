@@ -32,7 +32,7 @@ bool DidWePass_SubTest(const int failCount)
     PrintToServer("- Sub test passed.\n");
     return true;
   }
-  PrintToServer("- Sub test failed %i times!", failCount);
+  PrintToServer("- Sub test failed %i times!\n", failCount);
   return false;
 }
 
@@ -116,8 +116,8 @@ bool Test_Matchmake_DatabaseConnection()
   );
 
   Assert(
-    Database_Initialize(), failCount,
-    "Calling Database_Initialize() returns true."
+    Database_Initialize(false), failCount,
+    "Calling Database_Initialize(don't check tables) returns true."
   );
 
   Assert(
@@ -133,6 +133,11 @@ bool Test_Matchmake_DatabaseConnection()
   Assert(
     Database_DoTablesExist(), failCount,
     "Calling Database_DoTablesExist() returns true."
+  );
+
+  Assert(
+    Database_Initialize(), failCount,
+    "Calling Database_Initialize(check tables) returns true."
   );
 
   return DidWePass_SubTest(failCount);
@@ -272,13 +277,13 @@ bool Test_PugServer_MatchmakeOperations()
   PrintToServer("- Sub test: Test_PugServer_MatchmakeOperations...");
   int failCount;
 
-  // Set up fake players whose match invitations to handle
   int desiredPlayers = Database_GetDesiredPlayerCount();
   Assert(
     desiredPlayers > 1, failCount,
     "Database_GetDesiredPlayerCount() returns a value greater than 1."
   );
 
+  // Set up fake players whose match invitations to handle
   int fakePlayers;
   for (fakePlayers = 1; fakePlayers <= desiredPlayers + 10; fakePlayers++)
   {

@@ -653,8 +653,14 @@ expected 0 or 1.", rows, match_id);
 
 // Purpose: Create a new match, and assign players to it.
 // Returns matchid on success, INVALID_MATCH_ID on failure.
-int PugServer_CreateMatch(int numPlayers)
+int PugServer_CreateMatch(int numPlayers, bool ignoreGlobalDesiredPlayerCount = false)
 {
+	if (!ignoreGlobalDesiredPlayerCount)
+	{
+		if (numPlayers != Database_GetDesiredPlayerCount())
+			return INVALID_MATCH_ID;
+	}
+
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
 	GetServerConnectionDetails(ipAddress, port);

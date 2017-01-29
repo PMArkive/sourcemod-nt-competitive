@@ -112,6 +112,8 @@ new g_penalizedTeam;
 new g_ghostCapturingTeam;
 new g_epoch;
 
+int g_iMatchmakeStatus;
+
 //int g_iDesiredPlayers_Cached;
 
 new Float:g_fRoundTime;

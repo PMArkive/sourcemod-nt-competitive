@@ -2921,7 +2921,6 @@ void CancelLiveCountdown()
 #if defined PLUGIN_COMP
 bool PugMode_Initialize()
 {
-	Pug_PasswordServer();
 	// TODO: Check for existing games
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
@@ -2937,9 +2936,31 @@ bool PugMode_Initialize()
 		return false;
 	}
 
+	Pug_PasswordServer();
+	// At the beginning there is no match, thus match status should return an error
+	SetMatchStatus(MATCHMAKE_ERROR);
 	Pug_KickEveryone();
 	PrintToAdmins(_, _, "%s PUG mode has been enabled.", g_sTag);
 	return true;
+}
+
+void AdminFilter(int client)
+{
+	if (!IsValidClient(client) || IsFakeClient(client))
+		return;
+
+	if (!IsAdmin(client))
+	{
+		KickClient(client, "This PUG match is private.");
+		return;
+	}
+	// Nag to admin about ongoing PUG match
+	PrintToChat(client, "%s This is a private PUG match.", g_sTag);
+	PrintToChat(client, "Please don't join the teams.");
+	// Notify puggers of the non-competing admin join
+	decl String:clientName[MAX_NAME_LENGTH];
+	GetClientName(client, clientName, sizeof(clientName));
+	PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
 }
 
 // Purpose: Set the default ANPA password so the server appears locked.
@@ -2947,6 +2968,21 @@ bool PugMode_Initialize()
 void Pug_PasswordServer()
 {
 	SetConVarString(g_hPassword, "ANPA");
+}
+
+void SetMatchStatus(int status)
+{
+	if (status < 0 || status > MATCHMAKE_ENUM_COUNT)
+	{
+		ThrowError("Invalid state %i, expected value between 0 - %i.",
+			status, MATCHMAKE_ENUM_COUNT);
+	}
+	g_iMatchmakeStatus = status;
+}
+
+int GetMatchStatus()
+{
+	return g_iMatchmakeStatus;
 }
 
 void Pug_KickEveryone(bool:kickAdmins = false)

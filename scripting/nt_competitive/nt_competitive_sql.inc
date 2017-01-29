@@ -935,6 +935,14 @@ Found multiple matches for match id %i and steamID %s.", match_id, steamID);
 	return true;
 }
 
+int PugServer_Get_Status_This()
+{
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+	return PugServer_Get_Status(ipAddress, port);
+}
+
 // Purpose: Get PUG server's status enum
 int PugServer_Get_Status(const String:sIP[], iPort)
 {

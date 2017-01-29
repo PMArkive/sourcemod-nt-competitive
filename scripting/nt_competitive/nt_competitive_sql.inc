@@ -1865,70 +1865,6 @@ int Database_GetEpoch()
 }
 #endif
 
-#if defined PLUGIN_COMP
-bool Database_IsPlayerCompeting(const String:steamID[])
-{
-	// Prepare array for player SteamIDs
-	new playerCount = Database_GetDesiredPlayerCount();
-	decl String:playerSteamID[playerCount][MAX_STEAMID_LENGTH];
-
-	// Look up SteamIDs marked as players on this server currently
-	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
-		g_sqlTable[TABLES_PUGGERS],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT]);
-
-	decl String:sIP[MAX_IP_LENGTH];
-	GetCvarValue("ip", VAR_TYPE_STRING, sIP, sizeof(sIP));
-	new iPort = GetCvarValue("hostport", VAR_TYPE_INT);
-
-	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
-	if (stmt == INVALID_HANDLE)
-		ThrowError(error);
-
-	new paramIndex;
-	SQL_BindParamString(stmt, paramIndex++, sIP, false);
-	SQL_BindParamInt(stmt, paramIndex++, iPort);
-	SQL_Execute(stmt);
-
-	// Fill SteamID array with current players
-	new i;
-	while (SQL_FetchRow(stmt))
-	{
-		if (i > playerCount)
-			ThrowError("SQL loop count %i > playerCount %i", i, playerCount);
-
-		if (SQL_IsFieldNull(stmt, SQL_TABLE_PUGGER_STEAMID))
-			continue;
-
-		SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID,
-			playerSteamID[i++], MAX_STEAMID_LENGTH);
-	}
-	CloseHandle(stmt);
-
-	// Nobody is playing on this server
-	if (i == 0)
-		return false;
-
-	// Check if player is competing
-	for (i = 0; i < playerCount; i++)
-	{
-		if (strlen(playerSteamID[i]) == 0)
-		{
-			LogError("Database_IsPlayerCompeting: Zero length SteamID in array");
-			continue;
-		}
-		else if (StrEqual(steamID, playerSteamID[i]))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-#endif
-
 bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const char[] steamID = "")
 {
 	if (!bySteamID && !IsValidClient(client))
@@ -1966,4 +1902,51 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 	return true;
 }
 
-//PugServer_Get_Active_MatchID(ipAddress, port);
+int PugServer_GetMatchID_This()
+{
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+
+	int status = GetMatchStatus();
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ? AND %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_IP],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_PORT],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS]
+	);
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		return INVALID_MATCH_ID;
+	}
+
+	int paramIndex;
+	SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
+	SQL_BindParamInt(stmt, paramIndex++, port);
+	SQL_BindParamInt(stmt, paramIndex++, status);
+	SQL_Execute(stmt);
+
+	int rows;
+	if (SQL_HasResultSet(stmt))
+	{
+		rows = SQL_GetRowCount(stmt);
+	}
+	if (rows > 1)
+	{
+		LogError("PugServer_GetMatchID_This: \
+Found %i results for matches of %s:%i with status %i, expected 0 or 1.",
+		rows, ipAddress, port, status);
+	}
+	int match_id = INVALID_MATCH_ID;
+	while (SQL_FetchRow(stmt))
+	{
+		match_id = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_ID);
+	}
+	delete stmt;
+	return match_id;
+}

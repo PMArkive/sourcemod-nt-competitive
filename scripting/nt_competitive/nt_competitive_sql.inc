@@ -841,6 +841,47 @@ Loop i = %i, numPlayers = %i. SQL was: %s", i, numPlayers, sql);
 	return true;
 }
 
+bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
+{
+	if (!Database_MatchExists(match_id))
+		return false;
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_MATCH_HISTORY],
+		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
+		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
+	);
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		return false;
+	}
+	SQL_BindParamInt(stmt, 0, match_id);
+	SQL_BindParamString(stmt, 1, steamID, false);
+	SQL_Execute(stmt);
+
+	int rows;
+	if (SQL_HasResultSet(stmt))
+	{
+		rows = SQL_GetRowCount(stmt);
+	}
+	delete stmt;
+
+	if (rows == 0)
+	{
+		return false;
+	}
+	if (rows > 1)
+	{
+		LogError("Pugger_DoesPlayInMatch: \
+Found multiple matches for match id %i and steamID %s.", match_id, steamID);
+	}
+	return true;
+}
+
 bool Puggers_LogMatchParticipation(const int match_id, const char[] steamID)
 {
 	decl String:sql[MAX_SQL_LENGTH];

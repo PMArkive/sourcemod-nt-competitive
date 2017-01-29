@@ -62,7 +62,7 @@ void Test_Matchmake_Main()
     tests++; if (Test_Function()) { passed++; } else { failed++; }*/
   tests++; if (Test_AlwaysPass())                       { passed++; } else { failed++; }
   tests++; if (Test_Matchmake_DatabaseConnection())     { passed++; } else { failed++; }
-  tests++; if (Test_Matchmake_DatabaseOperations())     { passed++; } else { failed++; }
+  tests++; if (Test_Pugger_DatabaseOperations())     { passed++; } else { failed++; }
   tests++; if (Test_PugServer_Reservations()) { passed++; } else { failed++; }
   tests++; if (Test_PugServer_MatchmakeOperations())    { passed++; } else { failed++; }
   // Tests end.
@@ -144,9 +144,9 @@ bool Test_Matchmake_DatabaseConnection()
 }
 
 
-bool Test_Matchmake_DatabaseOperations()
+bool Test_Pugger_DatabaseOperations()
 {
-  PrintToServer("- Sub test: Test_Matchmake_DatabaseOperations...");
+  PrintToServer("- Sub test: Test_Pugger_DatabaseOperations...");
   int failCount;
 
   new const String:steamID[] = "STEAMID_TEST:0:123";
@@ -328,6 +328,13 @@ bool Test_PugServer_MatchmakeOperations()
         Database_MatchExists(match_id) == false, failCount,
         "Calling Database_MatchExists() returns false for fetched match id."
       );
+      for (int j = 0; j < fakePlayers; j++)
+      {
+        Assert(
+          Pugger_DoesPlayInMatch(match_id, steamID[j]) == false, failCount,
+          "Pugger_DoesPlayInMatch() returns false for invalid match."
+        );
+      }
     }
     // Attempting to matchmake with correct amount of players
     else
@@ -340,6 +347,20 @@ bool Test_PugServer_MatchmakeOperations()
       Assert(
         Database_MatchExists(match_id), failCount,
         "Calling Database_MatchExists() returns true for fetched match id."
+      );
+      for (int j = 0; j < fakePlayers; j++)
+      {
+        Assert(
+          Pugger_DoesPlayInMatch(match_id, steamID[j]), failCount,
+          "Pugger_DoesPlayInMatch() returns true for a valid match \
+  with a valid participating player."
+        );
+      }
+      Assert(
+        Pugger_DoesPlayInMatch(match_id, "STEAM_WRONG_PLAYER") == false,
+        failCount,
+        "Pugger_DoesPlayInMatch() returns false for a valid match \
+with an invalid participating player."
       );
     }
 

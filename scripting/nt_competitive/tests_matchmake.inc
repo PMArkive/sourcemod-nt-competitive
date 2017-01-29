@@ -62,8 +62,8 @@ void Test_Matchmake_Main()
   tests++; if (Test_AlwaysPass())                       { passed++; } else { failed++; }
   tests++; if (Test_Matchmake_DatabaseConnection())     { passed++; } else { failed++; }
   tests++; if (Test_Matchmake_DatabaseOperations())     { passed++; } else { failed++; }
-  tests++; if (Test_Matchmake_PugServer_Reservations()) { passed++; } else { failed++; }
-  tests++; if (Test_Matchmake_PugServer_Matchmake())    { passed++; } else { failed++; }
+  tests++; if (Test_PugServer_Reservations()) { passed++; } else { failed++; }
+  tests++; if (Test_PugServer_MatchmakeOperations())    { passed++; } else { failed++; }
   // Tests end.
 
   // Results
@@ -204,9 +204,9 @@ the removed pugger's state from the db returns PUGGER_STATE_INACTIVE."
   return DidWePass_SubTest(failCount);
 }
 
-bool Test_Matchmake_PugServer_Reservations()
+bool Test_PugServer_Reservations()
 {
-  PrintToServer("- Sub test: Test_Matchmake_PugServer_Reservations...");
+  PrintToServer("- Sub test: Test_PugServer_Reservations...");
   int failCount;
 
   if (GetConVarInt(g_hPugEnabled) != 1)
@@ -260,13 +260,12 @@ Assuming that there are no live pug servers in this test case."
   );
   PugServer_SetReserve_This(DB_PUG_INACTIVE);
 
-
   return DidWePass_SubTest(failCount);
 }
 
-bool Test_Matchmake_PugServer_Matchmake()
+bool Test_PugServer_MatchmakeOperations()
 {
-  PrintToServer("- Sub test: Test_Matchmake_PugServer_Matchmake...");
+  PrintToServer("- Sub test: Test_PugServer_MatchmakeOperations...");
   int failCount;
 
   // Set up fake players whose match invitations to handle

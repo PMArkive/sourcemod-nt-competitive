@@ -270,8 +270,86 @@ bool Test_Matchmake_PugServer_Matchmake()
   int failCount;
 
   // Set up fake players whose match invitations to handle
+  int desiredPlayers = Database_GetDesiredPlayerCount();
+  Assert(
+    desiredPlayers > 1, failCount,
+    "Database_GetDesiredPlayerCount() returns a value greater than 1."
+  );
+
+  // Run tests for all cases below required player amount
+  int fakePlayers;
+  for (fakePlayers = 1; fakePlayers < desiredPlayers; fakePlayers++)
+  {
+    PrintToServer("Test case: %i players queued, %i players required.",
+      fakePlayers, desiredPlayers);
+
+    decl String:steamID[MAXPLAYERS+1][MAX_STEAMID_LENGTH];
+    bool AddPuggerPassed = true;
+    bool SetPuggerStatePassed = true;
+    for (int i = 0; i < fakePlayers; i++)
+    {
+      // Add fake players to table
+      Format(steamID[i], sizeof(steamID[]), "STEAMID_%i", i);
+      if (!Database_AddPugger(_, true, steamID[i]))
+        AddPuggerPassed = false;
+      // Set players' states
+      if (!Pugger_SetQueuingState(_, PUGGER_STATE_QUEUING, true, steamID[i]))
+        SetPuggerStatePassed = false;
+    }
+
+    Assert(AddPuggerPassed, failCount,
+      "All Database_AddPugger() calls returned true."
+    );
+
+    Assert(SetPuggerStatePassed, failCount,
+      "All Pugger_SetQueuingState() calls returned true."
+    );
+
+    Assert(PugServer_SetReserve_This(DB_PUG_RESERVED), failCount,
+      "Reserving db with PugServer_SetReserve_This() returns true."
+    );
+
+    int match_id = PugServer_CreateMatch(fakePlayers);
+    Assert(
+      match_id == INVALID_MATCH_ID, failCount,
+      "Match creation with PugServer_CreateMatch() while the \
+player amount is insufficient returns INVALID_MATCH_ID."
+    );
+
+    Assert(
+      Database_MatchExists(match_id) == false, failCount,
+      "Calling Database_MatchExists() returns false for fetched match id."
+    );
+
+    bool removeLoopPassed = true;
+    for (int i = 0; i < fakePlayers; i++)
+    {
+      if (!Pugger_SetQueuingState(_, PUGGER_STATE_INACTIVE, true, steamID[i]))
+        removeLoopPassed = false;
+    }
+
+    Assert(
+      removeLoopPassed, failCount,
+      "All calls to Database_RemovePugger() returned true."
+    );
+
+    Assert(
+      PugServer_MatchState_Set(match_id, MATCHMAKE_CANCELLED), failCount,
+      "Cancelling match with PugServer_MatchState_Set() returns true."
+    );
+
+    // Clear status after test
+    decl String:ipAddress[MAX_IP_LENGTH];
+    int port;
+    GetServerConnectionDetails(ipAddress, port);
+    PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+  }
+
+  fakePlayers = desiredPlayers;
+  PrintToServer("Test case: %i players queued, %i players required.",
+    fakePlayers, desiredPlayers);
+
   decl String:steamID[MAXPLAYERS+1][MAX_STEAMID_LENGTH];
-  int fakePlayers = 10;
   bool AddPuggerPassed = true;
   bool SetPuggerStatePassed = true;
   for (int i = 0; i < fakePlayers; i++)

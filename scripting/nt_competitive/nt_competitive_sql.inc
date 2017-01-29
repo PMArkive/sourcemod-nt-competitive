@@ -1380,7 +1380,7 @@ void Database_CreateTables(int client = 0)
 	delete query_SelectRules;
 	if (rows == 0)
 	{
-		int desiredPlayerCount = 2;
+		int desiredPlayerCount = 10;
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s) VALUES (%i)",
 			g_sqlTable[TABLES_RULES],
 			g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT],

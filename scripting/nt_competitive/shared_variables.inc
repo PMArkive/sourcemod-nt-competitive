@@ -329,6 +329,14 @@ enum {
 };
 
 enum {
+  SQL_TABLE_MATCH_HISTORY_ID = 0,
+  SQL_TABLE_MATCH_HISTORY_TIMESTAMP,
+  SQL_TABLE_MATCH_HISTORY_STEAMID,
+  SQL_TABLE_MATCH_HISTORY_MATCH_ID,
+  SQL_TABLE_MATCH_HISTORY_ENUM_COUNT
+};
+
+enum {
 	PUGGER_STATE_INACTIVE = 0,						   		// This pugger is not currently queuing or playing at all
 	PUGGER_STATE_QUEUING = 1,										// Queuing for a match
 	PUGGER_STATE_CONFIRMING = 2,								// Match has been offered, waiting for this pugger to accept
@@ -368,6 +376,7 @@ enum {
 	TABLES_PUG_SERVERS,
 	TABLES_PUGGERS,
   TABLES_MATCHES,
+  TABLES_MATCH_HISTORY,
 	TABLES_ENUM_COUNT
 };
 
@@ -376,7 +385,8 @@ new const String:g_sqlTable[TABLES_ENUM_COUNT][] = {
 	"organizers",
 	"pickup_servers",
 	"puggers",
-  "matches"
+  "matches",
+  "match_history"
 };
 
 new const String:g_sqlRow_Rules[SQL_TABLE_RULES_ENUM_COUNT][] = {
@@ -437,4 +447,11 @@ new const String:g_sqlRow_Matches[SQL_TABLE_MATCHES_ENUM_COUNT][] = {
   "score_type",
   "score_limit",
   "last_edited"
+};
+
+new const String:g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_ENUM_COUNT][] = {
+  "id",
+  "timestamp",
+  "steamid",
+  "match_id"
 };

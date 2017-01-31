@@ -3094,9 +3094,11 @@ void AdminFilter(int client)
 	if (!IsValidClient(client) || IsFakeClient(client))
 		return;
 
+	PrintToServer("ADMIN FILTER 2");
+
 	if (!IsAdmin(client))
 	{
-		KickClient(client, "This PUG match is private.");
+		KickClient(client, "This PUG match is private");
 		return;
 	}
 	// Delay admin messages as OnClientAuthorized could happen before entering.

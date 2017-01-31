@@ -738,6 +738,8 @@ currentStatus, PUG_SERVER_STATUS_AVAILABLE);
 	SQL_Execute(stmt);
 	delete stmt;
 
+	SetMatchStatus(MATCHMAKE_INVITING);
+
 	DBResultSet result = SQL_Query(g_hDB, "SELECT LAST_INSERT_ID()");
 	if (result == null || !SQL_HasResultSet(result))
 	{
@@ -864,6 +866,7 @@ WHERE %s = ?",
 
 bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
 {
+	PrintToServer("Does this even run?");
 	if (!Database_MatchExists(match_id))
 		return false;
 
@@ -874,6 +877,7 @@ bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
 	);
+	PrintToServer("SQL: %s", sql);
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
@@ -1950,7 +1954,6 @@ bool Match_SetLive(int match_id)
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
 	);
-
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
@@ -1974,7 +1977,6 @@ bool Match_SetLive(int match_id)
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]
 	);
-
 	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
@@ -1988,6 +1990,27 @@ bool Match_SetLive(int match_id)
 	SQL_BindParamInt(stmt, paramIndex++, port);
 	SQL_Execute(stmt);
 	delete stmt;
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		PugServer_SetReserve_This(DB_PUG_INACTIVE);
+		return false;
+	}
+	paramIndex = 0;
+	SQL_BindParamInt(stmt, paramIndex++, MATCHMAKE_WARMUP);
+	SQL_BindParamInt(stmt, paramIndex++, match_id);
+	SQL_Execute(stmt);
+	delete stmt;
+
+	SetMatchStatus(MATCHMAKE_WARMUP);
+
 	// Successfully went live. Release pug side of db.
 	PugServer_SetReserve_This(DB_PUG_INACTIVE);
 	return true;

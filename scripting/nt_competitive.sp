@@ -299,27 +299,6 @@ public OnConfigsExecuted()
 // Probably means adding assigned team to db entry etc.
 public OnClientAuthorized(client, const String:authID[])
 {
-#if defined PLUGIN_COMP
-	// Matchmake pug mode
-	if (GetConVarBool(g_hPugEnabled))
-	{
-		int matchid = PugServer_GetMatchID_This();
-		if (matchid == INVALID_MATCH_ID || !Pugger_DoesPlayInMatch(matchid, authID))
-		{
-			AdminFilter(client);
-			return;
-		}
-		// Player belongs to this match (and there is a match),
-		// maybe assign their team or do something here.
-		// Also count how many have joined / disconnected.
-		if (!g_isLive)
-		{
-			CheckIfEveryoneIsReady();
-		}
-		return;
-	}
-#endif
-
 	if (!g_isLive)
 		return;
 
@@ -419,6 +398,37 @@ public OnClientDisconnect(client)
 	{
 		Player_SetState(client, PLAYER_STATUS_UNKNOWN);
 	}
+}
+
+public void OnClientPostAdminCheck(int client)
+{
+	#if defined PLUGIN_COMP
+		PrintToServer("POST ADMIN CHECK");
+		decl String:steamid[MAX_STEAMID_LENGTH];
+		GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+		// Matchmake pug mode
+		if (GetConVarBool(g_hPugEnabled))
+		{
+			int matchid = PugServer_GetMatchID_This();
+			if (matchid == INVALID_MATCH_ID ||
+				!Pugger_DoesPlayInMatch(matchid, steamid))
+			{
+				PrintToServer("Pugger_DoesPlayInMatch == false for %i, %s",
+					matchid, steamid);
+				PrintToServer("ADMIN FILTER");
+				AdminFilter(client);
+				return;
+			}
+			// Player belongs to this match (and there is a match),
+			// maybe assign their team or do something here.
+			// Also count how many have joined / disconnected.
+			if (!g_isLive)
+			{
+				CheckIfEveryoneIsReady();
+			}
+			return;
+		}
+	#endif
 }
 
 public OnGhostCapture(client)

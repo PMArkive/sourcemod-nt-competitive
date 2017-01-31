@@ -798,7 +798,10 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 	{
 		PrintToServer("This means game should happen.");
 		if (!Match_SetLive(matchid))
+		{
+			SetMatchStatus(MATCHMAKE_ERROR);
 			CreateInviteTimer();
+		}
 		return Plugin_Stop;
 	}
 

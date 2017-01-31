@@ -383,6 +383,7 @@ with an invalid participating player."
     int port;
     GetServerConnectionDetails(ipAddress, port);
     PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+    PugServer_SetReserve_This(DB_PUG_INACTIVE);
   }
 
   return DidWePass_SubTest(failCount);

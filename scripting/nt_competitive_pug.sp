@@ -60,7 +60,7 @@ public OnPluginStart()
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 	RegConsoleCmd("sm_join", Command_Join);
 
-	CreateTimer(TIMER_CHECKPUGS, Timer_CheckPugs, _, TIMER_REPEAT);
+	CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_CheckPugs, _, TIMER_REPEAT);
 }
 
 public void OnClientDisconnect(int client)

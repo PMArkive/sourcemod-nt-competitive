@@ -1931,7 +1931,52 @@ bool Match_SetLive(int match_id)
 	if (!Database_MatchExists(match_id))
 		return false;
 
-	return false;
+	// Set puggers' live states
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		return false;
+	}
+	SQL_BindParamInt(stmt, 0, PUGGER_STATE_LIVE);
+	SQL_BindParamInt(stmt, 1, match_id);
+	SQL_Execute(stmt);
+	delete stmt;
+
+	// Set the pug server's live state
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]
+	);
+
+	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		return false;
+	}
+	int paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, PUG_SERVER_STATUS_LIVE);
+	SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
+	SQL_BindParamInt(stmt, paramIndex++, port);
+	SQL_Execute(stmt);
+	delete stmt;
+
+	return true;
 }
 
 int Match_GetDesiredPlayers(int match_id)

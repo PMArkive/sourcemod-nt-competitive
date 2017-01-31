@@ -6,9 +6,7 @@
 // TODO: Split this in plugin specific files when it's clear which parts
 // need to be shared and which don't.
 
-#if defined PLUGIN_COMP
 #define MATCHMAKE_LOOKUP_TIMER 10.0
-#endif
 
 #define INVALID_MATCH_ID 0
 #define MAX_IP_LENGTH 46
@@ -366,8 +364,8 @@ enum {
 	PUG_SERVER_STATUS_ERROR = 0,					  		// Something is wrong with this server, unavailable for PUG
 	PUG_SERVER_STATUS_BUSY = 1,									// Server is preoccupied by some organized event etc.
 	PUG_SERVER_STATUS_AVAILABLE = 2,						// Server is available for pugging
-	PUG_SERVER_STATUS_RESERVED = 3,							// An organizer has reserved this server for a pug match
-	PUG_SERVER_STATUS_AWAITING_PLAYERS = 4,			// All puggers accepted, waiting for players to join to start a match
+	PUG_SERVER_STATUS_RESERVED = 3,							//
+	PUG_SERVER_STATUS_AWAITING_PLAYERS = 4,			// 
 	PUG_SERVER_STATUS_LIVE = 5,									// Match is live
   PUG_SERVER_STATUS_ENUM_COUNT = 6
 };

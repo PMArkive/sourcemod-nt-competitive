@@ -1258,47 +1258,6 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 	}
 	return false;
 }
-
-/*
-// Purpose: Return reserve status int enum of this org server
-int Organizers_Get_Status_This()
-{
-	PrintDebug("Organizers_Get_Status_This()");
-
-	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
-	g_sqlTable[TABLES_ORGANIZERS], g_sqlRow_Organizers[SQL_TABLE_ORG_NAME]);
-
-	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
-	SQL_BindParamString(stmt_Select, 0, g_sIdentifier, false);
-	SQL_Execute(stmt_Select);
-
-	if (stmt_Select == INVALID_HANDLE)
-		ThrowError(error);
-
-	new results;
-	new status;
-	while (SQL_FetchRow(stmt_Select))
-	{
-		status = SQL_FetchInt(stmt_Select, SQL_TABLE_ORG_RESERVING);
-		results++;
-	}
-	if (results != 1)
-	{
-		CloseHandle(stmt_Select);
-		ThrowError("Found %i results for identifier %s, expected 1.",
-			results, g_sIdentifier);
-	}
-	CloseHandle(stmt_Select);
-
-	if (DB_ORG_INACTIVE > status >= SERVER_DB_ENUM_COUNT)
-		ThrowError("Status %i is out of enum bounds %i - %i",
-		status, DB_ORG_INACTIVE, SERVER_DB_ENUM_COUNT-1);
-
-	return status;
-}
-*/
 #endif
 
 #if defined PLUGIN_COMP

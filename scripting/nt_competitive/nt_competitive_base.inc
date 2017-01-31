@@ -9,9 +9,29 @@ void CheckIfEveryoneIsReady()
 	if (g_isLiveCountdown || g_isLive)
 		return;
 
-	new players = GetPlayerCount();
 	new playersReady = GetPlayersReady();
+	int desiredPlayers = Database_GetDesiredPlayerCount();
 
+	if (GetConVarBool(g_hPugEnabled))
+	{
+		UpdateConnectedPuggerCount();
+		if (playersReady < desiredPlayers)
+		{
+			return;
+		}
+		else if (playersReady == desiredPlayers)
+		{
+			PrintToChatAll("every pugger is ready!");
+		}
+		else
+		{
+			ThrowError("More players ready (%i) than desired playercount (%i)",
+				playersReady, desiredPlayers);
+		}
+		return;
+	}
+
+	new players = GetPlayerCount();
 #if DEBUG
 	LogDebug("%s Players found total: %i", g_sTag, players);
 	LogDebug("%s Players ready: %i", g_sTag, playersReady);
@@ -3103,6 +3123,22 @@ void SetMatchStatus(int status)
 			status, MATCHMAKE_ENUM_COUNT);
 	}
 	g_iMatchmakeStatus = status;
+}
+
+void UpdateConnectedPuggerCount()
+{
+	int count;
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i) || IsFakeClient(i))
+			continue;
+
+		decl String:steamid[MAX_STEAMID_LENGTH];
+		GetClientAuthId(i, AuthId_Steam2, steamid, sizeof(steamid));
+		if (Pugger_DoesPlayInMatch(g_iMatchID_cached, steamid))
+			count++;
+	}
+	g_iConnectedPuggerCount = count;
 }
 
 int GetMatchStatus()

@@ -116,7 +116,8 @@ int g_iMatchmakeStatus;
 
 int g_iPlayerStatus[MAXPLAYERS+1];
 
-//int g_iDesiredPlayers_Cached;
+int g_iConnectedPuggerCount;
+int g_iMatchID_cached;
 
 new Float:g_fRoundTime;
 
@@ -202,8 +203,9 @@ new Handle:g_hTimer_GoLive = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_Countdown = INVALID_HANDLE;
 new Handle:g_hTimer_UnPause_HalfLeft = INVALID_HANDLE;
-//new Handle:g_hTimer_Pug_CheckPuggers = INVALID_HANDLE;
-//new Handle:g_hTimer_Pug_SendInvites = INVALID_HANDLE;
+
+new Handle:g_hTimer_Pug_SendInvites = INVALID_HANDLE;
+new Handle:g_hTimer_Pug_CheckAccepts = INVALID_HANDLE;
 
 KeyValues g_kv;
 

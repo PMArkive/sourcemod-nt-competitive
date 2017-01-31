@@ -162,7 +162,7 @@ public OnPluginStart()
 	HookConVarChange(g_hPugEnabled,							Event_PugEnabled);
 #endif
 
-	RegConsoleCmd("sm_testmatch", Command_TestMatch);
+	//RegConsoleCmd("sm_testmatch", Command_TestMatch);
 
 	// Hook fade to black (on death)
 	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true);
@@ -203,17 +203,18 @@ public OnPluginStart()
 		}
 		PugMode_Initialize();
 	}
-	/*g_hTimer_Pug_SendInvites =
-		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT);*/
+	CreateInviteTimer();
 #endif
 }
 
+/*
 public Action Command_TestMatch(int client, int args)
 {
 	PugServer_CreateMatch(1);
 	ReplyToCommand(client, "BAM");
 	return Plugin_Handled;
 }
+*/
 
 public OnPluginEnd()
 {
@@ -300,10 +301,10 @@ public OnClientAuthorized(client, const String:authID[])
 {
 #if defined PLUGIN_COMP
 	// Matchmake pug mode
-	if (!GetConVarBool(g_hPugEnabled))
+	if (GetConVarBool(g_hPugEnabled))
 	{
 		int matchid = PugServer_GetMatchID_This();
-		if (matchid == MATCHMAKE_ERROR || !Pugger_DoesPlayInMatch(matchid, authID))
+		if (matchid == INVALID_MATCH_ID || !Pugger_DoesPlayInMatch(matchid, authID))
 		{
 			AdminFilter(client);
 			return;
@@ -311,8 +312,10 @@ public OnClientAuthorized(client, const String:authID[])
 		// Player belongs to this match (and there is a match),
 		// maybe assign their team or do something here.
 		// Also count how many have joined / disconnected.
-
-
+		if (!g_isLive)
+		{
+			CheckIfEveryoneIsReady();
+		}
 		return;
 	}
 #endif

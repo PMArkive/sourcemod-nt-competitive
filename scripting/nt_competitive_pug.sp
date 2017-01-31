@@ -16,8 +16,6 @@ new bool:g_bIsDatabaseDown;
 new bool:g_bIsJustLoaded = true;
 new bool:g_bIsQueueActive;
 
-#define TIMER_CHECKPUGS 5.0
-
 new const String:g_sTag[] = "[PUG]";
 
 #include <sourcemod>

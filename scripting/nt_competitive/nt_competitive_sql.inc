@@ -769,6 +769,7 @@ SQL statement returned multiple results; SQL: %s", sql);
 		PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 		return INVALID_MATCH_ID;
 	}
+	g_iMatchID_cached = match_id;
 	return match_id;
 }
 
@@ -1925,15 +1926,20 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 	return true;
 }
 
+bool Match_SetLive(int match_id)
+{
+	if (!Database_MatchExists(match_id))
+		return false;
+
+	return false;
+}
+
 int Match_GetDesiredPlayers(int match_id)
 {
 	if (!Database_MatchExists(match_id))
 	{
 		ThrowError("Couldn't find match with id %i", match_id);
 	}
-	decl String:ipAddress[MAX_IP_LENGTH];
-	int port;
-	GetServerConnectionDetails(ipAddress, port);
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -1956,10 +1962,15 @@ int Match_GetDesiredPlayers(int match_id)
 	int playercount;
 	while (SQL_FetchRow(stmt))
 	{
-		SQL_FetchInt(stmt, SQL_TABLE_MATCHES_PLAYER_COUNT);
+		playercount = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_PLAYER_COUNT);
 	}
 	delete stmt;
 	return playercount;
+}
+
+int Match_GetAcceptedInvites(int matchid)
+{
+
 }
 
 int Database_GetMatchStatus(int matchid)

@@ -703,81 +703,139 @@ public Action:SayCallback(client, const String:command[], argc)
 }
 
 #if defined PLUGIN_COMP
-/*
 public Action Timer_Pug_SendInvites(Handle timer)
 {
-	// Called before cached value was set
-	if (g_iDesiredPlayers_Cached == 0)
-	{
-		return Plugin_Continue;
-	}
-	else if (g_iDesiredPlayers_Cached < 0 ||g_iDesiredPlayers_Cached > MaxClients)
+	PrintToServer("Timer_Pug_SendInvites");
+	int desiredPlayers = Database_GetDesiredPlayerCount();
+	if (desiredPlayers <= 0 ||desiredPlayers > MaxClients)
 	{
 		// Fail to avoid error log spam if this were to ever happen
-		SetFailState("g_iDesiredPlayers_Cached = %i, expected value within MaxClients. \
-This should never happen.", g_iDesiredPlayers_Cached);
+		SetFailState("Desired players count is %i, expected value within MaxClients. \
+This should never happen.", desiredPlayers);
 	}
 
-	int acceptedPlayers = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
-
+	int queuingPlayers = Puggers_GetCountPerState(PUGGER_STATE_QUEUING);
 	// Not enough accepted players to make a match
-	if (acceptedPlayers < g_iDesiredPlayers_Cached)
+	if (queuingPlayers < desiredPlayers)
 	{
+		PrintToServer("Not enough queued");
 		return Plugin_Continue;
 	}
 	// Try to reserve the database to handle queued up players.
 	// This will return false if another pug server served the players already.
 	if (!PugServer_SetReserve_This(DB_PUG_RESERVED))
-	{
 		return Plugin_Continue;
-	}
 
-	// Re-sync current setting jic; it may have been changed since the
-	// g_iDesiredPlayers_Cached was cached on last mapchange or whenever.
-	g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
-	// Also once more check available players in case some have dropped.
-	acceptedPlayers = Puggers_GetCountPerState(PUGGER_STATE_ACCEPTED);
-	// Nope! Release the database and give up for this loop
-	if (acceptedPlayers < g_iDesiredPlayers_Cached)
-	{
-		if (!PugServer_SetReserve_This(DB_PUG_INACTIVE))
-		{
-			// TODO / HACK / FIXME
-			// Rip. While this should never happen,
-			// it should probably make more noise
-			// as it will result in the table getting locked.
-			// There should also be some max time
-			// someone can hog the table to themselves,
-			// probably reservation timestamp based so anyone can solve it.
-			if (!PugServer_SetReserve_This(DB_PUG_INACTIVE))
-				SetFailState("Failed releasing database!");
-		}
-		return Plugin_Continue;
-	}
 	// Get my IP and port
 	char ipAddress[MAX_IP_LENGTH];
 	int port;
 	if (!GetServerConnectionDetails(ipAddress, port))
 	{
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
+		SetFailState("Failed to fetch own server details.");
 		return Plugin_Continue;
 	}
-	// Set my status
-	PugServer_Set_Status(PUG_SERVER_STATUS_RESERVED, ipAddress, port);
-	// Try to send invites to players
-	if (!AcceptPlayers(g_iDesiredPlayers_Cached))
+	// Try to create a match
+	int matchid = PugServer_CreateMatch(desiredPlayers);
+	if (matchid == INVALID_MATCH_ID)
 	{
+		PrintToServer("Failed to create match");
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return Plugin_Continue;
 	}
-	// Try to create a match for invited players
-	if (!CreateMatch(g_iDesiredPlayers_Cached))
-	{
-		// TODO: Cancel player invites and return them to queue if this failed
-		PugServer_SetReserve_This(DB_PUG_INACTIVE);
-		return Plugin_Continue;
-	}
-	// Everything passed! We have a match, stop this loop timer for now.
-	return Plugin_Stop;
+	PrintToServer("Match created!");
+	// New timer for invitation handling.
+	// The call will kill this timer, so we don't return Plugin_Stop here.
+	CreateAcceptTimer(matchid);
+	return Plugin_Continue;
 }
-*/
+
+public Action Timer_Checkaccepts(Handle timer, int matchid)
+{
+	PrintToServer("Timer_Checkaccepts");
+	// Something went wrong, give up the accept check timer and go back for invites
+	if (!Database_MatchExists(matchid))
+	{
+		LogError("Timer_Checkaccepts: Couldn't find match with ID %i",
+			g_iMatchID_cached);
+		CreateInviteTimer();
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
+	);
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamInt(stmt, 0, matchid);
+	SQL_Execute(stmt);
+
+	if (!SQL_HasResultSet(stmt))
+	{
+		delete stmt;
+		LogError("Timer_Checkaccepts: Match ID %i has no SQL result set.", matchid);
+		CreateInviteTimer();
+	}
+	int accepts;
+	while (SQL_FetchRow(stmt))
+	{
+		if (SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE) == PUGGER_STATE_ACCEPTED)
+			accepts++;
+	}
+	delete stmt;
+
+	int desiredPlayers = Match_GetDesiredPlayers(matchid);
+	if (accepts < desiredPlayers)
+	{
+		PrintToServer("Not enough accepted");
+		return Plugin_Continue;
+	}
+	else if (accepts == desiredPlayers)
+	{
+		PrintToServer("This means game should happen.");
+		if (!Match_SetLive(matchid))
+			CreateInviteTimer();
+		return Plugin_Stop;
+	}
+
+	LogError("Timer_Checkaccepts: Found %i accepts for matchid %i where \
+desired playercount was %i. This line should never run.",
+		accepts, matchid, desiredPlayers);
+	CreateInviteTimer();
+	return Plugin_Continue;
+}
+
+void CreateInviteTimer()
+{
+	if (g_hTimer_Pug_CheckAccepts != null)
+	{
+		KillTimer(g_hTimer_Pug_CheckAccepts);
+		g_hTimer_Pug_CheckAccepts = null;
+	}
+	if (g_hTimer_Pug_SendInvites != null)
+	{
+		ThrowError("Timers ded");
+	}
+	g_hTimer_Pug_SendInvites =
+		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT
+	);
+}
+void CreateAcceptTimer(int matchid)
+{
+	if (g_hTimer_Pug_SendInvites != null)
+	{
+		KillTimer(g_hTimer_Pug_SendInvites);
+		g_hTimer_Pug_SendInvites = null;
+	}
+	if (g_hTimer_Pug_CheckAccepts != null)
+	{
+		ThrowError("Timers ded");
+	}
+	g_hTimer_Pug_CheckAccepts = CreateTimer(
+		MATCHMAKE_LOOKUP_TIMER, Timer_Checkaccepts, matchid, TIMER_REPEAT
+	);
+}

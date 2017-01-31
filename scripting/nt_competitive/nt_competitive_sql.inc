@@ -733,7 +733,7 @@ currentStatus, PUG_SERVER_STATUS_AVAILABLE);
 	SQL_BindParamString(stmt, paramIndex++, serverVanityTitle, false);
 	SQL_BindParamString(stmt, paramIndex++, serverPassword, false);
 	SQL_BindParamInt(stmt, paramIndex++, MATCH_TYPE_PUG);
-	SQL_BindParamInt(stmt, paramIndex++, MATCHMAKE_WARMUP);
+	SQL_BindParamInt(stmt, paramIndex++, MATCHMAKE_INVITING);
 	SQL_BindParamInt(stmt, paramIndex++, numPlayers);
 	SQL_Execute(stmt);
 	delete stmt;

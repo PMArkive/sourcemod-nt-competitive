@@ -201,70 +201,85 @@ public Action Command_Join(int client, int args)
 			g_sTag);
 		return Plugin_Stop;
 	}
-	else if (queuingState != PUGGER_STATE_LIVE &&
-		queuingState != PUGGER_STATE_CONFIRMING)
+	else if (queuingState == PUGGER_STATE_CONFIRMING)
+	{
+		if (!Pugger_SetQueuingState(_, PUGGER_STATE_ACCEPTED, true, steamid))
+		{
+			ReplyToCommand(client, "%s Failed accepting the match, please try again.",
+				g_sTag);
+			ReplyToCommand(client, "This error has been logged.");
+			return Plugin_Stop;
+		}
+		else
+		{
+			ReplyToCommand(client, "%s Match accepted! Please wait while others accept.",
+				g_sTag);
+			return Plugin_Stop;
+		}
+	}
+	else if (queuingState == PUGGER_STATE_LIVE)
+	{
+		int matchid;
+		decl String:connectPassword[MAX_CVAR_LENGTH];
+		decl String:connectIP[MAX_IP_LENGTH];
+		int connectPort;
+
+		if (matchid == INVALID_MATCH_ID)
+		{
+			ReplyToCommand(client, "%s Could not find an active match for you.", g_sTag);
+			ReplyToCommand(client, "Please contact server admins if you think this is an error.");
+			return Plugin_Stop;
+		}
+
+		if (!Pugger_GetLastMatchDetails(
+			steamid, matchid, connectIP, connectPort, connectPassword))
+		{
+			ReplyToCommand(client, "%s Failed to retrieve your match information.", g_sTag);
+			ReplyToCommand(client, "Please try again later. The error has been logged.");
+			return Plugin_Stop;
+		}
+
+		int matchStatus = Database_GetMatchStatus(matchid);
+		switch (matchStatus)
+		{
+			case MATCHMAKE_ERROR:
+			{
+				ReplyToCommand(client, "%s Your match reports an error status.", g_sTag);
+				ReplyToCommand(client, "This is probably an error, please try again later.");
+			}
+			case MATCHMAKE_WARMUP:
+			{
+				SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+			}
+			case MATCHMAKE_LIVE:
+			{
+				// join (check if the player hasn't abandoned match first)
+				SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+			}
+			case MATCHMAKE_PAUSED:
+			{
+				// join (check if the player hasn't abandoned match first)
+				SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+			}
+			case MATCHMAKE_FINISHED:
+			{
+				ReplyToCommand(client, "%s Your match has finished!");
+				ReplyToCommand(client, "Please contact server admins \
+	if you think this is an error.");
+			}
+			case MATCHMAKE_CANCELLED:
+			{
+				ReplyToCommand(client, "%s Your match was cancelled!");
+				ReplyToCommand(client, "Please contact server admins \
+	if you think this is an error.");
+			}
+		}
+	}
+	else
 	{
 		ReplyToCommand(client, "%s You don't have an active match invitation!", g_sTag);
 		ReplyToCommand(client, "Please wait while the system is looking for a match \
-for you.");
-		return Plugin_Stop;
-	}
-
-	int matchid;
-	decl String:connectPassword[MAX_CVAR_LENGTH];
-	decl String:connectIP[MAX_IP_LENGTH];
-	int connectPort;
-
-	if (!Pugger_GetLastMatchDetails(
-		steamid, matchid, connectIP, connectPort, connectPassword))
-	{
-		ReplyToCommand(client, "%s Failed to retrieve your match information.", g_sTag);
-		ReplyToCommand(client, "Please try again later. The error has been logged.");
-		return Plugin_Stop;
-	}
-	if (matchid == INVALID_MATCH_ID)
-	{
-		ReplyToCommand(client, "%s Could not find an active match for you.", g_sTag);
-		ReplyToCommand(client, "Please contact server admins if you think this is an error.");
-		return Plugin_Stop;
-	}
-
-	PrintToChatAll("matchid: %i", matchid);
-
-	int matchStatus = Database_GetMatchStatus(matchid);
-	switch (matchStatus)
-	{
-		case MATCHMAKE_ERROR:
-		{
-			ReplyToCommand(client, "%s Your match reports an error status.", g_sTag);
-			ReplyToCommand(client, "This is probably an error, please try again later.");
-		}
-		case MATCHMAKE_WARMUP:
-		{
-			SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
-		}
-		case MATCHMAKE_LIVE:
-		{
-			// join (check if the player hasn't abandoned match first)
-			SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
-		}
-		case MATCHMAKE_PAUSED:
-		{
-			// join (check if the player hasn't abandoned match first)
-			SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
-		}
-		case MATCHMAKE_FINISHED:
-		{
-			ReplyToCommand(client, "%s Your match has finished!");
-			ReplyToCommand(client, "Please contact server admins \
-if you think this is an error.");
-		}
-		case MATCHMAKE_CANCELLED:
-		{
-			ReplyToCommand(client, "%s Your match was cancelled!");
-			ReplyToCommand(client, "Please contact server admins \
-if you think this is an error.");
-		}
+	for you.");
 	}
 	return Plugin_Handled;
 }

@@ -7,6 +7,22 @@
 // TODO: Split this in plugin specific files when it's clear which parts
 // need to be shared and which don't.
 
+int GetClientOfAuthId(const String:steamID[MAX_STEAMID_LENGTH])
+{
+	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i) || IsFakeClient(i))
+			continue;
+
+		GetClientAuthId(i, AuthId_Steam2, buffer_SteamID, sizeof(buffer_SteamID));
+
+		if (StrEqual(steamID, buffer_SteamID))
+			return i;
+	}
+	return 0;
+}
+
 bool GetServerConnectionDetails(char[] sIPAddress, int &iPort)
 {
 	Handle hIP = FindConVar("ip");

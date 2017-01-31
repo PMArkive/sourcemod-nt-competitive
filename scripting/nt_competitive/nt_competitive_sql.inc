@@ -1931,6 +1931,17 @@ bool Match_SetLive(int match_id)
 	if (!Database_MatchExists(match_id))
 		return false;
 
+	// Make sure we're still allowed to do this. This should never fail.
+	if (PugServer_GetReserve_This() != DB_PUG_RESERVED)
+	{
+		LogError("Match_SetLive: Not reserved for db! Trying to reserve again.");
+		if (!PugServer_SetReserve_This(DB_PUG_RESERVED))
+		{
+			LogError("Failed to reserve db while assuming we had reservation. Stopping.");
+			return false;
+		}
+	}
+
 	// Set puggers' live states
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -1944,6 +1955,7 @@ bool Match_SetLive(int match_id)
 	if (stmt == null)
 	{
 		LogError(error);
+		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return false;
 	}
 	SQL_BindParamInt(stmt, 0, PUGGER_STATE_LIVE);
@@ -1967,6 +1979,7 @@ bool Match_SetLive(int match_id)
 	if (stmt == null)
 	{
 		LogError(error);
+		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return false;
 	}
 	int paramIndex;
@@ -1975,7 +1988,8 @@ bool Match_SetLive(int match_id)
 	SQL_BindParamInt(stmt, paramIndex++, port);
 	SQL_Execute(stmt);
 	delete stmt;
-
+	// Successfully went live. Release pug side of db.
+	PugServer_SetReserve_This(DB_PUG_INACTIVE);
 	return true;
 }
 

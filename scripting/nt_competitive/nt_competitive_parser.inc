@@ -811,6 +811,7 @@ desired playercount was %i. This line should never run.",
 
 void CreateInviteTimer()
 {
+	PugServer_SetReserve_This(DB_PUG_INACTIVE);
 	if (g_hTimer_Pug_CheckAccepts != null)
 	{
 		KillTimer(g_hTimer_Pug_CheckAccepts);

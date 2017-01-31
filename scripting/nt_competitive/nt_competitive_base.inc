@@ -3099,13 +3099,9 @@ void AdminFilter(int client)
 		KickClient(client, "This PUG match is private.");
 		return;
 	}
-	// Nag to admin about ongoing PUG match
-	PrintToChat(client, "%s This is a private PUG match.", g_sTag);
-	PrintToChat(client, "Please don't join the teams.");
-	// Notify puggers of the non-competing admin join
-	decl String:clientName[MAX_NAME_LENGTH];
-	GetClientName(client, clientName, sizeof(clientName));
-	PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
+	// Delay admin messages as OnClientAuthorized could happen before entering.
+	// This can still be too early sometimes, but it's not a huge deal.
+	CreateTimer(10.0, Timer_AdminNag, GetClientUserId(client));
 }
 
 // Purpose: Set the default ANPA password so the server appears locked.

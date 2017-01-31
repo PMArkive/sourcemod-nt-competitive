@@ -186,7 +186,7 @@ public Action Command_Pug(int client, int args)
 				int playing = Puggers_GetCountPerState(PUGGER_STATE_LIVE);
 				int desiredPlayers = Database_GetDesiredPlayerCount();
 				ReplyToCommand(client, "%s You have joined the queue!", g_sTag);
-				ReplyToCommand(client, "Players queuing: %i / %i (%i currently playing a match)",
+				ReplyToCommand(client, "Players queuing: %i/%i (%i currently playing)",
 					searching, desiredPlayers, playing);
 			}
 		}

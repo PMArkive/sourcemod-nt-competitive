@@ -840,3 +840,18 @@ void CreateAcceptTimer(int matchid)
 		MATCHMAKE_LOOKUP_TIMER, Timer_Checkaccepts, matchid, TIMER_REPEAT
 	);
 }
+
+public Action Timer_AdminNag(Handle timer, int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!IsValidClient(client))
+		return Plugin_Stop;
+	// Nag to admin about ongoing PUG match
+	PrintToChat(client, "%s This is a private PUG match.", g_sTag);
+	PrintToChat(client, "Please don't join the teams.");
+	// Notify puggers of the non-competing admin join
+	decl String:clientName[MAX_NAME_LENGTH];
+	GetClientName(client, clientName, sizeof(clientName));
+	PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
+	return Plugin_Stop;
+}

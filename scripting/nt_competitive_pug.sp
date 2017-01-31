@@ -16,6 +16,8 @@ new bool:g_bIsDatabaseDown;
 new bool:g_bIsJustLoaded = true;
 new bool:g_bIsQueueActive;
 
+#define TIMER_CHECKPUGS 5.0
+
 new const String:g_sTag[] = "[PUG]";
 
 #include <sourcemod>
@@ -23,6 +25,9 @@ new const String:g_sTag[] = "[PUG]";
 #include "nt_competitive/shared_variables"
 #include "nt_competitive/shared_functions"
 #include "nt_competitive/nt_competitive_sql"
+
+int g_iLastSeenQueueState[MAXPLAYERS+1] = PUGGER_STATE_INACTIVE;
+int g_iLoopCounter[MAXPLAYERS+1];
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",
@@ -56,6 +61,100 @@ public OnPluginStart()
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 	RegConsoleCmd("sm_join", Command_Join);
+
+	CreateTimer(TIMER_CHECKPUGS, Timer_CheckPugs, _, TIMER_REPEAT);
+}
+
+public void OnClientDisconnect(int client)
+{
+	g_iLastSeenQueueState[client] = PUGGER_STATE_INACTIVE;
+	g_iLoopCounter[client] = 0;
+}
+
+public Action Timer_CheckPugs(Handle timer)
+{
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i) || IsFakeClient(i) ||
+		!IsClientAuthorized(i) || !IsClientInGame(i))
+		{
+			continue;
+		}
+
+		int state = Pugger_GetQueuingState(i);
+		if (state == PUGGER_STATE_INACTIVE)
+		{
+			continue;
+		}
+		else if (state == PUGGER_STATE_QUEUING)
+		{
+			if (g_iLastSeenQueueState[i] == PUGGER_STATE_ACCEPTED)
+			{
+				PrintToChat(i, "%s Everyone didn't accept the match in time.", g_sTag);
+				PrintToChat(i, "Returning to PUG queue...");
+			}
+		}
+		else if (state == PUGGER_STATE_CONFIRMING)
+		{
+			PrintToChat(i, "%s Your PUG match is ready!", g_sTag);
+			PrintToChat(i, "Type !join to accept, or !unpug to decline.");
+		}
+		else if (state == PUGGER_STATE_ACCEPTED)
+		{
+			if (state != g_iLastSeenQueueState[i])
+				g_iLoopCounter[i] = 10;
+			if (g_iLoopCounter[i] < 10)
+			{
+				g_iLoopCounter[i]++;
+				continue;
+			}
+			PrintToChat(i, "%s Waiting for others to accept...", g_sTag);
+			g_iLoopCounter[i] = 0;
+		}
+		else if (state == PUGGER_STATE_READY || state == PUGGER_STATE_LIVE)
+		{
+			if (state != g_iLastSeenQueueState[i])
+				g_iLoopCounter[i] = 10;
+			if (g_iLoopCounter[i] < 10)
+			{
+				g_iLoopCounter[i]++;
+				continue;
+			}
+			PrintToChat(i, "%s Everyone has accepted!", g_sTag);
+			PrintToChat(i, "A match has been created for you, type !join to enter.");
+			PrintToChat(i, "You can also see the match information in your console.");
+			PrintMatchInformation(GetClientUserId(i));
+			g_iLoopCounter[i] = 0;
+		}
+		g_iLastSeenQueueState[i] = state;
+	}
+	return Plugin_Continue;
+}
+
+void PrintMatchInformation(int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!IsValidClient(client))
+		return;
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+
+	int matchid;
+	char connectPassword[MAX_CVAR_LENGTH];
+	char connectIP[MAX_IP_LENGTH];
+	int connectPort;
+	if (!Pugger_GetLastMatchDetails(
+		steamid, matchid, connectIP, connectPort, connectPassword))
+	{
+		ThrowError("Failed fetching match info for %s", steamid);
+	}
+
+	PrintToConsole(client, "\n- - - - - - - - - -");
+	PrintToConsole(client, "%s You have a new match!", g_sTag);
+	PrintToConsole(client, "Server IP: %s:%i (password: %s)",
+		connectIP, connectPort, connectPassword);
+	PrintToConsole(client, "- - - - - - - - - -\n");
 }
 
 public Action Command_Pug(int client, int args)
@@ -107,6 +206,11 @@ Use !join to accept, or !unpug to decline the match.", g_sTag);
 		{
 			ReplyToCommand(client, "%s You have already accepted a match, \
 please wait for the server join invitation.", g_sTag);
+		}
+		case PUGGER_STATE_READY:
+		{
+			ReplyToCommand(client, "%s You have already been assigned to a match, \
+please use !join to enter the PUG server.", g_sTag);
 		}
 		case PUGGER_STATE_LIVE:
 		{
@@ -169,6 +273,12 @@ and left the PUG queue.", g_sTag);
 			ReplyToCommand(client, "%s You have already accepted this match! \
 Please wait while the invitation processes.", g_sTag);
 		}
+		case PUGGER_STATE_READY:
+		{
+			// todo: option to late decline/abandon the match here
+			ReplyToCommand(client, "%s You have already been assigned to a match, \
+please use !join to enter the PUG server.", g_sTag);
+		}
 		case PUGGER_STATE_LIVE:
 		{
 			// todo: option to late decline/abandon the match here
@@ -217,25 +327,26 @@ public Action Command_Join(int client, int args)
 			return Plugin_Stop;
 		}
 	}
-	else if (queuingState == PUGGER_STATE_LIVE)
+	else if (queuingState == PUGGER_STATE_READY ||
+		queuingState == PUGGER_STATE_LIVE)
 	{
 		int matchid;
 		decl String:connectPassword[MAX_CVAR_LENGTH];
 		decl String:connectIP[MAX_IP_LENGTH];
 		int connectPort;
 
-		if (matchid == INVALID_MATCH_ID)
-		{
-			ReplyToCommand(client, "%s Could not find an active match for you.", g_sTag);
-			ReplyToCommand(client, "Please contact server admins if you think this is an error.");
-			return Plugin_Stop;
-		}
-
 		if (!Pugger_GetLastMatchDetails(
 			steamid, matchid, connectIP, connectPort, connectPassword))
 		{
 			ReplyToCommand(client, "%s Failed to retrieve your match information.", g_sTag);
 			ReplyToCommand(client, "Please try again later. The error has been logged.");
+			return Plugin_Stop;
+		}
+
+		if (matchid == INVALID_MATCH_ID)
+		{
+			ReplyToCommand(client, "%s Could not find an active match for you.", g_sTag);
+			ReplyToCommand(client, "Please contact server admins if you think this is an error.");
 			return Plugin_Stop;
 		}
 
@@ -246,6 +357,10 @@ public Action Command_Join(int client, int args)
 			{
 				ReplyToCommand(client, "%s Your match reports an error status.", g_sTag);
 				ReplyToCommand(client, "This is probably an error, please try again later.");
+			}
+			case MATCHMAKE_INVITING:
+			{
+				SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
 			}
 			case MATCHMAKE_WARMUP:
 			{
@@ -286,6 +401,7 @@ public Action Command_Join(int client, int args)
 
 void SendPlayerToMatch(int client, const char[] connectIP, int connectPort, const char[] connectPassword)
 {
+	PrintToChat(client, "(this is where server jump would occur)");
 	PrintToConsole(client, "%s Joining PUG: %s:%i password %s",
 		g_sTag, connectIP, connectPort, connectPassword);
 }

@@ -1783,19 +1783,21 @@ int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "
 	SQL_Execute(stmt);
 
 	new state = PUGGER_STATE_INACTIVE;
-	while (SQL_FetchRow(stmt))
+	if (SQL_HasResultSet(stmt))
 	{
-		state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
-
-		if (SQL_MoreRows(stmt))
+		while (SQL_FetchRow(stmt))
 		{
-			LogError("Pugger_GetQueuingState(%i): Found more than 1 results, \
-			expected 0 or 1", client);
-			break;
+			state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
+
+			if (SQL_MoreRows(stmt))
+			{
+				LogError("Pugger_GetQueuingState(%i): Found more than 1 results, \
+				expected 0 or 1", client);
+				break;
+			}
 		}
 	}
 	CloseHandle(stmt);
-
 	return state;
 }
 

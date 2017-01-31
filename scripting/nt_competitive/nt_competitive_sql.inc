@@ -223,12 +223,17 @@ This should never happen.", steamID, state);
 }
 #endif
 
-bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID = "")
+bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID = "", state = PUGGER_STATE_QUEUING)
 {
 	if (!bySteamID)
 	{
 		if (!IsValidClient(client) || IsFakeClient(client))
 			ThrowError("Invalid client %i", client);
+	}
+	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
+	{
+		ThrowError("Invalid state enum %i, expected value in range 0 - %i",
+			state, PUGGER_STATE_ENUM_COUNT-1);
 	}
 
 	decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
@@ -264,7 +269,7 @@ bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID
 			new Handle:updateStmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 
 			new paramIndex;
-			SQL_BindParamInt(updateStmt, paramIndex++, PUGGER_STATE_QUEUING);
+			SQL_BindParamInt(updateStmt, paramIndex++, state);
 			SQL_BindParamString(updateStmt, paramIndex++, steamIDBuffer, false);
 
 			SQL_Execute(updateStmt);
@@ -615,6 +620,7 @@ bool PugServer_MatchState_Set(const int match_id, const int state)
 
 	return true;
 }
+#endif
 
 bool Database_MatchExists(const int match_id)
 {
@@ -651,6 +657,7 @@ expected 0 or 1.", rows, match_id);
 	return true;
 }
 
+#if defined PLUGIN_COMP
 // Purpose: Create a new match, and assign players to it.
 // Returns matchid on success, INVALID_MATCH_ID on failure.
 int PugServer_CreateMatch(int numPlayers, bool ignoreGlobalDesiredPlayerCount = false)
@@ -816,11 +823,21 @@ Loop i = %i, numPlayers = %i. SQL was: %s", i, numPlayers, sql);
 		return false;
 	}
 
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+	decl String:password[MAX_CVAR_LENGTH];
+	GetConVarString(g_hPassword, password, sizeof(password));
+
 	// Update players table to send offers for queuing players
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ? WHERE %s = ?",
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ?, %s = ?, %s = ?, %s = ? \
+WHERE %s = ?",
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_PASSWORD],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
 	);
 	for (i = 0; i < numPlayers; i++)
@@ -832,6 +849,9 @@ Loop i = %i, numPlayers = %i. SQL was: %s", i, numPlayers, sql);
 		int paramIndex;
 		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_CONFIRMING);
 		SQL_BindParamInt(stmt, paramIndex++, match_id);
+		SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
+		SQL_BindParamInt(stmt, paramIndex++, port);
+		SQL_BindParamString(stmt, paramIndex++, password, false);
 		SQL_BindParamString(stmt, paramIndex++, steamIDs[i], false);
 		SQL_Execute(stmt);
 		delete stmt;
@@ -1166,9 +1186,8 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 
 	// Cannot set busy reserve status if someone else is already busy.
 	// Server is always allowed to mark itself inactive.
-	bool includeMyself = true;
 	if (reserveStatus != DB_ORG_INACTIVE &&
-			Organizers_Is_Anyone_Busy(!includeMyself))
+			Organizers_Is_Anyone_Busy(false))
 	{
 		return false;
 	}
@@ -1669,11 +1688,48 @@ bool Database_DoTablesExist()
 	return true;
 }
 
+bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] connectIP, int &connectPort, char[] connectPassword)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+
+	Format(sql, sizeof(sql),
+		"SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
+	);
+
+	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamString(stmt, 0, steamID, false);
+	SQL_Execute(stmt);
+
+	if (!SQL_HasResultSet(stmt))
+	{
+		delete stmt;
+		LogError("No result set for SQL: %s", sql);
+		return false;
+	}
+	while (SQL_FetchRow(stmt))
+	{
+		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,
+			connectIP, MAX_IP_LENGTH);
+		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_PASSWORD,
+			connectPassword, MAX_CVAR_LENGTH);
+		connectPort = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
+		matchid = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_MATCH_ID);
+	}
+	delete stmt;
+	return true;
+}
+
 int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")
 {
 	if (!bySteamID)
 	{
-		if (!IsValidClient(client) || IsFakeClient(client))
+		if (!IsValidClient(client) || IsFakeClient(client) || !IsClientAuthorized(client))
 			ThrowError("Invalid client %i", client);
 	}
 
@@ -1902,6 +1958,42 @@ int Match_GetDesiredPlayers(int match_id)
 	}
 	delete stmt;
 	return playercount;
+}
+
+int Database_GetMatchStatus(int matchid)
+{
+	if (!Database_MatchExists(matchid))
+	{
+		ThrowError("Match with ID %i does not exist.", matchid);
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamInt(stmt, 0, matchid);
+	SQL_Execute(stmt);
+
+	if (!SQL_HasResultSet(stmt))
+	{
+		delete stmt;
+		ThrowError("Failed to fetch status for match id %i", matchid);
+	}
+
+	int status = MATCHMAKE_ERROR;
+	while (SQL_FetchRow(stmt))
+	{
+		status = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_STATUS);
+	}
+	delete stmt;
+	return status;
 }
 
 int PugServer_GetMatchID_This()

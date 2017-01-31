@@ -1196,8 +1196,9 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 	if (stmt_Select == INVALID_HANDLE)
 		ThrowError(error);
 
-	new results = SQL_GetRowCount(stmt_Select);
-	//PrintDebug("Results: %i", results);
+	new results;
+	if (SQL_HasResultSet(stmt_Select))
+		results = SQL_GetRowCount(stmt_Select);
 	CloseHandle(stmt_Select);
 
 	if (results > 1)
@@ -1216,7 +1217,9 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 		SQL_BindParamString(stmt_Delete, 0, g_sIdentifier, false);
 		SQL_Execute(stmt_Delete);
 		CloseHandle(stmt_Delete);
-
+	}
+	if (results > 1 || results == 0)
+	{
 		// Insert new record
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES (?, ?)",
 		g_sqlTable[TABLES_ORGANIZERS],
@@ -1253,11 +1256,6 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 		CloseHandle(stmt_Update);
 		return true;
 	}
-	// No record was found at all, this is an error!
-	LogError("Organizers_Update_This(%i): \
-Found no database entry for organizer \"%s\". This should never happen.",
-		reserveStatus, g_sIdentifier);
-
 	return false;
 }
 

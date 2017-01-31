@@ -162,6 +162,8 @@ public OnPluginStart()
 	HookConVarChange(g_hPugEnabled,							Event_PugEnabled);
 #endif
 
+	RegConsoleCmd("sm_testmatch", Command_TestMatch);
+
 	// Hook fade to black (on death)
 	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true);
 
@@ -204,6 +206,13 @@ public OnPluginStart()
 	/*g_hTimer_Pug_SendInvites =
 		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT);*/
 #endif
+}
+
+public Action Command_TestMatch(int client, int args)
+{
+	PugServer_CreateMatch(1);
+	ReplyToCommand(client, "BAM");
+	return Plugin_Handled;
 }
 
 public OnPluginEnd()

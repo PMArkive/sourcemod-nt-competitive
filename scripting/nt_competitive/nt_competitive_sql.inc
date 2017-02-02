@@ -875,7 +875,74 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 	GetServerConnectionDetails(ipAddress, port);
 	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 }
+#endif
 
+void Pugger_DisplayDbMessage(int client)
+{
+	if (!IsValidClient(client) || IsFakeClient(client) || !IsClientAuthorized(client))
+		return;
+
+	//PrintToChat(client, "Pugger_DisplayDbMessage");
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = 1",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamString(stmt, 0, steamid, false);
+	SQL_Execute(stmt);
+
+	int hasMsg;
+	decl String:dbMsg[512];
+	if (SQL_HasResultSet(stmt))
+	{
+		while (SQL_FetchRow(stmt))
+		{
+			hasMsg = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_HAS_MATCH_MSG);
+			if (hasMsg)
+			{
+				SQL_FetchString(stmt, SQL_TABLE_PUGGER_MATCH_MSG, dbMsg, sizeof(dbMsg));
+			}
+		}
+	}
+	delete stmt;
+
+	if (hasMsg)
+	{
+		PrintToChat(client, "%s System message: %s", g_sTag, dbMsg);
+		PrintToConsole(client, "%s System message: %s", g_sTag, dbMsg);
+	}
+	else
+	{
+		// This should never happen
+		ThrowError("Found result set when there was no db message.");
+	}
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
+	);
+	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamString(stmt, 0, steamid, false);
+	SQL_Execute(stmt);
+	delete stmt;
+}
+
+#if defined PLUGIN_COMP
 void Puggers_CommitAbandoned(int matchid)
 {
 	if (matchid == INVALID_MATCH_ID)

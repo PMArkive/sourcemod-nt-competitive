@@ -71,12 +71,20 @@ public void OnClientDisconnect(int client)
 
 public Action Timer_CheckPugs(Handle timer)
 {
+	int time = GetTime();
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!IsValidClient(i) || IsFakeClient(i) ||
 		!IsClientAuthorized(i) || !IsClientInGame(i))
 		{
 			continue;
+		}
+
+		// Only check for db messages once per minute
+		if (time > g_iLastEpoch_CheckPugs + 60)
+		{
+			Pugger_DisplayDbMessage(i);
+			g_iLastEpoch_CheckPugs = time;
 		}
 
 		int state = Pugger_GetQueuingState(i);
@@ -124,7 +132,15 @@ public Action Timer_CheckPugs(Handle timer)
 			PrintToChat(i, "%s Everyone has accepted!", g_sTag);
 			PrintToChat(i, "A match has been created for you, type !join to enter.");
 			PrintToChat(i, "You can also see the match information in your console.");
-			PrintMatchInformation(GetClientUserId(i));
+			PrintMatchInformation(i);
+			g_iLoopCounter[i] = 0;
+		}
+		else if (state == PUGGER_STATE_MIA)
+		{
+			PrintToChat(i, "%s You have an active PUG match!", g_sTag);
+			PrintToChat(i, "Type !join to enter the match. \
+You can also see the match information in your console.");
+			PrintMatchInformation(i);
 			g_iLoopCounter[i] = 0;
 		}
 		g_iLastSeenQueueState[i] = state;
@@ -132,9 +148,8 @@ public Action Timer_CheckPugs(Handle timer)
 	return Plugin_Continue;
 }
 
-void PrintMatchInformation(int userid)
+void PrintMatchInformation(int client)
 {
-	int client = GetClientOfUserId(userid);
 	if (!IsValidClient(client))
 		return;
 

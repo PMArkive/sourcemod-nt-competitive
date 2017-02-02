@@ -406,20 +406,44 @@ void ToggleLive(bool:isKvRestore = false)
 
 		if (GetConVarBool(g_hPugEnabled) && GetMatchStatus() == MATCHMAKE_FINISHED)
 		{
-			decl String:ipAddress[MAX_IP_LENGTH];
-			int port;
-			GetServerConnectionDetails(ipAddress, port);
+			PrintToChatAll("%s PUG match has finished.", g_sTag);
+			PrintToChatAll("This server will soon close.");
 
 			int matchid = PugServer_GetMatchID_This();
 			Database_SetMatchStatus(matchid, MATCHMAKE_FINISHED);
 
-			// TODO: Use a timer and kick players to clear the server
-			// before making it available for another PUG match.
-			PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+			CreateTimer(20.0, Timer_PugFinished);
 		}
 	}
 	// NOTE: This shouldn't be called before modifying the g_isLive boolean
 	ToggleSourceTV();
+}
+
+public Action Timer_PugFinished(Handle timer)
+{
+	// Kick all non-admins and warn admins about PUG end
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i) || IsFakeClient(i))
+			continue;
+
+		if (!IsAdmin(i))
+		{
+			KickClient(i, "PUG match has finished");
+		}
+		else
+		{
+			PrintToChat(i, "%s PUG match has finished. Please leave the server once \
+finished, or join spectator for any admin tasks.", g_sTag);
+			PrintToChat(i, "This server will start preparing for new PUG matches.");
+		}
+	}
+
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+	// Mark this PUG server as available again
+	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 }
 
 void NeoRestartThis()
@@ -2176,6 +2200,10 @@ void CheckMatchState()
 		((g_roundNumber - 1) == roundLimit)
 	)
 	{
+		if (GetConVarBool(g_hPugEnabled))
+		{
+			SetMatchStatus(MATCHMAKE_FINISHED);
+		}
 		ToggleLive();
 		LogCompetitive("Competitive match ended.");
 	}

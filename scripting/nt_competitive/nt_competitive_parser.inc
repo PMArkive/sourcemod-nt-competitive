@@ -733,7 +733,7 @@ This should never happen.", desiredPlayers);
 	{
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		SetFailState("Failed to fetch own server details.");
-		return Plugin_Continue;
+		return Plugin_Stop;
 	}
 	// Try to create a match
 	int matchid = PugServer_CreateMatch(desiredPlayers);
@@ -747,7 +747,7 @@ This should never happen.", desiredPlayers);
 	// New timer for invitation handling.
 	// The call will kill this timer, so we don't return Plugin_Stop here.
 	CreateAcceptTimer(matchid);
-	return Plugin_Continue;
+	return Plugin_Stop;
 }
 
 public Action Timer_Checkaccepts(Handle timer, int matchid)
@@ -760,6 +760,7 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		LogError("Timer_Checkaccepts: Couldn't find match with ID %i",
 			g_iMatchID_cached);
 		CreateInviteTimer();
+		return Plugin_Stop;
 	}
 
 	decl String:sql[MAX_SQL_LENGTH];
@@ -780,6 +781,7 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		delete stmt;
 		LogError("Timer_Checkaccepts: Match ID %i has no SQL result set.", matchid);
 		CreateInviteTimer();
+		return Plugin_Stop;
 	}
 	int alreadyPlaying;
 	int accepts;
@@ -868,6 +870,7 @@ Match has been cancelled.", g_sTag);
 		{
 			SetMatchStatus(MATCHMAKE_ERROR);
 			CreateInviteTimer();
+			return Plugin_Stop;
 		}
 
 		PrintToServer("This means game should happen.");
@@ -959,7 +962,6 @@ Match %i went live before this timer was destroyed. This should never happen.",
 			CreateAcceptTimer(matchid);
 		}
 	}
-
 	g_hTimer_Pug_WaitingForPlayers = null;
 	return Plugin_Stop;
 }
@@ -968,15 +970,6 @@ void CreateInviteTimer()
 {
 	g_iTimerLoops = 0;
 	PugServer_SetReserve_This(DB_PUG_INACTIVE);
-	if (g_hTimer_Pug_CheckAccepts != null)
-	{
-		KillTimer(g_hTimer_Pug_CheckAccepts);
-		g_hTimer_Pug_CheckAccepts = null;
-	}
-	if (g_hTimer_Pug_SendInvites != null)
-	{
-		ThrowError("Timers ded");
-	}
 	g_hTimer_Pug_SendInvites =
 		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT
 	);
@@ -984,15 +977,6 @@ void CreateInviteTimer()
 void CreateAcceptTimer(int matchid)
 {
 	g_iTimerLoops = 0;
-	if (g_hTimer_Pug_SendInvites != null)
-	{
-		KillTimer(g_hTimer_Pug_SendInvites);
-		g_hTimer_Pug_SendInvites = null;
-	}
-	if (g_hTimer_Pug_CheckAccepts != null)
-	{
-		ThrowError("Timers ded");
-	}
 	g_hTimer_Pug_CheckAccepts = CreateTimer(
 		MATCHMAKE_LOOKUP_TIMER, Timer_Checkaccepts, matchid, TIMER_REPEAT
 	);

@@ -917,11 +917,11 @@ void Pugger_DisplayDbMessage(int client)
 	}
 	delete stmt;
 
-	if (hasMsg)
-	{
-		PrintToChat(client, "%s System message: %s", g_sTag, dbMsg);
-		PrintToConsole(client, "%s System message: %s", g_sTag, dbMsg);
-	}
+	if (!hasMsg)
+		return;
+
+	PrintToChat(client, "%s System message: %s", g_sTag, dbMsg);
+	PrintToConsole(client, "%s System message: %s", g_sTag, dbMsg);
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = ?",
 		g_sqlTable[TABLES_PUGGERS],

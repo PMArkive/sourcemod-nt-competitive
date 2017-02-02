@@ -387,11 +387,17 @@ public OnClientDisconnect(client)
 		return;
 	}
 
-	int status = PugServer_Get_Status_This();
-	if (status == PUG_SERVER_STATUS_LIVE &&
-			g_iPlayerStatus[client] == PLAYER_STATUS_LIVE)
+	decl String:steamID[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
+
+	if (Pugger_DoesPlayInMatch(matchid, steamID))
 	{
 		Player_SetState(client, PLAYER_STATUS_ABANDONED);
+		Pugger_SetState(steamID, PUGGER_STATE_MIA);
+		if (g_isLive)
+		{
+			CreateAbandonTimer(steamID);
+		}
 	}
 	else
 	{

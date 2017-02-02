@@ -407,16 +407,21 @@ void ToggleLive(bool:isKvRestore = false)
 		if (GetConVarBool(g_hPugEnabled) && GetMatchStatus() == MATCHMAKE_FINISHED)
 		{
 			PrintToChatAll("%s PUG match has finished.", g_sTag);
-			PrintToChatAll("This server will soon close.");
-
-			int matchid = PugServer_GetMatchID_This();
-			Database_SetMatchStatus(matchid, MATCHMAKE_FINISHED);
-
-			CreateTimer(20.0, Timer_PugFinished);
+			KickPuggers();
 		}
 	}
 	// NOTE: This shouldn't be called before modifying the g_isLive boolean
 	ToggleSourceTV();
+}
+
+void KickPuggers(int state = MATCHMAKE_FINISHED)
+{
+	PrintToChatAll("This server will soon close.");
+
+	int matchid = PugServer_GetMatchID_This();
+	Database_SetMatchStatus(matchid, state);
+
+	CreateTimer(20.0, Timer_PugFinished);
 }
 
 public Action Timer_PugFinished(Handle timer)
@@ -444,6 +449,7 @@ finished, or join spectator for any admin tasks.", g_sTag);
 	GetServerConnectionDetails(ipAddress, port);
 	// Mark this PUG server as available again
 	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+	CreateInviteTimer();
 }
 
 void NeoRestartThis()
@@ -2227,6 +2233,27 @@ void CheckMatchState()
 		// Don't announce match number during the initial "LIVE LIVE LIVE" chat spam
 		if (g_spamTimerCount <= 1)
 			PrintToChatAll("%s Round %i/%i", g_sTag, g_roundNumber, roundLimit);
+	}
+}
+
+void CreateAbandonTimer(const char[] steamid, float abandonTime = 60.0)
+{
+	DataPack steamidData = new DataPack();
+	steamidData.WriteString(steamid);
+	CreateTimer(abandonTime, Timer_AbandonTimer, steamidData);
+}
+
+public Action Timer_AbandonTimer(Handle timer, DataPack steamidData)
+{
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	steamidData.Reset();
+	steamidData.ReadString(steamid, sizeof(steamid));
+	delete steamidData;
+
+	int status = Pugger_GetState(steamid);
+	if (status == PUGGER_STATE_MIA)
+	{
+		Pugger_SetState(steamid, PUGGER_STATE_ABANDONED);
 	}
 }
 

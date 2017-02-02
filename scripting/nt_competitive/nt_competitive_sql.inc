@@ -848,6 +848,32 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 }
 
+void Puggers_CommitAbandoned(int matchid)
+{
+	if (matchid == INVALID_MATCH_ID)
+		ThrowError("Invalid match ID %i", INVALID_MATCH_ID);
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	int paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_ABANDONED);
+	SQL_BindParamInt(stmt, paramIndex++, matchid);
+	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_MIA);
+	SQL_Execute(stmt);
+	delete stmt;
+}
+
 bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
 {
 	// Get all players who are queuing
@@ -1801,6 +1827,54 @@ bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] conne
 	}
 	delete stmt;
 	return true;
+}
+
+int Pugger_GetState(const char[] steamid)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamString(stmt, 0, steamid, false);
+	SQL_Execute(stmt);
+
+	int state;
+	if (SQL_HasResultSet(stmt))
+	{
+		while (SQL_FetchRow(stmt))
+		{
+			state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
+		}
+	}
+	delete stmt;
+	return state;
+}
+
+int Pugger_SetState(const char[] steamid, int state)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamInt(stmt, 0, state);
+	SQL_BindParamString(stmt, 1, steamid, false);
+	SQL_Execute(stmt);
+	delete stmt;
 }
 
 int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")

@@ -781,17 +781,19 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		LogError("Timer_Checkaccepts: Match ID %i has no SQL result set.", matchid);
 		CreateInviteTimer();
 	}
+	int alreadyPlaying;
 	int accepts;
 	int declines;
 	while (SQL_FetchRow(stmt))
 	{
+		int puggerState = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
 		// Player has accepted
-		if (SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE) == PUGGER_STATE_ACCEPTED)
+		if (puggerState == PUGGER_STATE_ACCEPTED)
 		{
 			accepts++;
 		}
 		// Player has declined
-		else if (SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE) == PUGGER_STATE_INACTIVE)
+		else if (puggerState == PUGGER_STATE_INACTIVE)
 		{
 			declines++;
 			// Clear player's match ID
@@ -814,6 +816,11 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 			SQL_Execute(stmt_Update);
 			delete stmt_Update;
 		}
+		else if (puggerState == PUGGER_STATE_READY ||
+			puggerState == PUGGER_STATE_LIVE)
+		{
+			alreadyPlaying++;
+		}
 	}
 	delete stmt;
 
@@ -830,7 +837,7 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 	}
 
 	int desiredPlayers = Match_GetDesiredPlayers(matchid);
-	if (accepts < desiredPlayers)
+	if (alreadyPlaying + accepts < desiredPlayers)
 	{
 		if (g_iTimerLoops < 3)
 		{
@@ -840,10 +847,22 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		// looped for g_iTimerLoops * MATCHMAKE_LOOKUP_TIMER seconds. give up.
 		PrintToServer("Give up the match");
 		Match_Cancel(matchid, true);
-		CreateInviteTimer();
+		// There are players waiting for substitutes in the server,
+		// kick them before starting to look for the next match.
+		if (alreadyPlaying > 0)
+		{
+			PrintToChatAll("%s The new players didn't accept the invitation. \
+Match has been cancelled.", g_sTag);
+			KickPuggers(MATCHMAKE_CANCELLED);
+		}
+		// Nobody's on the server yet, can start to look for a new match right away
+		else
+		{
+			CreateInviteTimer();
+		}
 		return Plugin_Stop;
 	}
-	else if (accepts == desiredPlayers)
+	else if (alreadyPlaying + accepts == desiredPlayers)
 	{
 		if (!Match_SetPreparingForLive(matchid))
 		{
@@ -863,9 +882,9 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		return Plugin_Stop;
 	}
 
-	LogError("Timer_Checkaccepts: Found %i accepts for matchid %i where \
-desired playercount was %i. This line should never run.",
-		accepts, matchid, desiredPlayers);
+	LogError("Timer_Checkaccepts: Found %i already playing + %i accepts for \
+matchid %i where desired playercount was %i. This line should never run.",
+		alreadyPlaying, accepts, matchid, desiredPlayers);
 	CreateInviteTimer();
 	return Plugin_Continue;
 }
@@ -895,8 +914,51 @@ Match %i went live before this timer was destroyed. This should never happen.",
 		return Plugin_Stop;
 	}
 
-	PrintToChatAll("%s Warmup time has ended, going live.", g_sTag);
-	LiveCountDown();
+	int desiredPlayers = Match_GetDesiredPlayers(matchid);
+	int presentPlayers;
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i) || IsFakeClient(i) || !IsClientAuthorized(i))
+			continue;
+
+		decl String:steamid[MAX_STEAMID_LENGTH];
+		GetClientAuthId(i, AuthId_Steam2, steamid, sizeof(steamid));
+		if (Pugger_DoesPlayInMatch(matchid, steamid))
+			presentPlayers++;
+	}
+
+	// This should never happen
+	if (presentPlayers > desiredPlayers)
+	{
+		ThrowError("More match assigned players present (%i) than desired (%i)",
+			presentPlayers, desiredPlayers);
+	}
+	// Everyone has joined, we can go live
+	else if (presentPlayers == desiredPlayers)
+	{
+		PrintToChatAll("%s Warmup time has ended, going live.", g_sTag);
+		LiveCountDown();
+	}
+	else
+	{
+		// Time has expired for disconnected clients to rejoin, mark as abandoned
+		Puggers_CommitAbandoned(matchid);
+
+		PrintToChatAll("%s Everyone didn't join in time. Looking for more players...",
+			g_sTag);
+		int neededPlayers = desiredPlayers - presentPlayers;
+		if (!PugServer_InvitePlayers(matchid, neededPlayers))
+		{
+			PrintToChatAll("%s Couldn't find enough players. Match has been cancelled.",
+				g_sTag);
+			KickPuggers(MATCHMAKE_CANCELLED);
+		}
+		else
+		{
+			PrintToChatAll("%s Found new players to invite. Please wait.", g_sTag);
+			CreateAcceptTimer(matchid);
+		}
+	}
 
 	g_hTimer_Pug_WaitingForPlayers = null;
 	return Plugin_Stop;

@@ -361,7 +361,9 @@ enum {
 	PUGGER_STATE_ACCEPTED = 3,									// Pugger has accepted a match invite, waiting for a pug server to process the acceptance
 	PUGGER_STATE_READY = 4,											// Pugger has been assigned a match
 	PUGGER_STATE_LIVE = 5,											// Currently playing
-	PUGGER_STATE_ENUM_COUNT = 6
+  PUGGER_STATE_MIA = 6,                       // Pugger should be live, but has disconnected or never showed up
+  PUGGER_STATE_ABANDONED = 7,                 // Pugger has been marked as abandoned, no more part of this match
+	PUGGER_STATE_ENUM_COUNT = 8
 };
 
 enum {

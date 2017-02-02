@@ -236,6 +236,35 @@ void ToggleLive(bool:isKvRestore = false)
 
 	if (g_isLive)
 	{
+		if (GetConVarBool(g_hPugEnabled))
+		{
+			if (g_hTimer_Pug_WaitingForPlayers != null)
+			{
+				KillTimer(g_hTimer_Pug_WaitingForPlayers);
+				g_hTimer_Pug_WaitingForPlayers = null;
+			}
+
+			decl String:ipAddress[MAX_IP_LENGTH];
+			int port;
+			GetServerConnectionDetails(ipAddress, port);
+
+			SetMatchStatus(MATCHMAKE_LIVE);
+			PugServer_Set_Status(PUG_SERVER_STATUS_LIVE, ipAddress, port);
+
+			int matchid = PugServer_GetMatchID_This();
+			if (matchid == INVALID_MATCH_ID)
+			{
+				// TODO: this should probably be a match aborting state
+				ThrowError("Invalid match ID!");
+			}
+			if (!Database_SetMatchStatus(matchid, MATCHMAKE_LIVE))
+			{
+				// TODO: this should probably be a match aborting state
+				ThrowError("Failed setting match status to %i for match ID %i",
+					MATCHMAKE_LIVE, matchid);
+			}
+		}
+
 		SetGameState(GAMESTATE_NORMAL);
 		GenerateEpoch();
 
@@ -257,58 +286,61 @@ void ToggleLive(bool:isKvRestore = false)
 		new foundPlayers;
 #endif
 
-		// Save connected players' SteamIDs so
-		// they can be allowed to rejoin their teams if disconnected
-		for (new i = 1; i <= MaxClients; i++)
+		if (!GetConVarBool(g_hPugEnabled))
 		{
-			if (!IsValidClient(i) || IsFakeClient(i))
-				continue;
-
-			if (!IsClientAuthorized(i))
+			// Save connected players' SteamIDs so
+			// they can be allowed to rejoin their teams if disconnected
+			for (new i = 1; i <= MaxClients; i++)
 			{
-				new String:clientName[MAX_NAME_LENGTH];
-				GetClientName(i, clientName, sizeof(clientName));
-				PrintToChatAll("%s Player \"%s\" has no SteamID authorized yet! \
-Stopped going live. Please try again in a moment.");
+				if (!IsValidClient(i) || IsFakeClient(i))
+					continue;
+
+				if (!IsClientAuthorized(i))
+				{
+					new String:clientName[MAX_NAME_LENGTH];
+					GetClientName(i, clientName, sizeof(clientName));
+					PrintToChatAll("%s Player \"%s\" has no SteamID authorized yet! \
+	Stopped going live. Please try again in a moment.");
 #if DEBUG
-				LogDebug("%s Player \"%s\" has no SteamID authorized yet! \
-Stopped going live.");
+					LogDebug("%s Player \"%s\" has no SteamID authorized yet! \
+	Stopped going live.");
 #endif
-				g_isLive = false;
+					g_isLive = false;
 
-				return;
-			}
+					return;
+				}
 
-			new String:steamID[MAX_STEAMID_LENGTH];
-			GetClientAuthId(i, AuthId_Steam2, steamID, sizeof(steamID));
-			PrintToServer("SteamID of %i: %s", i, steamID);
-			new team = GetClientTeam(i);
+				new String:steamID[MAX_STEAMID_LENGTH];
+				GetClientAuthId(i, AuthId_Steam2, steamID, sizeof(steamID));
+				PrintToServer("SteamID of %i: %s", i, steamID);
+				new team = GetClientTeam(i);
 
-			if (strlen(steamID) == 0)
-			{
-				LogError("Client %i returned empty SteamID, probably not authorized \
-whilst attempting to save SteamID into g_livePlayers!", i);
-				continue;
-			}
+				if (strlen(steamID) == 0)
+				{
+					LogError("Client %i returned empty SteamID, probably not authorized \
+	whilst attempting to save SteamID into g_livePlayers!", i);
+					continue;
+				}
 
-			else
-			{
-				strcopy(g_livePlayers[i], sizeof(g_livePlayers[]), steamID);
-				PrintToServer("sizeof g_livePlayers: %i", sizeof(g_livePlayers[]));
-				g_assignedTeamWhenLive[i] = team;
+				else
+				{
+					strcopy(g_livePlayers[i], sizeof(g_livePlayers[]), steamID);
+					PrintToServer("sizeof g_livePlayers: %i", sizeof(g_livePlayers[]));
+					g_assignedTeamWhenLive[i] = team;
 #if DEBUG
-				LogDebug("Found SteamID: %s", steamID);
-				LogDebug("Saved to array as: %s, team %s",
-					g_livePlayers[i],
-					g_teamName[g_assignedTeamWhenLive[i]]);
+					LogDebug("Found SteamID: %s", steamID);
+					LogDebug("Saved to array as: %s, team %s",
+						g_livePlayers[i],
+						g_teamName[g_assignedTeamWhenLive[i]]);
 
-				foundPlayers++;
+					foundPlayers++;
 #endif
+				}
 			}
+#if DEBUG
+			LogDebug("Completed SteamID array with %i results.", foundPlayers);
+#endif
 		}
-#if DEBUG
-		LogDebug("Completed SteamID array with %i results.", foundPlayers);
-#endif
 
 		// Set convars for competitive
 		SetConVarInt(g_hAlltalk, GetDesiredCommsBehaviour());
@@ -370,6 +402,20 @@ whilst attempting to save SteamID into g_livePlayers!", i);
 		PrintToChatAll("%s Match has ended.", g_sTag);
 
 		SetGameState(GAMESTATE_WARMUP);
+
+		if (GetConVarBool(g_hPugEnabled) && GetMatchStatus() == MATCHMAKE_FINISHED)
+		{
+			decl String:ipAddress[MAX_IP_LENGTH];
+			int port;
+			GetServerConnectionDetails(ipAddress, port);
+
+			int matchid = PugServer_GetMatchID_This();
+			Database_SetMatchStatus(matchid, MATCHMAKE_FINISHED);
+
+			// TODO: Use a timer and kick players to clear the server
+			// before making it available for another PUG match.
+			PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+		}
 	}
 	// NOTE: This shouldn't be called before modifying the g_isLive boolean
 	ToggleSourceTV();
@@ -3113,11 +3159,21 @@ void Pug_PasswordServer()
 	SetConVarString(g_hPassword, "ANPA");
 }
 
+int GetMatchStatus()
+{
+	if (g_iMatchmakeStatus < 0 || g_iMatchmakeStatus >= MATCHMAKE_ENUM_COUNT)
+	{
+		ThrowError("Invalid status enum %i, expected value between 0 - %i.",
+			g_iMatchmakeStatus, MATCHMAKE_ENUM_COUNT);
+	}
+	return g_iMatchmakeStatus;
+}
+
 void SetMatchStatus(int status)
 {
-	if (status < 0 || status > MATCHMAKE_ENUM_COUNT)
+	if (status < 0 || status >= MATCHMAKE_ENUM_COUNT)
 	{
-		ThrowError("Invalid state %i, expected value between 0 - %i.",
+		ThrowError("Invalid status enum %i, expected value between 0 - %i.",
 			status, MATCHMAKE_ENUM_COUNT);
 	}
 	g_iMatchmakeStatus = status;
@@ -3137,11 +3193,6 @@ void UpdateConnectedPuggerCount()
 			count++;
 	}
 	g_iConnectedPuggerCount = count;
-}
-
-int GetMatchStatus()
-{
-	return g_iMatchmakeStatus;
 }
 
 void Pug_KickEveryone(bool:kickAdmins = false)

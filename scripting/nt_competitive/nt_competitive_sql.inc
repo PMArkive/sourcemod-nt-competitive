@@ -2003,7 +2003,7 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 	return true;
 }
 
-bool Match_SetLive(int match_id)
+bool Match_SetPreparingForLive(int match_id)
 {
 	if (!Database_MatchExists(match_id))
 		return false;
@@ -2011,7 +2011,7 @@ bool Match_SetLive(int match_id)
 	// Make sure we're still allowed to do this. This should never fail.
 	if (PugServer_GetReserve_This() != DB_PUG_RESERVED)
 	{
-		LogError("Match_SetLive: Not reserved for db! Trying to reserve again.");
+		LogError("Match_SetPreparingForLive: Not reserved for db! Trying to reserve again.");
 		if (!PugServer_SetReserve_This(DB_PUG_RESERVED))
 		{
 			LogError("Failed to reserve db while assuming we had reservation. Stopping.");
@@ -2043,26 +2043,8 @@ bool Match_SetLive(int match_id)
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
 	GetServerConnectionDetails(ipAddress, port);
-
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
-		g_sqlTable[TABLES_PUG_SERVERS],
-		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS],
-		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
-		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]
-	);
-	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
-	if (stmt == null)
-	{
-		LogError(error);
-		PugServer_SetReserve_This(DB_PUG_INACTIVE);
-		return false;
-	}
-	int paramIndex;
-	SQL_BindParamInt(stmt, paramIndex++, PUG_SERVER_STATUS_AWAITING_PLAYERS);
-	SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
-	SQL_BindParamInt(stmt, paramIndex++, port);
-	SQL_Execute(stmt);
-	delete stmt;
+	PugServer_Set_Status(
+		PUG_SERVER_STATUS_AWAITING_PLAYERS, ipAddress, port);
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
 		g_sqlTable[TABLES_MATCHES],
@@ -2076,7 +2058,7 @@ bool Match_SetLive(int match_id)
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return false;
 	}
-	paramIndex = 0;
+	int paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, MATCHMAKE_WARMUP);
 	SQL_BindParamInt(stmt, paramIndex++, match_id);
 	SQL_Execute(stmt);
@@ -2121,6 +2103,32 @@ int Match_GetDesiredPlayers(int match_id)
 	}
 	delete stmt;
 	return playercount;
+}
+
+bool Database_SetMatchStatus(int matchid, int status)
+{
+	if (!Database_MatchExists(matchid))
+	{
+		ThrowError("Match with ID %i does not exist.", matchid);
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	SQL_BindParamInt(stmt, 0, status);
+	SQL_BindParamInt(stmt, 1, matchid);
+	SQL_Execute(stmt);
+	delete stmt;
+	return true;
 }
 
 int Database_GetMatchStatus(int matchid)

@@ -845,12 +845,21 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 	}
 	else if (accepts == desiredPlayers)
 	{
-		PrintToServer("This means game should happen.");
-		if (!Match_SetLive(matchid))
+		if (!Match_SetPreparingForLive(matchid))
 		{
 			SetMatchStatus(MATCHMAKE_ERROR);
 			CreateInviteTimer();
 		}
+
+		PrintToServer("This means game should happen.");
+		if (g_hTimer_Pug_WaitingForPlayers != null)
+		{
+			KillTimer(g_hTimer_Pug_WaitingForPlayers);
+			g_hTimer_Pug_WaitingForPlayers = null;
+		}
+		g_hTimer_Pug_WaitingForPlayers = CreateTimer(TIMER_WAITINGFORPLAYERS,
+			Timer_Pug_WaitingForPlayers, matchid);
+
 		return Plugin_Stop;
 	}
 
@@ -859,6 +868,37 @@ desired playercount was %i. This line should never run.",
 		accepts, matchid, desiredPlayers);
 	CreateInviteTimer();
 	return Plugin_Continue;
+}
+
+public Action Timer_Pug_WaitingForPlayers(Handle timer, int matchid)
+{
+	if (matchid == INVALID_MATCH_ID || !Database_MatchExists(matchid))
+	{
+		LogError("Timer_Pug_WaitingForPlayers: Invalid match %i", matchid);
+		SetMatchStatus(MATCHMAKE_ERROR);
+
+		decl String:ipAddress[MAX_IP_LENGTH];
+		int port;
+		GetServerConnectionDetails(ipAddress, port);
+
+		PugServer_Set_Status(PUG_SERVER_STATUS_ERROR, ipAddress, port);
+		g_hTimer_Pug_WaitingForPlayers = null;
+		return Plugin_Stop;
+	}
+
+	if (g_isLive)
+	{
+		LogError("Timer_Pug_WaitingForPlayers: \
+Match %i went live before this timer was destroyed. This should never happen.",
+			matchid);
+		g_hTimer_Pug_WaitingForPlayers = null;
+		return Plugin_Stop;
+	}
+
+	PrintToChatAll("%s Warmup time has ended, going live.", g_sTag);
+	ToggleLive();
+	g_hTimer_Pug_WaitingForPlayers = null;
+	return Plugin_Stop;
 }
 
 void CreateInviteTimer()

@@ -6,6 +6,7 @@
 // TODO: Split this in plugin specific files when it's clear which parts
 // need to be shared and which don't.
 
+#define TIMER_WAITINGFORPLAYERS 120.0
 #define MATCHMAKE_LOOKUP_TIMER 10.0
 int g_iTimerLoops;
 
@@ -205,6 +206,8 @@ new Handle:g_hTimer_UnPause_HalfLeft = INVALID_HANDLE;
 
 new Handle:g_hTimer_Pug_SendInvites = INVALID_HANDLE;
 new Handle:g_hTimer_Pug_CheckAccepts = INVALID_HANDLE;
+
+Handle g_hTimer_Pug_WaitingForPlayers = null;
 
 KeyValues g_kv;
 

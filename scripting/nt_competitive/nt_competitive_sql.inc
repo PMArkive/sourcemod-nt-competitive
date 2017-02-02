@@ -922,11 +922,6 @@ void Pugger_DisplayDbMessage(int client)
 		PrintToChat(client, "%s System message: %s", g_sTag, dbMsg);
 		PrintToConsole(client, "%s System message: %s", g_sTag, dbMsg);
 	}
-	else
-	{
-		// This should never happen
-		ThrowError("Found result set when there was no db message.");
-	}
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = ?",
 		g_sqlTable[TABLES_PUGGERS],

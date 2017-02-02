@@ -819,8 +819,6 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 
 	if (declines > 0)
 	{
-		// need sql function to invite declines amount of new players by matchid,
-		// or return false when impossible
 		if (!PugServer_InvitePlayers(matchid, declines))
 		{
 			// not enough people to invite, give up the match
@@ -841,7 +839,7 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		}
 		// looped for g_iTimerLoops * MATCHMAKE_LOOKUP_TIMER seconds. give up.
 		PrintToServer("Give up the match");
-		Match_Cancel(matchid);
+		Match_Cancel(matchid, true);
 		CreateInviteTimer();
 		return Plugin_Stop;
 	}

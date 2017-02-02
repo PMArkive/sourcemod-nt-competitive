@@ -775,30 +775,55 @@ SQL statement returned multiple results; SQL: %s", sql);
 	return match_id;
 }
 
-void Match_Cancel(int matchid)
+void Match_Cancel(int matchid, bool dequeueInactive = false)
 {
+	Handle stmt = null;
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
+	int paramIndex;
+	// Remove puggers who never accepted their invite from the active queue
+	if (dequeueInactive)
+	{
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
+			g_sqlTable[TABLES_PUGGERS],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
+		);
+		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+		if (stmt == null)
+		{
+			LogError(error);
+			return;
+		}
+		paramIndex = 0;
+		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_INACTIVE);
+		SQL_BindParamInt(stmt, paramIndex++, matchid);
+		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_CONFIRMING);
+		SQL_Execute(stmt);
+		delete stmt;
+	}
+	// Returns match puggers to the queue
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND NOT %s = ?",
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
 	);
-
-	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		LogError(error);
 		return;
 	}
-	int paramIndex;
+	paramIndex = 0;
 	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_QUEUING);
 	SQL_BindParamInt(stmt, paramIndex++, matchid);
 	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_INACTIVE);
 	SQL_Execute(stmt);
 	delete stmt;
 
+	// Mark the match as cancelled
 	SetMatchStatus(MATCHMAKE_CANCELLED);
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",

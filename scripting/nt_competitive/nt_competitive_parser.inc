@@ -954,11 +954,14 @@ Match %i went live before this timer was destroyed. This should never happen.",
 		{
 			PrintToChatAll("%s Couldn't find enough players. Match has been cancelled.",
 				g_sTag);
+			// Remove match's active puggers from queue
+			Puggers_UpdateStateByMatchID(matchid, PUGGER_STATE_INACTIVE);
+			PrintToChatAll("%s You have been removed from the PUG queue.", g_sTag);
 			KickPuggers(MATCHMAKE_CANCELLED);
 		}
 		else
 		{
-			PrintToChatAll("%s Found new players to invite. Please wait.", g_sTag);
+			PrintToChatAll("%s Found new players to invite. Please wait...", g_sTag);
 			CreateAcceptTimer(matchid);
 		}
 	}

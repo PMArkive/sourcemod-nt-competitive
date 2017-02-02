@@ -775,6 +775,29 @@ SQL statement returned multiple results; SQL: %s", sql);
 	return match_id;
 }
 
+void Puggers_UpdateStateByMatchID(int matchid, int newState)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND NOT %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+		ThrowError(error);
+
+	int paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, newState);
+	SQL_BindParamInt(stmt, paramIndex++, matchid);
+	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_ABANDONED);
+	SQL_Execute(stmt);
+	delete stmt;
+}
+
 void Match_Cancel(int matchid, bool dequeueInactive = false)
 {
 	// Got here by trying to find a replacement player for someone

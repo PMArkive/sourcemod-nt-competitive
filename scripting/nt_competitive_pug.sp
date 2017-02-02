@@ -512,9 +512,13 @@ public Action Command_Join(int client, int args)
 
 void SendPlayerToMatch(int client, const char[] connectIP, int connectPort, const char[] connectPassword)
 {
-	PrintToChat(client, "(this is where server jump would occur)");
 	PrintToConsole(client, "%s Joining PUG: %s:%i password %s",
 		g_sTag, connectIP, connectPort, connectPassword);
+
+	decl String:cmd[MAX_IP_LENGTH+MAX_CVAR_LENGTH+64];
+	Format(cmd, sizeof(cmd), "password %s; connect %s:%i",
+		connectPassword, connectIP, connectPort);
+	ClientCommand(client, cmd);
 }
 
 // Purpose: Generate a unique identifier for

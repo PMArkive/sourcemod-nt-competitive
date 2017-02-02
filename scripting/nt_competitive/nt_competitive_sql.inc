@@ -883,9 +883,12 @@ void Puggers_CommitAbandoned(int matchid)
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND %s = ?",
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ?, %s = ? \
+WHERE %s = ? AND %s = ?",
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_MSG],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
 	);
@@ -894,8 +897,13 @@ void Puggers_CommitAbandoned(int matchid)
 	if (stmt == null)
 		ThrowError(error);
 
+	new const String:nagMsg[] = "You abandoned your last match. \
+Please poke Rain if you think this is an error.";
+
 	int paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_ABANDONED);
+	SQL_BindParamString(stmt, paramIndex++, nagMsg, false);
+	SQL_BindParamInt(stmt, paramIndex++, 1);
 	SQL_BindParamInt(stmt, paramIndex++, matchid);
 	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_MIA);
 	SQL_Execute(stmt);

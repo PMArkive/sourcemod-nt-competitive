@@ -82,6 +82,8 @@ public Action Timer_CheckPugs(Handle timer)
 		int state = Pugger_GetQueuingState(i);
 		if (state == PUGGER_STATE_INACTIVE)
 		{
+			if (g_iLastSeenQueueState[i] == PUGGER_STATE_CONFIRMING)
+				PrintToChat(, "%s You have been removed from the PUG queue.", g_sTag);
 			continue;
 		}
 		else if (state == PUGGER_STATE_QUEUING)

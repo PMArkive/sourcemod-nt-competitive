@@ -18,7 +18,13 @@ new bool:g_bIsQueueActive;
 
 new const String:g_sTag[] = "[PUG]";
 
+new const String:g_sMenuSoundOk[] = "buttons/button14.wav";
+new const String:g_sMenuSoundCancel[] = "buttons/combine_button7.wav";
+new const String:g_sPugInvite1[] = "friends/friend_join.wav";
+new const String:g_sPugInvite2[] = "player/CPcaptured.wav";
+
 #include <sourcemod>
+#include <sdktools>
 #include <neotokyo>
 #include "nt_competitive/shared_variables"
 #include "nt_competitive/shared_functions"
@@ -63,6 +69,14 @@ public OnPluginStart()
 	CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_CheckPugs, _, TIMER_REPEAT);
 }
 
+public void OnMapStart()
+{
+	PrecacheSound(g_sMenuSoundOk);
+	PrecacheSound(g_sMenuSoundCancel);
+	PrecacheSound(g_sPugInvite1);
+	PrecacheSound(g_sPugInvite2);
+}
+
 public void OnClientDisconnect(int client)
 {
 	g_iLastSeenQueueState[client] = PUGGER_STATE_INACTIVE;
@@ -105,7 +119,8 @@ public Action Timer_CheckPugs(Handle timer)
 		}
 		else if (state == PUGGER_STATE_CONFIRMING)
 		{
-			PrintToChat(i, "%s Your PUG match is ready!", g_sTag);
+			ShowPanel(i, PUGGER_STATE_CONFIRMING);
+			PrintToChat(i, "%s You have a new PUG invitation!", g_sTag);
 			PrintToChat(i, "Type !join to accept, or !unpug to decline.");
 		}
 		else if (state == PUGGER_STATE_ACCEPTED)
@@ -129,6 +144,7 @@ public Action Timer_CheckPugs(Handle timer)
 				g_iLoopCounter[i]++;
 				continue;
 			}
+			ShowPanel(i, PUGGER_STATE_LIVE);
 			PrintToChat(i, "%s Everyone has accepted!", g_sTag);
 			PrintToChat(i, "A match has been created for you, type !join to enter.");
 			PrintToChat(i, "You can also see the match information in your console.");
@@ -146,6 +162,83 @@ You can also see the match information in your console.");
 		g_iLastSeenQueueState[i] = state;
 	}
 	return Plugin_Continue;
+}
+
+void ShowPanel(int client, int state)
+{
+	if (!IsValidClient(client))
+		return;
+
+	if (state != PUGGER_STATE_CONFIRMING && state != PUGGER_STATE_LIVE)
+		return;
+
+	Panel panel = CreatePanel();
+	switch (state)
+	{
+		case PUGGER_STATE_CONFIRMING:
+		{
+			EmitSoundToClient(client, g_sPugInvite1, _, _, _, _, _, 135);
+			panel.SetTitle("You have a new PUG invitation!");
+			panel.DrawText(" ");
+			panel.DrawItem("Accept match");
+			panel.DrawItem("Decline");
+			panel.Send(client, PanelHandler_ShowPanel_Confirm, MENU_TIME_FOREVER);
+		}
+		case PUGGER_STATE_LIVE:
+		{
+			EmitSoundToClient(client, g_sPugInvite2, _, _, _, _, _, 135);
+			panel.SetTitle("Your PUG match is ready!");
+			panel.DrawText(" ");
+			panel.DrawItem("Join match");
+			panel.DrawItem("Join later (max. 2 minutes to join)");
+			panel.Send(client, PanelHandler_ShowPanel_Join, MENU_TIME_FOREVER);
+		}
+	}
+	delete panel;
+}
+
+public int PanelHandler_ShowPanel_Confirm(Menu menu, MenuAction action, int client, int choice)
+{
+	if (action != MenuAction_Select)
+		return;
+
+	switch (choice)
+	{
+		// Accept
+		case 1:
+		{
+			EmitSoundToClient(client, g_sMenuSoundOk);
+			Command_Join(client, 1);
+		}
+		// Decline
+		case 2:
+		{
+			EmitSoundToClient(client, g_sMenuSoundCancel);
+			Command_UnPug(client, 1);
+		}
+	}
+}
+
+public int PanelHandler_ShowPanel_Join(Menu menu, MenuAction action, int client, int choice)
+{
+	if (action != MenuAction_Select)
+		return;
+
+	switch (choice)
+	{
+		// Join
+		case 1:
+		{
+			EmitSoundToClient(client, g_sMenuSoundOk);
+			Command_Join(client, 1);
+		}
+		// Don't join (yet)
+		case 2:
+		{
+			// do nothing
+			EmitSoundToClient(client, g_sMenuSoundCancel);
+		}
+	}
 }
 
 void PrintMatchInformation(int client)

@@ -1067,7 +1067,6 @@ WHERE %s = ?",
 
 bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
 {
-	PrintToServer("Does this even run?");
 	if (!Database_MatchExists(match_id))
 		return false;
 
@@ -1078,7 +1077,6 @@ bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
 	);
-	PrintToServer("SQL: %s", sql);
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{

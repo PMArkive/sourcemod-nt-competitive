@@ -777,6 +777,10 @@ SQL statement returned multiple results; SQL: %s", sql);
 
 void Puggers_UpdateStateByMatchID(int matchid, int newState)
 {
+	if (matchid == INVALID_MATCH_ID)
+	{
+		ThrowError("Invalid match ID %i", matchid);
+	}
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND NOT %s = ?",

@@ -409,6 +409,9 @@ void ToggleLive(bool:isKvRestore = false)
 		{
 			g_bPugAlreadyPlaying = false;
 			PrintToChatAll("%s PUG match has finished.", g_sTag);
+
+			int matchid = PugServer_GetMatchID_This();
+			Puggers_UpdateStateByMatchID(matchid, PUGGER_STATE_INACTIVE);
 			KickPuggers();
 		}
 	}

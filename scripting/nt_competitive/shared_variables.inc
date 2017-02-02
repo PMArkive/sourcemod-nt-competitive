@@ -209,6 +209,8 @@ new Handle:g_hTimer_Pug_CheckAccepts = INVALID_HANDLE;
 
 Handle g_hTimer_Pug_WaitingForPlayers = null;
 
+g_bPugAlreadyPlaying;
+
 KeyValues g_kv;
 
 Menu g_clientMenu = null;

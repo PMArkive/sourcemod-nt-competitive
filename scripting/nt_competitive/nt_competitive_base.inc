@@ -264,6 +264,7 @@ void ToggleLive(bool:isKvRestore = false)
 				ThrowError("Failed setting match status to %i for match ID %i",
 					MATCHMAKE_LIVE, matchid);
 			}
+			g_bPugAlreadyPlaying = true;
 		}
 
 		SetGameState(GAMESTATE_NORMAL);
@@ -406,6 +407,7 @@ void ToggleLive(bool:isKvRestore = false)
 
 		if (GetConVarBool(g_hPugEnabled) && GetMatchStatus() == MATCHMAKE_FINISHED)
 		{
+			g_bPugAlreadyPlaying = false;
 			PrintToChatAll("%s PUG match has finished.", g_sTag);
 			KickPuggers();
 		}
@@ -2238,6 +2240,12 @@ void CheckMatchState()
 
 void CreateAbandonTimer(const char[] steamid, float abandonTime = 60.0)
 {
+	if (g_isLive)
+	{
+		PrintToChatAll("%s A player left the game, waiting %i seconds before \
+marking player as abandoned and looking for a replacement.",
+			g_sTag, RoundToNearest(abandonTime));
+	}
 	DataPack steamidData = new DataPack();
 	steamidData.WriteString(steamid);
 	CreateTimer(abandonTime, Timer_AbandonTimer, steamidData);
@@ -2254,6 +2262,26 @@ public Action Timer_AbandonTimer(Handle timer, DataPack steamidData)
 	if (status == PUGGER_STATE_MIA)
 	{
 		Pugger_SetState(steamid, PUGGER_STATE_ABANDONED);
+		// TODO: store player name data in db
+		PrintToChatAll("%s Marked player %s as abandoned.", g_sTag, steamid);
+		PrintToChatAll("%s Looking for a replacement player...", g_sTag);
+
+		int matchid = PugServer_GetMatchID_This();
+		if (matchid == INVALID_MATCH_ID || !Database_MatchExists(matchid))
+		{
+			ThrowError("Invalid match ID %i", matchid);
+		}
+		if (!PugServer_InvitePlayers(matchid, 1))
+		{
+			PrintToChatAll("%s Could not find a replacement player.", g_sTag);
+			PrintToChatAll("The server will keep trying to find one.");
+		}
+		else
+		{
+			CreateAcceptTimer(matchid);
+			PrintToChatAll("%s Found a replacement player, \
+sending them a match invitation...", g_sTag);
+		}
 	}
 }
 
@@ -3124,7 +3152,6 @@ void PlayerStateChanged()
 			// This happens automatically gameplay wise,
 			// still need to set pug server status
 			// and match info.
-			//PugMode_GoLive();
 			PrintToChatAll("pug go live trigger");
 		}
 	}

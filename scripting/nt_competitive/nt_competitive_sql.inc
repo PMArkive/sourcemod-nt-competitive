@@ -777,6 +777,11 @@ SQL statement returned multiple results; SQL: %s", sql);
 
 void Match_Cancel(int matchid, bool dequeueInactive = false)
 {
+	// Got here by trying to find a replacement player for someone
+	// who abandoned an already live match. Don't stop the ongoing match.
+	if (g_bPugAlreadyPlaying)
+		return;
+
 	Handle stmt = null;
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];

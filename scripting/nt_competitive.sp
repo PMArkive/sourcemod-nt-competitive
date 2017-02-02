@@ -198,9 +198,8 @@ public OnPluginStart()
 	{
 		Database_Initialize();
 		if (!Database_DoTablesExist())
-		{
 			Database_CreateTables();
-		}
+
 		PugMode_Initialize();
 	}
 	CreateInviteTimer();

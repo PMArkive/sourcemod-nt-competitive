@@ -197,7 +197,7 @@ Use !unpug instead to leave the queue.", g_sTag);
 		}
 		case PUGGER_STATE_CONFIRMING:
 		{
-			ReplyToCommand(client, "%s You are have a pending match invitation! \
+			ReplyToCommand(client, "%s You already have a pending match invitation! \
 Use !join to accept, or !unpug to decline the match.", g_sTag);
 		}
 		case PUGGER_STATE_ACCEPTED:
@@ -376,7 +376,7 @@ public Action Command_Join(int client, int args)
 			}
 			case MATCHMAKE_FINISHED:
 			{
-				ReplyToCommand(client, "%s Your match has finished!");
+				ReplyToCommand(client, "%s Your match has already finished!");
 				ReplyToCommand(client, "Please contact server admins \
 	if you think this is an error.");
 			}

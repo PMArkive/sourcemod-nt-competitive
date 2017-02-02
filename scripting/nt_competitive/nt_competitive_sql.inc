@@ -775,6 +775,49 @@ SQL statement returned multiple results; SQL: %s", sql);
 	return match_id;
 }
 
+void Match_Cancel(int matchid)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND NOT %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
+	);
+
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		return;
+	}
+	int paramIndex;
+	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_QUEUING);
+	SQL_BindParamInt(stmt, paramIndex++, matchid);
+	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_INACTIVE);
+	SQL_Execute(stmt);
+	delete stmt;
+
+	SetMatchStatus(MATCHMAKE_CANCELLED);
+
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		LogError(error);
+		return;
+	}
+	SQL_BindParamInt(stmt, 0, MATCHMAKE_CANCELLED);
+	SQL_BindParamInt(stmt, 1, matchid);
+	SQL_Execute(stmt);
+	delete stmt;
+}
+
 bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
 {
 	// Get all players who are queuing
@@ -801,7 +844,7 @@ bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
 	// There aren't enough players queuing, this is an error
 	if (results < numPlayers)
 	{
-		LogError("AssignPlayers: Not enough players to assign a match for!");
+		//LogError("AssignPlayers: Not enough players to assign a match for!");
 		delete stmt;
 		return false;
 	}

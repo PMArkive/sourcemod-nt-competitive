@@ -7,6 +7,7 @@
 // need to be shared and which don't.
 
 #define MATCHMAKE_LOOKUP_TIMER 10.0
+int g_iTimerLoops;
 
 #define INVALID_MATCH_ID 0
 #define MAX_IP_LENGTH 46
@@ -365,7 +366,7 @@ enum {
 	PUG_SERVER_STATUS_BUSY = 1,									// Server is preoccupied by some organized event etc.
 	PUG_SERVER_STATUS_AVAILABLE = 2,						// Server is available for pugging
 	PUG_SERVER_STATUS_RESERVED = 3,							//
-	PUG_SERVER_STATUS_AWAITING_PLAYERS = 4,			// 
+	PUG_SERVER_STATUS_AWAITING_PLAYERS = 4,			//
 	PUG_SERVER_STATUS_LIVE = 5,									// Match is live
   PUG_SERVER_STATUS_ENUM_COUNT = 6
 };

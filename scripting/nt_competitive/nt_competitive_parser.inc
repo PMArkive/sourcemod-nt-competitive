@@ -752,6 +752,7 @@ This should never happen.", desiredPlayers);
 
 public Action Timer_Checkaccepts(Handle timer, int matchid)
 {
+	g_iTimerLoops++;
 	PrintToServer("Timer_Checkaccepts");
 	// Something went wrong, give up the accept check timer and go back for invites
 	if (!Database_MatchExists(matchid))
@@ -781,18 +782,68 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		CreateInviteTimer();
 	}
 	int accepts;
+	int declines;
 	while (SQL_FetchRow(stmt))
 	{
+		// Player has accepted
 		if (SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE) == PUGGER_STATE_ACCEPTED)
+		{
 			accepts++;
+		}
+		// Player has declined
+		else if (SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE) == PUGGER_STATE_INACTIVE)
+		{
+			declines++;
+			// Clear player's match ID
+			decl String:steamid[MAX_STEAMID_LENGTH];
+			SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
+				g_sqlTable[TABLES_PUGGERS],
+				g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
+				g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
+			);
+
+			Handle stmt_Update = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+			if (stmt_Update == null)
+			{
+				LogError(error);
+				continue;
+			}
+			SQL_BindParamInt(stmt_Update, 0, INVALID_MATCH_ID);
+			SQL_BindParamString(stmt_Update, 1, steamid, false);
+			SQL_Execute(stmt_Update);
+			delete stmt_Update;
+		}
 	}
 	delete stmt;
+
+	if (declines > 0)
+	{
+		// need sql function to invite declines amount of new players by matchid,
+		// or return false when impossible
+		if (!PugServer_InvitePlayers(matchid, declines))
+		{
+			// not enough people to invite, give up the match
+			Match_Cancel(matchid);
+			CreateInviteTimer();
+			return Plugin_Stop;
+		}
+		return Plugin_Continue;
+	}
 
 	int desiredPlayers = Match_GetDesiredPlayers(matchid);
 	if (accepts < desiredPlayers)
 	{
-		PrintToServer("Not enough accepted");
-		return Plugin_Continue;
+		if (g_iTimerLoops < 3)
+		{
+			PrintToServer("Not enough accepted");
+			return Plugin_Continue;
+		}
+		// looped for g_iTimerLoops * MATCHMAKE_LOOKUP_TIMER seconds. give up.
+		PrintToServer("Give up the match");
+		Match_Cancel(matchid);
+		CreateInviteTimer();
+		return Plugin_Stop;
 	}
 	else if (accepts == desiredPlayers)
 	{
@@ -814,6 +865,7 @@ desired playercount was %i. This line should never run.",
 
 void CreateInviteTimer()
 {
+	g_iTimerLoops = 0;
 	PugServer_SetReserve_This(DB_PUG_INACTIVE);
 	if (g_hTimer_Pug_CheckAccepts != null)
 	{
@@ -830,6 +882,7 @@ void CreateInviteTimer()
 }
 void CreateAcceptTimer(int matchid)
 {
+	g_iTimerLoops = 0;
 	if (g_hTimer_Pug_SendInvites != null)
 	{
 		KillTimer(g_hTimer_Pug_SendInvites);

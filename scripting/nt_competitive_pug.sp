@@ -83,7 +83,8 @@ public Action Timer_CheckPugs(Handle timer)
 		if (state == PUGGER_STATE_INACTIVE)
 		{
 			if (g_iLastSeenQueueState[i] == PUGGER_STATE_CONFIRMING)
-				PrintToChat(, "%s You have been removed from the PUG queue.", g_sTag);
+				PrintToChat(i, "%s You have been removed from the PUG queue.", g_sTag);
+
 			continue;
 		}
 		else if (state == PUGGER_STATE_QUEUING)
@@ -266,6 +267,8 @@ public Action Command_UnPug(int client, int args)
 			{
 				ReplyToCommand(client, "%s You have declined the match invitation, \
 and left the PUG queue.", g_sTag);
+				// Set this to avoid the "you have been removed..." message on timer
+				g_iLastSeenQueueState[client] = PUGGER_STATE_INACTIVE;
 			}
 		}
 		case PUGGER_STATE_ACCEPTED:

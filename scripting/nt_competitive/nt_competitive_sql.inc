@@ -841,6 +841,11 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 	SQL_BindParamInt(stmt, 1, matchid);
 	SQL_Execute(stmt);
 	delete stmt;
+
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 }
 
 bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
@@ -2053,7 +2058,7 @@ bool Match_SetLive(int match_id)
 		return false;
 	}
 	int paramIndex;
-	SQL_BindParamInt(stmt, paramIndex++, PUG_SERVER_STATUS_LIVE);
+	SQL_BindParamInt(stmt, paramIndex++, PUG_SERVER_STATUS_AWAITING_PLAYERS);
 	SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
 	SQL_BindParamInt(stmt, paramIndex++, port);
 	SQL_Execute(stmt);
@@ -2118,11 +2123,6 @@ int Match_GetDesiredPlayers(int match_id)
 	return playercount;
 }
 
-int Match_GetAcceptedInvites(int matchid)
-{
-
-}
-
 int Database_GetMatchStatus(int matchid)
 {
 	if (!Database_MatchExists(matchid))
@@ -2165,15 +2165,15 @@ int PugServer_GetMatchID_This()
 	int port;
 	GetServerConnectionDetails(ipAddress, port);
 
-	int status = GetMatchStatus();
-
+	// Get the latest match ID (IDs are auto incremented)
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ? AND %s = ?",
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ? \
+ORDER BY %s DESC",
 		g_sqlTable[TABLES_MATCHES],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_IP],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_PORT],
-		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS]
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
@@ -2185,24 +2185,16 @@ int PugServer_GetMatchID_This()
 	int paramIndex;
 	SQL_BindParamString(stmt, paramIndex++, ipAddress, false);
 	SQL_BindParamInt(stmt, paramIndex++, port);
-	SQL_BindParamInt(stmt, paramIndex++, status);
 	SQL_Execute(stmt);
 
-	int rows;
+	int match_id = INVALID_MATCH_ID;
 	if (SQL_HasResultSet(stmt))
 	{
-		rows = SQL_GetRowCount(stmt);
-	}
-	if (rows > 1)
-	{
-		LogError("PugServer_GetMatchID_This: \
-Found %i results for matches of %s:%i with status %i, expected 0 or 1.",
-		rows, ipAddress, port, status);
-	}
-	int match_id = INVALID_MATCH_ID;
-	while (SQL_FetchRow(stmt))
-	{
-		match_id = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_ID);
+		while (SQL_FetchRow(stmt))
+		{
+			match_id = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_ID);
+			break;
+		}
 	}
 	delete stmt;
 	return match_id;

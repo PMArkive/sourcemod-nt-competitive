@@ -402,19 +402,29 @@ public OnClientDisconnect(client)
 public void OnClientPostAdminCheck(int client)
 {
 	#if defined PLUGIN_COMP
-		PrintToServer("POST ADMIN CHECK");
+		//PrintToServer("POST ADMIN CHECK");
 		decl String:steamid[MAX_STEAMID_LENGTH];
 		GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 		// Matchmake pug mode
 		if (GetConVarBool(g_hPugEnabled))
 		{
 			int matchid = PugServer_GetMatchID_This();
-			if (matchid == INVALID_MATCH_ID ||
-				!Pugger_DoesPlayInMatch(matchid, steamid))
+			if (matchid == INVALID_MATCH_ID)
 			{
-				PrintToServer("Pugger_DoesPlayInMatch == false for %i, %s",
-					matchid, steamid);
-				PrintToServer("ADMIN FILTER");
+				AdminFilter(client);
+				return;
+			}
+			int status = Database_GetMatchStatus(matchid);
+			if (status < MATCHMAKE_WARMUP || status >= MATCHMAKE_FINISHED)
+			{
+				AdminFilter(client);
+				return;
+			}
+			else if (!Pugger_DoesPlayInMatch(matchid, steamid))
+			{
+				//PrintToServer("Pugger_DoesPlayInMatch == false for %i, %s",
+				//	matchid, steamid);
+				//PrintToServer("ADMIN FILTER");
 				AdminFilter(client);
 				return;
 			}

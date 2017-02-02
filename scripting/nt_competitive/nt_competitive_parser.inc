@@ -896,7 +896,8 @@ Match %i went live before this timer was destroyed. This should never happen.",
 	}
 
 	PrintToChatAll("%s Warmup time has ended, going live.", g_sTag);
-	ToggleLive();
+	LiveCountDown();
+
 	g_hTimer_Pug_WaitingForPlayers = null;
 	return Plugin_Stop;
 }

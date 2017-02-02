@@ -218,6 +218,7 @@ public Action:Timer_GoLive(Handle:timer)
 	EmptyScore();
 	// A slight delay so the score reset above takes effect in time
 	CreateTimer(0.1, Timer_ToggleLive);
+	g_hTimer_GoLive = null;
 }
 
 public Action:Timer_ToggleLive(Handle:timer)

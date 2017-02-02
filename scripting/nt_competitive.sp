@@ -949,6 +949,12 @@ public Action:Command_Ready(client, args)
 		return Plugin_Continue;
 	}
 
+	if (g_hTimer_GoLive != null)
+	{
+		ReplyToCommand(client, "%s Game is already going live.", g_sTag);
+		return Plugin_Continue;
+	}
+
 	switch ( GetConVarBool(g_hCollectiveReady) )
 	{
 		case 0: // Individual readying
@@ -1030,6 +1036,12 @@ public Action:Command_UnReady(client, args)
 	if (g_isLive)
 	{
 		ReplyToCommand(client, "%s Game is live, cannot change ready state!", g_sTag);
+		return Plugin_Continue;
+	}
+
+	if (g_hTimer_GoLive != null)
+	{
+		ReplyToCommand(client, "%s Game is already going live.", g_sTag);
 		return Plugin_Continue;
 	}
 

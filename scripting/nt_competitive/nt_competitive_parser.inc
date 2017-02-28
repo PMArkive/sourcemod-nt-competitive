@@ -313,6 +313,10 @@ g_roundNumber, MAX_ROUNDS_PLAYED);
 		LogCompetitive("Game is PAUSED.");
 	}
 
+	/*if (GetConVarBool(g_hPugEnabled))
+	{
+		Match_CommitState();
+	}*/
 	CheckMatchState();
 
 	return Plugin_Handled;

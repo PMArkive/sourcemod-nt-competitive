@@ -11,6 +11,16 @@
 int g_iTimerLoops;
 int g_iLastEpoch_CheckPugs;
 
+DataPack g_hPuggerData[MAXPLAYERS+1] = null;
+
+enum {
+  PD_IS_USED,
+  PD_STEAMID,
+  PD_XP,
+  PD_KILLS,
+  PD_DEATHS
+}
+
 #define INVALID_MATCH_ID 0
 #define MAX_IP_LENGTH 46
 #define MAX_IDENTIFIER_LENGTH 52

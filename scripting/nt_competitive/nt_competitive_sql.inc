@@ -305,6 +305,48 @@ expected 0 or 1", steamIDBuffer);
 	return true;
 }
 
+/*
+Match_CommitState()
+{
+	int matchid = PugServer_GetMatchID_This();
+	if (matchid == INVALID_MATCH_ID)
+	{
+		ThrowError("Invalid match ID %i", matchid);
+	}
+
+	// TODO:
+	// Store team score, round number.
+	// Datapacks for player stats.
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		g_hPuggerData.Reset();
+		if (g_hPuggerData.ReadCell() == false)
+			continue;
+
+		decl String:steamid[MAX_STEAMID_LENGTH];
+		g_hPuggerData.ReadString(steamid, sizeof(steamid));
+		int xp = g_hPuggerData.ReadCell();
+		int kills = g_hPuggerData.ReadCell();
+		int deaths = g_hPuggerData.ReadCell();
+
+		Pugger_CommitStats(steamid, matchid, xp, kills, deaths);
+	}
+}
+*/
+/*
+void Pugger_CommitStats(const char[] steamid, int matchid, int xp, int kills, int deaths)
+{
+	if (!Pugger_DoesPlayInMatch(matchid, steamid))
+		ThrowError("Pugger %s doesn't play in match %i", steamid, matchid);
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ?, %s = ? \
+WHERE %s = ? AND %s = ?",
+		g_sqlTable[TABLES_]
+}
+*/
+
 #if defined PLUGIN_PUG
 void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID[MAX_STEAMID_LENGTH] = "")
 {

@@ -561,13 +561,17 @@ bool PugServer_Update_This()
 	}
 	else if (rowCount == 1)
 	{
-		Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ?, %s = ?, %s = ?, %s = ?",
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = ?, %s = ?, %s = ?, %s = ?, %s = ? \
+			WHERE %s = ? AND %s = ?",
 			g_sqlTable[TABLES_PUG_SERVERS],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PASSWORD],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_NAME],
-			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
+			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]
+			);
 	}
 	else
 	{
@@ -590,6 +594,11 @@ bool PugServer_Update_This()
 	SQL_BindParamString	(stmt_ServerUpdate, paramIndex++, sPassword, false);
 	SQL_BindParamString	(stmt_ServerUpdate, paramIndex++, sServerName, false);
 	SQL_BindParamInt		(stmt_ServerUpdate, paramIndex++, iStatus);
+	if (rowCount == 1)
+	{
+		SQL_BindParamString	(stmt_ServerUpdate, paramIndex++, sIP, false);
+		SQL_BindParamInt		(stmt_ServerUpdate, paramIndex++, iPort);
+	}
 
 	SQL_Execute(stmt_ServerUpdate);
 #if DEBUG_SQL

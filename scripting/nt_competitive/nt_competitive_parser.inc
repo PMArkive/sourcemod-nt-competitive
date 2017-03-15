@@ -1000,6 +1000,6 @@ public Action Timer_AdminNag(Handle timer, int userid)
 	// Notify puggers of the non-competing admin join
 	decl String:clientName[MAX_NAME_LENGTH];
 	GetClientName(client, clientName, sizeof(clientName));
-	PrintToChatAll("%s Admin %s has joined the server.", g_sTag);
+	PrintToChatAll("%s Admin %s has joined the server.", g_sTag, clientName);
 	return Plugin_Stop;
 }

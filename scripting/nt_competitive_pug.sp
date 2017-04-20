@@ -45,13 +45,16 @@ public OnPluginStart()
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug",
 		"Database config entry name", FCVAR_PROTECTED);
 
-	Database_Initialize();
-	GenerateIdentifier_This(g_sIdentifier);
-	if (!Organizers_Update_This())
-		SetFailState("Failed to join database");
 #if DEBUG_SQL
 	CheckSQLConstants();
 #endif
+
+	Database_Initialize();
+	if (g_bIsDatabaseDown)
+		SetFailState("Failed to join database");
+
+	GenerateIdentifier_This(g_sIdentifier);
+	Threaded_Organizers_Update_This(DB_ORG_INACTIVE);
 
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
@@ -88,10 +91,10 @@ public Action Timer_CheckPugs(Handle timer)
 		// Only check for db messages once per minute
 		if (time > g_iLastEpoch_CheckPugs + 60)
 		{
-			Pugger_Threaded_DisplayDbMessage(i);
+			Threaded_Pugger_DisplayDbMessage(i);
 			g_iLastEpoch_CheckPugs = time;
 		}
-		Pugger_Threaded_CheckQueuingStatus(i);
+		Threaded_Pugger_CheckQueuingStatus(i);
 	}
 	return Plugin_Continue;
 }

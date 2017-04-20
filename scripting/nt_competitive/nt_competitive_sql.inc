@@ -973,7 +973,7 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 }
 #endif
 
-void Pugger_Threaded_DisplayDbMessage(int client)
+void Threaded_Pugger_DisplayDbMessage(int client)
 {
 	if (!IsValidClient(client) || IsFakeClient(client) || !IsClientAuthorized(client))
 		return;
@@ -983,7 +983,7 @@ void Pugger_Threaded_DisplayDbMessage(int client)
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
-	SQL_EscapeString(g_hDB_Threaded, steamid, safe_steamid, sizeof(safe_steamid));
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s' AND %s = 1",
@@ -1015,7 +1015,7 @@ public void SQLCallback_Pugger_DisplayDbMessage(Database db, DBResultSet results
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
-	SQL_EscapeString(g_hDB_Threaded, steamid, safe_steamid, sizeof(safe_steamid));
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = '%s'",
@@ -1474,6 +1474,125 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 #endif
 
 #if defined PLUGIN_PUG
+void Threaded_Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
+{
+	if (g_bIsDatabaseDown)
+		return;
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_ORGANIZERS]);
+
+	g_hDB_Threaded.Query(SQLCallback_Organizers_Update_This, sql, reserveStatus);
+}
+
+public void SQLCallback_Organizers_Update_This(Database db, DBResultSet results, const char[] error, int reserveStatus)
+{
+	if (reserveStatus < DB_ORG_INACTIVE || reserveStatus >= DB_ORG_ENUM_COUNT)
+	{
+		ThrowError("Invalid reserve status %i. Expected status between %i and %i",
+			reserveStatus, DB_ORG_INACTIVE, DB_ORG_ENUM_COUNT-1);
+	}
+	else if (!results.HasResults)
+	{
+		ThrowError("Result set contains no results.");
+	}
+
+		// Cannot set busy reserve status if someone else is already busy.
+		// However, server is always allowed to mark itself inactive.
+	if (reserveStatus != DB_ORG_INACTIVE)
+	{
+		bool includeMyself = true;
+		decl String:identifier[sizeof(g_sIdentifier)];
+		int dbState;
+
+		while (results.FetchRow())
+		{
+			if (!includeMyself)
+			{
+				results.FetchString(SQL_TABLE_ORG_NAME, identifier, sizeof(identifier));
+				if (StrEqual(identifier, g_sIdentifier))
+					continue;
+			}
+
+			dbState = results.FetchInt(SQL_TABLE_ORG_RESERVING);
+			// Someone is busy, stop.
+			if (dbState != DB_PUG_INACTIVE)
+				return;
+		}
+	}
+
+	PrintDebug("SQLCallback_Organizers_Update_This(%i): No one else is busy, \
+try set new status.", reserveStatus);
+
+	decl String:safe_identifier[2*sizeof(g_sIdentifier)+1];
+	g_hDB_Threaded.Escape(g_sIdentifier, safe_identifier, sizeof(safe_identifier));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s'",
+		g_sqlTable[TABLES_ORGANIZERS],
+		g_sqlRow_Organizers[SQL_TABLE_ORG_NAME],
+		safe_identifier
+	);
+
+	g_hDB_Threaded.Query(SQLCallback_Organizers_Update_This_Select, sql, reserveStatus);
+}
+
+public void SQLCallback_Organizers_Update_This_Select(Database db, DBResultSet results, const char[] error, int reserveStatus)
+{
+	decl String:sql[MAX_SQL_LENGTH];
+
+	decl String:safe_identifier[2*sizeof(g_sIdentifier)+1];
+	g_hDB_Threaded.Escape(g_sIdentifier, safe_identifier, sizeof(safe_identifier));
+
+	int resultCount = results.RowCount;
+	if (resultCount > 1)
+	{
+		// Delete duplicate records
+		LogError("SQLCallback_Organizers_Update_This_Select: Found %i results \
+from database for organizer \"%s\", expected 0 or 1.", results.RowCount, g_sIdentifier);
+
+		Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = '%s'",
+			g_sqlTable[TABLES_ORGANIZERS],
+			g_sqlRow_Organizers[SQL_TABLE_ORG_NAME],
+			safe_identifier
+		);
+
+		// Lock for non threaded operation
+		SQL_LockDatabase(g_hDB_Threaded);
+		SQL_FastQuery(g_hDB_Threaded, sql);
+		SQL_UnlockDatabase(g_hDB_Threaded);
+	}
+	if (resultCount > 1 || resultCount == 0)
+	{
+		// Insert new record
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s) VALUES ('%s', %i)",
+			g_sqlTable[TABLES_ORGANIZERS],
+			g_sqlRow_Organizers[SQL_TABLE_ORG_NAME],
+			g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING],
+			safe_identifier,
+			reserveStatus
+		);
+	}
+	else if (resultCount == 1)
+	{
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = %i WHERE %s = '%s'",
+			g_sqlTable[TABLES_ORGANIZERS],
+			g_sqlRow_Organizers[SQL_TABLE_ORG_RESERVING], reserveStatus,
+			g_sqlRow_Organizers[SQL_TABLE_ORG_NAME], safe_identifier
+		);
+	}
+	else
+	{
+		ThrowError("Result count was less than zero? This should never happen.");
+	}
+
+	g_hDB_Threaded.Query(SQLCallback_Organizers_Update_This_Update, sql);
+}
+
+public void SQLCallback_Organizers_Update_This_Update(Database db, DBResultSet results, const char[] error, any data)
+{
+}
+
 // Purpose: Update this org server's reserve status enum in db
 bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
@@ -2069,7 +2188,7 @@ int Pugger_SetState(const char[] steamid, int state)
 	delete stmt;
 }
 
-void Pugger_Threaded_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LENGTH] = "", int connectPort = 0)
+void Threaded_Pugger_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LENGTH] = "", int connectPort = 0)
 {
 	if (!IsValidClient(client) || IsFakeClient(client) ||
 	!IsClientAuthorized(client) || !IsClientInGame(client))
@@ -2103,7 +2222,7 @@ void Pugger_Threaded_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LE
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
-	SQL_EscapeString(g_hDB_Threaded, steamid, safe_steamid, sizeof(safe_steamid));
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql),

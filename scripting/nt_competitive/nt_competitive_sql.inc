@@ -1598,6 +1598,7 @@ public void SQLCallback_Organizers_Update_This_Update(Database db, DBResultSet r
 }
 
 // Purpose: Update this org server's reserve status enum in db
+/*
 bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
 	PrintToServer("dbdownA: %b", g_bIsDatabaseDown);
@@ -1697,6 +1698,7 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 	}
 	return false;
 }
+*/
 #endif
 
 #if defined PLUGIN_COMP
@@ -2192,6 +2194,7 @@ int Pugger_SetState(const char[] steamid, int state)
 	delete stmt;
 }
 
+
 void Threaded_Pugger_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LENGTH] = "", int connectPort = 0)
 {
 	if (!IsValidClient(client) || IsFakeClient(client) ||
@@ -2240,6 +2243,7 @@ void Threaded_Pugger_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LE
 	g_hDB_Threaded.Query(SQLCallback_Pugger_Threaded_CheckQueuingStatus, sql, userid);
 }
 
+#if defined PLUGIN_PUG
 public void SQLCallback_Pugger_Threaded_CheckQueuingStatus(Database db, DBResultSet results, const char[] error, int userid)
 {
 	int client = GetClientOfUserId(userid);
@@ -2319,6 +2323,7 @@ public void SQLCallback_Pugger_Threaded_CheckQueuingStatus(Database db, DBResult
 		break;
 	}
 }
+#endif
 
 int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")
 {

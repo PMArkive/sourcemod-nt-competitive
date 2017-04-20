@@ -55,7 +55,9 @@ public OnPluginStart()
 
 	GenerateIdentifier_This(g_sIdentifier);
 
-	CreateTimer(10.0, Timer_Threaded_FirstLaunch);
+	float initDelay = 10.0;
+	PrintToServer("Please wait %f seconds for threaded db initialisation...", initDelay);
+	CreateTimer(initDelay, Timer_Threaded_FirstLaunch);
 }
 
 // This has been delayed to avoid a race condition with threaded SQL initialisation
@@ -215,13 +217,15 @@ public Action Command_Pug(int client, int args)
 	}
 	if (!IsClientAuthorized(client))
 	{
-		ReplyToCommand(client, "Could not read your SteamID, please try again.");
+		ReplyToCommand(client, "%s Failed to read your SteamID, please try again.", g_sTag);
 		return Plugin_Stop;
 	}
 
-	decl String:steamid[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	Threaded_Pugger_JoinQueue(client);
+	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
+	return Plugin_Handled;
 
+	/*
 	int queuingState = Pugger_GetQueuingState(_, _, _, true, steamid);
 	switch (queuingState)
 	{
@@ -269,6 +273,7 @@ please use !join to enter the PUG server.", g_sTag);
 		}
 	}
 	return Plugin_Handled;
+	*/
 }
 
 public Action Command_UnPug(int client, int args)

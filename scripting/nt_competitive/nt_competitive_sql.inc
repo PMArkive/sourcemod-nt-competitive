@@ -1478,6 +1478,105 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 #endif
 
 #if defined PLUGIN_PUG
+void Threaded_Pugger_JoinQueue(int client)
+{
+	if (!IsValidClient(client))
+		ThrowError("Invalid client %i", client);
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		safe_steamid
+	);
+
+	DataPack puggerPack = new DataPack();
+	puggerPack.WriteCell(GetClientUserId(client));
+	puggerPack.WriteString(safe_steamid);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_JoinQueue, sql, puggerPack);
+}
+
+public void SQLCallback_Pugger_JoinQueue(Database db, DBResultSet results, const char[] error, DataPack puggerPack)
+{
+	if (!results.HasResults)
+		ThrowError("Result set does not exist. %s", error);
+
+	puggerPack.Reset();
+	int client = GetClientOfUserId(puggerPack.ReadCell());
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	puggerPack.ReadString(safe_steamid, sizeof(safe_steamid));
+	delete puggerPack;
+
+	if (!client)
+		return;
+
+	int queuingState;
+	while (results.FetchRow())
+	{
+		queuingState = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+		if (results.MoreRows)
+		{
+			ThrowError("Found more than 1 rows, expected 0 or 1.");
+		}
+	}
+
+	switch (queuingState)
+	{
+		case PUGGER_STATE_INACTIVE:
+		{
+			if (!Database_AddPugger(_, true, safe_steamid))
+			{
+				PrintToChat(client, "%s Failed to queue, please try again.", g_sTag);
+				PrintToChat(client, "This error has been logged.");
+			}
+			else
+			{
+				int searching = Puggers_GetCountPerState(PUGGER_STATE_QUEUING);
+				int playing = Puggers_GetCountPerState(PUGGER_STATE_LIVE);
+				int desiredPlayers = Database_GetDesiredPlayerCount();
+				PrintToChat(client, "%s You have joined the queue!", g_sTag);
+				PrintToChat(client, "Players queuing: %i/%i (%i currently playing)",
+					searching, desiredPlayers, playing);
+			}
+		}
+		case PUGGER_STATE_QUEUING:
+		{
+			PrintToChat(client, "%s You are already queuing! \
+Use !unpug instead to leave the queue.", g_sTag);
+		}
+		case PUGGER_STATE_CONFIRMING:
+		{
+			PrintToChat(client, "%s You already have a pending match invitation! \
+Use !join to accept, or !unpug to decline the match.", g_sTag);
+		}
+		case PUGGER_STATE_ACCEPTED:
+		{
+			PrintToChat(client, "%s You have already accepted a match, \
+please wait for the server join invitation.", g_sTag);
+		}
+		case PUGGER_STATE_READY:
+		{
+			PrintToChat(client, "%s You have already been assigned to a match, \
+please use !join to enter the PUG server.", g_sTag);
+		}
+		case PUGGER_STATE_LIVE:
+		{
+			PrintToChat(client, "%s You have already been assigned to a match, \
+please use !join to enter the PUG server.", g_sTag);
+		}
+		default:
+		{
+			ThrowError("Invalid queuing state %i!", queuingState);
+		}
+	}
+}
+
 void Threaded_Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
 	if (g_bIsDatabaseDown)

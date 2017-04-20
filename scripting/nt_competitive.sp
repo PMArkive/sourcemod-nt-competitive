@@ -284,14 +284,6 @@ public OnConfigsExecuted()
 	g_isAlltalkByDefault = GetConVarBool(g_hAlltalk);
 	// Set Neotokyo's own round max round count to highest value
 	SetConVarInt(g_hNeoScoreLimit, 99);
-
-#if defined PLUGIN_COMP
-	if (GetConVarBool(g_hPugEnabled))
-	{
-		Database_Initialize();
-		PugMode_Initialize();
-	}
-#endif
 }
 
 // TODO: Separate PUG db mode and local variable mode completely

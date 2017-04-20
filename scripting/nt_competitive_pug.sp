@@ -61,6 +61,7 @@ public OnPluginStart()
 }
 
 // This has been delayed to avoid a race condition with threaded SQL initialisation
+// TODO: Combine to the actual function instead of an arbitary delay?
 public Action Timer_Threaded_FirstLaunch(Handle timer)
 {
 	Threaded_Organizers_Update_This(DB_ORG_INACTIVE);
@@ -288,9 +289,10 @@ public Action Command_UnPug(int client, int args)
 		return Plugin_Stop;
 	}
 
-	decl String:steamid[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
-
+	Threaded_Pugger_LeaveQueue(client);
+	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
+	return Plugin_Handled;
+	/*
 	int queuingState = Pugger_GetQueuingState(_, _, _, true, steamid);
 	switch (queuingState)
 	{
@@ -344,6 +346,7 @@ please use !join to enter the PUG server.", g_sTag);
 		}
 	}
 	return Plugin_Handled;
+	*/
 }
 
 public Action Command_Join(int client, int args)

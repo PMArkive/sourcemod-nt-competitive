@@ -1502,16 +1502,40 @@ void Threaded_Pugger_JoinQueue(int client)
 	g_hDB_Threaded.Query(SQLCallback_Pugger_JoinQueue, sql, puggerPack);
 }
 
-public void SQLCallback_Pugger_JoinQueue(Database db, DBResultSet results, const char[] error, DataPack puggerPack)
+void Threaded_Pugger_LeaveQueue(int client)
 {
-	if (!results.HasResults)
-		ThrowError("Result set does not exist. %s", error);
+	if (!IsValidClient(client))
+		ThrowError("Invalid client %i", client);
 
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		safe_steamid
+	);
+
+	DataPack puggerPack = new DataPack();
+	puggerPack.WriteCell(GetClientUserId(client));
+	puggerPack.WriteString(safe_steamid);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_LeaveQueue, sql, puggerPack);
+}
+
+public void SQLCallback_Pugger_LeaveQueue(Database db, DBResultSet results, const char[] error, DataPack puggerPack)
+{
 	puggerPack.Reset();
 	int client = GetClientOfUserId(puggerPack.ReadCell());
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	puggerPack.ReadString(safe_steamid, sizeof(safe_steamid));
 	delete puggerPack;
+
+	if (!results.HasResults)
+		ThrowError("Result set does not exist. %s", error);
 
 	if (!client)
 		return;
@@ -1521,9 +1545,82 @@ public void SQLCallback_Pugger_JoinQueue(Database db, DBResultSet results, const
 	{
 		queuingState = results.FetchInt(SQL_TABLE_PUGGER_STATE);
 		if (results.MoreRows)
-		{
 			ThrowError("Found more than 1 rows, expected 0 or 1.");
+	}
+
+	switch (queuingState)
+	{
+		case PUGGER_STATE_INACTIVE:
+		{
+			ReplyToCommand(client, "%s You are not in the PUG queue!", g_sTag);
 		}
+		case PUGGER_STATE_QUEUING:
+		{
+			if (!Pugger_SetQueuingState(_, PUGGER_STATE_INACTIVE, true, safe_steamid))
+			{
+				ReplyToCommand(client, "%s Failed leaving the queue, please try again.", g_sTag);
+				ReplyToCommand(client, "This error has been logged.");
+			}
+			else
+			{
+				ReplyToCommand(client, "%s You have left the PUG queue.", g_sTag);
+			}
+		}
+		case PUGGER_STATE_CONFIRMING:
+		{
+			if (!Pugger_SetQueuingState(_, PUGGER_STATE_INACTIVE, true, safe_steamid))
+			{
+				ReplyToCommand(client, "%s Failed leaving the queue, please try again.", g_sTag);
+				ReplyToCommand(client, "This error has been logged.");
+			}
+			else
+			{
+				ReplyToCommand(client, "%s You have declined the match invitation, \
+and left the PUG queue.", g_sTag);
+				// Set this to avoid the "you have been removed..." message on timer
+				g_iLastSeenQueueState[client] = PUGGER_STATE_INACTIVE;
+			}
+		}
+		case PUGGER_STATE_ACCEPTED:
+		{
+			ReplyToCommand(client, "%s You have already accepted this match! \
+Please wait while the invitation processes.", g_sTag);
+		}
+		case PUGGER_STATE_READY:
+		{
+			// todo: option to late decline/abandon the match here
+			ReplyToCommand(client, "%s You have already been assigned to a match, \
+please use !join to enter the PUG server.", g_sTag);
+		}
+		case PUGGER_STATE_LIVE:
+		{
+			// todo: option to late decline/abandon the match here
+			ReplyToCommand(client, "%s You have already been assigned to a match, \
+please use !join to enter the PUG server.", g_sTag);
+		}
+	}
+}
+
+public void SQLCallback_Pugger_JoinQueue(Database db, DBResultSet results, const char[] error, DataPack puggerPack)
+{
+	puggerPack.Reset();
+	int client = GetClientOfUserId(puggerPack.ReadCell());
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	puggerPack.ReadString(safe_steamid, sizeof(safe_steamid));
+	delete puggerPack;
+
+	if (!results.HasResults)
+		ThrowError("Result set does not exist. %s", error);
+
+	if (!client)
+		return;
+
+	int queuingState;
+	while (results.FetchRow())
+	{
+		queuingState = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+		if (results.MoreRows)
+			ThrowError("Found more than 1 rows, expected 0 or 1.");
 	}
 
 	switch (queuingState)

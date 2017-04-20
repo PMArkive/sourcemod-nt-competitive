@@ -13,7 +13,6 @@
 debug the SQL as it disables some safety checks */
 
 new bool:g_bIsDatabaseDown;
-new bool:g_bIsJustLoaded = true;
 new bool:g_bIsQueueActive;
 
 new const String:g_sTag[] = "[PUG]";
@@ -29,9 +28,6 @@ new const String:g_sPugInvite2[] = "player/CPcaptured.wav";
 #include "nt_competitive/shared_variables"
 #include "nt_competitive/shared_functions"
 #include "nt_competitive/nt_competitive_sql"
-
-int g_iLastSeenQueueState[MAXPLAYERS+1] = PUGGER_STATE_INACTIVE;
-int g_iLoopCounter[MAXPLAYERS+1];
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",
@@ -49,18 +45,13 @@ public OnPluginStart()
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug",
 		"Database config entry name", FCVAR_PROTECTED);
 
-	// Just do this once
-	if (g_bIsJustLoaded)
-	{
-		Database_Initialize();
-		GenerateIdentifier_This(g_sIdentifier);
-		if (!Organizers_Update_This())
-			SetFailState("Failed to join database");
+	Database_Initialize();
+	GenerateIdentifier_This(g_sIdentifier);
+	if (!Organizers_Update_This())
+		SetFailState("Failed to join database");
 #if DEBUG_SQL
-		CheckSQLConstants();
+	CheckSQLConstants();
 #endif
-		g_bIsJustLoaded = false;
-	}
 
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
@@ -97,69 +88,10 @@ public Action Timer_CheckPugs(Handle timer)
 		// Only check for db messages once per minute
 		if (time > g_iLastEpoch_CheckPugs + 60)
 		{
-			Pugger_DisplayDbMessage(i);
+			Pugger_Threaded_DisplayDbMessage(i);
 			g_iLastEpoch_CheckPugs = time;
 		}
-
-		int state = Pugger_GetQueuingState(i);
-		if (state == PUGGER_STATE_INACTIVE)
-		{
-			if (g_iLastSeenQueueState[i] == PUGGER_STATE_CONFIRMING)
-				PrintToChat(i, "%s You have been removed from the PUG queue.", g_sTag);
-
-			continue;
-		}
-		else if (state == PUGGER_STATE_QUEUING)
-		{
-			if (g_iLastSeenQueueState[i] == PUGGER_STATE_ACCEPTED)
-			{
-				PrintToChat(i, "%s Everyone didn't accept the match in time.", g_sTag);
-				PrintToChat(i, "Returning to PUG queue...");
-			}
-		}
-		else if (state == PUGGER_STATE_CONFIRMING)
-		{
-			ShowPanel(i, PUGGER_STATE_CONFIRMING);
-			PrintToChat(i, "%s You have a new PUG invitation!", g_sTag);
-			PrintToChat(i, "Type !join to accept, or !unpug to decline.");
-		}
-		else if (state == PUGGER_STATE_ACCEPTED)
-		{
-			if (state != g_iLastSeenQueueState[i])
-				g_iLoopCounter[i] = 10;
-			if (g_iLoopCounter[i] < 10)
-			{
-				g_iLoopCounter[i]++;
-				continue;
-			}
-			PrintToChat(i, "%s Waiting for others to accept...", g_sTag);
-			g_iLoopCounter[i] = 0;
-		}
-		else if (state == PUGGER_STATE_READY || state == PUGGER_STATE_LIVE)
-		{
-			if (state != g_iLastSeenQueueState[i])
-				g_iLoopCounter[i] = 10;
-			if (g_iLoopCounter[i] < 10)
-			{
-				g_iLoopCounter[i]++;
-				continue;
-			}
-			ShowPanel(i, PUGGER_STATE_LIVE);
-			PrintToChat(i, "%s Everyone has accepted!", g_sTag);
-			PrintToChat(i, "A match has been created for you, type !join to enter.");
-			PrintToChat(i, "You can also see the match information in your console.");
-			PrintMatchInformation(i);
-			g_iLoopCounter[i] = 0;
-		}
-		else if (state == PUGGER_STATE_MIA)
-		{
-			PrintToChat(i, "%s You have an active PUG match!", g_sTag);
-			PrintToChat(i, "Type !join to enter the match. \
-You can also see the match information in your console.");
-			PrintMatchInformation(i);
-			g_iLoopCounter[i] = 0;
-		}
-		g_iLastSeenQueueState[i] = state;
+		Pugger_Threaded_CheckQueuingStatus(i);
 	}
 	return Plugin_Continue;
 }

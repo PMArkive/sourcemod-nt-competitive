@@ -18,10 +18,20 @@ bool Database_Initialize(bool checkTables = true)
 		return false;
 	}
 
-	// Persistent connection
-	decl String:error[MAX_SQL_ERROR_LENGTH];
+	// Persistent threaded connection
+	Database.Connect(Threaded, configName);
+
+	// Persistent single thread connection
+	// TODO: Combine all non threaded calls into the threaded handle
+	// TODO2: Or the API...
+	char error[MAX_SQL_ERROR_LENGTH];
 	g_hDB = SQL_Connect(configName, true, error, sizeof(error));
 
+	// XXX!!! Cannot run unthreaded operations on the threaded handle
+	// without locking the handle first!
+
+	// Note: The threaded handle cannot be checked here
+	// as we don't know when it executes! It's checked inside its callback instead.
 	if (g_hDB == null)
 	{
 		g_bIsDatabaseDown = true;
@@ -38,6 +48,24 @@ bool Database_Initialize(bool checkTables = true)
 
 	g_bIsDatabaseDown = false;
 	return true;
+}
+
+// Purpose: Initialize a threaded SQL handle.
+public void Threaded(Database db, const char[] error, any data)
+{
+	if (db == null)
+	{
+		g_bIsDatabaseDown = true;
+		PrintToServer("Database_Initialize (threaded callback): %s", error);
+		return;
+	}
+	PrintToServer("success with threaded");
+	g_hDB_Threaded = db;
+
+	/*
+	PrintToServer("Checking rows stuff: %i",
+		Database_GetRowCountForTableName(g_sqlTable[TABLES_PUGGERS]));
+	*/
 }
 
 // Purpose: Check string for "dangerous" SQL characters
@@ -57,7 +85,6 @@ String contents: \"%s\"", haystack);
 int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesValidity = true)
 {
 	CheckForSpookiness(tableName);
-	Database_Initialize(checkTablesValidity);
 
 	// We only want to throw error if table creation isn't currently happening
 	if (!checkTablesValidity && !Database_DoTablesExist())
@@ -65,12 +92,26 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", tableName);
-	new Handle:query = SQL_Query(g_hDB, sql);
-	new rows = SQL_GetRowCount(query);
 
-	CloseHandle(query);
+	Handle query = SQL_Query(g_hDB, sql);
+	int rows = SQL_GetRowCount(query);
+	delete query;
+
+	//g_hDB_Threaded.Query(T_CheckRowCountForTableName, sql, rows);
+	//PrintToServer("Rows2: %i", rows);
 	return rows;
 }
+
+/*
+public void T_CheckRowCountForTableName(Database db, DBResultSet results, const char[] error, int rows)
+{
+	if (results == null)
+		ThrowError(error);
+
+	rows = results.RowCount;
+	PrintToServer("Rows: %i", rows);
+}
+*/
 
 bool Database_RemovePugger(const char[] steamID)
 {
@@ -932,64 +973,64 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 }
 #endif
 
-void Pugger_DisplayDbMessage(int client)
+void Pugger_Threaded_DisplayDbMessage(int client)
 {
 	if (!IsValidClient(client) || IsFakeClient(client) || !IsClientAuthorized(client))
 		return;
 
-	//PrintToChat(client, "Pugger_DisplayDbMessage");
+	int userid = GetClientUserId(client);
 
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	SQL_EscapeString(g_hDB_Threaded, steamid, safe_steamid, sizeof(safe_steamid));
 
 	decl String:sql[MAX_SQL_LENGTH];
-	decl String:error[MAX_SQL_ERROR_LENGTH];
-	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = 1",
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s' AND %s = 1",
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		safe_steamid,
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG]
 	);
 
-	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
-	if (stmt == null)
-		ThrowError(error);
+	g_hDB_Threaded.Query(SQLCallback_Pugger_DisplayDbMessage, sql, userid);
+}
 
-	SQL_BindParamString(stmt, 0, steamid, false);
-	SQL_Execute(stmt);
+public void SQLCallback_Pugger_DisplayDbMessage(Database db, DBResultSet results, const char[] error, int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!client || !results.HasResults)
+		return;
 
-	int hasMsg;
-	decl String:dbMsg[512];
-	if (SQL_HasResultSet(stmt))
-	{
-		while (SQL_FetchRow(stmt))
-		{
-			hasMsg = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_HAS_MATCH_MSG);
-			if (hasMsg)
-			{
-				SQL_FetchString(stmt, SQL_TABLE_PUGGER_MATCH_MSG, dbMsg, sizeof(dbMsg));
-			}
-		}
-	}
-	delete stmt;
-
+	int hasMsg = results.FetchInt(SQL_TABLE_PUGGER_HAS_MATCH_MSG);
 	if (!hasMsg)
 		return;
+
+	decl String:dbMsg[512];
+	results.FetchString(SQL_TABLE_PUGGER_MATCH_MSG, dbMsg, sizeof(dbMsg));
 
 	PrintToChat(client, "%s System message: %s", g_sTag, dbMsg);
 	PrintToConsole(client, "%s System message: %s", g_sTag, dbMsg);
 
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = ?",
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	SQL_EscapeString(g_hDB_Threaded, steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = '%s'",
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		safe_steamid
 	);
-	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
-	if (stmt == null)
-		ThrowError(error);
 
-	SQL_BindParamString(stmt, 0, steamid, false);
-	SQL_Execute(stmt);
-	delete stmt;
+	g_hDB_Threaded.Query(SQLCallback_Pugger_ClearDbMessage, sql, userid);
+}
+
+public void SQLCallback_Pugger_ClearDbMessage(Database db, DBResultSet results, const char[] error, int userid)
+{
+	PrintToServer("SQLCallback_Pugger_ClearDbMessage: userid %i", userid);
 }
 
 #if defined PLUGIN_COMP
@@ -1436,6 +1477,7 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 // Purpose: Update this org server's reserve status enum in db
 bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
+	PrintToServer("dbdownA: %b", g_bIsDatabaseDown);
 	if (g_bIsDatabaseDown)
 		return false;
 
@@ -1693,7 +1735,6 @@ PUG rows already exist. Command was aborted. PUG plugin debug level: %i. \
 SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
 	}
 
-	Database_Initialize(false);
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -2026,6 +2067,130 @@ int Pugger_SetState(const char[] steamid, int state)
 	SQL_BindParamString(stmt, 1, steamid, false);
 	SQL_Execute(stmt);
 	delete stmt;
+}
+
+void Pugger_Threaded_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LENGTH] = "", int connectPort = 0)
+{
+	if (!IsValidClient(client) || IsFakeClient(client) ||
+	!IsClientAuthorized(client) || !IsClientInGame(client))
+	{
+		return;
+	}
+
+	// %wildcard% the IP for SQL LIKE query.
+	// If argument is not passed, it will match anything.
+	decl String:wildcardIP[MAX_IP_LENGTH+2];
+	Format(wildcardIP, sizeof(wildcardIP), "%%%s%%", connectIP);
+
+	// %wildcard% the port for SQL LIKE query.
+	// If argument is not passed, it will match anything.
+	decl String:wildcardPort[8];
+	if (connectPort > 0)
+	{
+		Format(wildcardPort, sizeof(wildcardPort), "%%%i%%", connectPort);
+	}
+	else if (connectPort == 0)
+	{
+		Format(wildcardPort, sizeof(wildcardPort), "%%%%");
+	}
+	else
+	{
+		ThrowError("Invalid server port %i specified.", connectPort);
+	}
+
+	int userid = GetClientUserId(client);
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	SQL_EscapeString(g_hDB_Threaded, steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql),
+		"SELECT * FROM %s WHERE %s = '%s' AND %s LIKE '%s' AND %s LIKE '%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid,
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP], wildcardIP,
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT], wildcardPort
+	);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_Threaded_CheckQueuingStatus, sql, userid);
+}
+
+public void SQLCallback_Pugger_Threaded_CheckQueuingStatus(Database db, DBResultSet results, const char[] error, int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!client || !results.HasResults)
+		return;
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+
+	int state = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+	if (results.MoreRows)
+	{
+		ThrowError("Client %i (%s): Found more than 1 results, \
+expected 0 or 1", client, steamid);
+	}
+
+	if (state == PUGGER_STATE_INACTIVE)
+	{
+		if (g_iLastSeenQueueState[client] == PUGGER_STATE_CONFIRMING)
+			PrintToChat(client, "%s You have been removed from the PUG queue.", g_sTag);
+
+		return;
+	}
+	else if (state == PUGGER_STATE_QUEUING)
+	{
+		if (g_iLastSeenQueueState[client] == PUGGER_STATE_ACCEPTED)
+		{
+			PrintToChat(client, "%s Everyone didn't accept the match in time.", g_sTag);
+			PrintToChat(client, "Returning to PUG queue...");
+		}
+	}
+	else if (state == PUGGER_STATE_CONFIRMING)
+	{
+		ShowPanel(client, PUGGER_STATE_CONFIRMING);
+		PrintToChat(client, "%s You have a new PUG invitation!", g_sTag);
+		PrintToChat(client, "Type !join to accept, or !unpug to decline.");
+	}
+	else if (state == PUGGER_STATE_ACCEPTED)
+	{
+		if (state != g_iLastSeenQueueState[client])
+			g_iLoopCounter[client] = 10;
+		if (g_iLoopCounter[client] < 10)
+		{
+			g_iLoopCounter[client]++;
+			return;
+		}
+		PrintToChat(client, "%s Waiting for others to accept...", g_sTag);
+		g_iLoopCounter[client] = 0;
+	}
+	else if (state == PUGGER_STATE_READY || state == PUGGER_STATE_LIVE)
+	{
+		if (state != g_iLastSeenQueueState[client])
+			g_iLoopCounter[client] = 10;
+		if (g_iLoopCounter[client] < 10)
+		{
+			g_iLoopCounter[client]++;
+			return;
+		}
+		ShowPanel(client, PUGGER_STATE_LIVE);
+		PrintToChat(client, "%s Everyone has accepted!", g_sTag);
+		PrintToChat(client, "A match has been created for you, type !join to enter.");
+		PrintToChat(client, "You can also see the match information in your console.");
+		PrintMatchInformation(client);
+		g_iLoopCounter[client] = 0;
+	}
+	else if (state == PUGGER_STATE_MIA)
+	{
+		PrintToChat(client, "%s You have an active PUG match!", g_sTag);
+		PrintToChat(client, "Type !join to enter the match. \
+You can also see the match information in your console.");
+		PrintMatchInformation(client);
+		g_iLoopCounter[client] = 0;
+	}
+	g_iLastSeenQueueState[client] = state;
 }
 
 int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")

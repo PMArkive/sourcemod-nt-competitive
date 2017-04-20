@@ -288,6 +288,7 @@ enum {
 };
 
 Database g_hDB = null;
+Database g_hDB_Threaded = null;
 
 #define MAX_SQL_LENGTH 768
 #define MAX_SQL_ERROR_LENGTH 512
@@ -488,3 +489,6 @@ new const String:g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_ENUM_COUNT][] = {
   "steamid",
   "match_id"
 };
+
+int g_iLastSeenQueueState[MAXPLAYERS+1] = PUGGER_STATE_INACTIVE;
+int g_iLoopCounter[MAXPLAYERS+1];

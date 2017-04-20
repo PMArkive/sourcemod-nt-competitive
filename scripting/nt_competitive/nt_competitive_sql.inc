@@ -1002,30 +1002,34 @@ public void SQLCallback_Pugger_DisplayDbMessage(Database db, DBResultSet results
 	if (!client || !results.HasResults)
 		return;
 
-	int hasMsg = results.FetchInt(SQL_TABLE_PUGGER_HAS_MATCH_MSG);
-	if (!hasMsg)
-		return;
+	while (results.FetchRow())
+	{
+		int hasMsg = results.FetchInt(SQL_TABLE_PUGGER_HAS_MATCH_MSG);
+		if (!hasMsg)
+			return;
 
-	decl String:dbMsg[512];
-	results.FetchString(SQL_TABLE_PUGGER_MATCH_MSG, dbMsg, sizeof(dbMsg));
+		decl String:dbMsg[512];
+		results.FetchString(SQL_TABLE_PUGGER_MATCH_MSG, dbMsg, sizeof(dbMsg));
 
-	PrintToChat(client, "%s System message: %s", g_sTag, dbMsg);
-	PrintToConsole(client, "%s System message: %s", g_sTag, dbMsg);
+		PrintToChat(client, "%s System message: %s", g_sTag, dbMsg);
+		PrintToConsole(client, "%s System message: %s", g_sTag, dbMsg);
 
-	decl String:steamid[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
-	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
-	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+		decl String:steamid[MAX_STEAMID_LENGTH];
+		GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+		decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+		g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
-	decl String:sql[MAX_SQL_LENGTH];
-	Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = '%s'",
-		g_sqlTable[TABLES_PUGGERS],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
-		safe_steamid
-	);
+		decl String:sql[MAX_SQL_LENGTH];
+		Format(sql, sizeof(sql), "UPDATE %s SET %s = 0 WHERE %s = '%s'",
+			g_sqlTable[TABLES_PUGGERS],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_HAS_MATCH_MSG],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+			safe_steamid
+		);
 
-	g_hDB_Threaded.Query(SQLCallback_Pugger_ClearDbMessage, sql, userid);
+		g_hDB_Threaded.Query(SQLCallback_Pugger_ClearDbMessage, sql, userid);
+		break;
+	}
 }
 
 public void SQLCallback_Pugger_ClearDbMessage(Database db, DBResultSet results, const char[] error, int userid)
@@ -2245,71 +2249,75 @@ public void SQLCallback_Pugger_Threaded_CheckQueuingStatus(Database db, DBResult
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 
-	int state = results.FetchInt(SQL_TABLE_PUGGER_STATE);
-	if (results.MoreRows)
+	while (results.FetchRow())
 	{
-		ThrowError("Client %i (%s): Found more than 1 results, \
-expected 0 or 1", client, steamid);
-	}
-
-	if (state == PUGGER_STATE_INACTIVE)
-	{
-		if (g_iLastSeenQueueState[client] == PUGGER_STATE_CONFIRMING)
-			PrintToChat(client, "%s You have been removed from the PUG queue.", g_sTag);
-
-		return;
-	}
-	else if (state == PUGGER_STATE_QUEUING)
-	{
-		if (g_iLastSeenQueueState[client] == PUGGER_STATE_ACCEPTED)
+		int state = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+		if (results.MoreRows)
 		{
-			PrintToChat(client, "%s Everyone didn't accept the match in time.", g_sTag);
-			PrintToChat(client, "Returning to PUG queue...");
+			ThrowError("Client %i (%s): Found more than 1 results, \
+	expected 0 or 1", client, steamid);
 		}
-	}
-	else if (state == PUGGER_STATE_CONFIRMING)
-	{
-		ShowPanel(client, PUGGER_STATE_CONFIRMING);
-		PrintToChat(client, "%s You have a new PUG invitation!", g_sTag);
-		PrintToChat(client, "Type !join to accept, or !unpug to decline.");
-	}
-	else if (state == PUGGER_STATE_ACCEPTED)
-	{
-		if (state != g_iLastSeenQueueState[client])
-			g_iLoopCounter[client] = 10;
-		if (g_iLoopCounter[client] < 10)
+
+		if (state == PUGGER_STATE_INACTIVE)
 		{
-			g_iLoopCounter[client]++;
+			if (g_iLastSeenQueueState[client] == PUGGER_STATE_CONFIRMING)
+				PrintToChat(client, "%s You have been removed from the PUG queue.", g_sTag);
+
 			return;
 		}
-		PrintToChat(client, "%s Waiting for others to accept...", g_sTag);
-		g_iLoopCounter[client] = 0;
-	}
-	else if (state == PUGGER_STATE_READY || state == PUGGER_STATE_LIVE)
-	{
-		if (state != g_iLastSeenQueueState[client])
-			g_iLoopCounter[client] = 10;
-		if (g_iLoopCounter[client] < 10)
+		else if (state == PUGGER_STATE_QUEUING)
 		{
-			g_iLoopCounter[client]++;
-			return;
+			if (g_iLastSeenQueueState[client] == PUGGER_STATE_ACCEPTED)
+			{
+				PrintToChat(client, "%s Everyone didn't accept the match in time.", g_sTag);
+				PrintToChat(client, "Returning to PUG queue...");
+			}
 		}
-		ShowPanel(client, PUGGER_STATE_LIVE);
-		PrintToChat(client, "%s Everyone has accepted!", g_sTag);
-		PrintToChat(client, "A match has been created for you, type !join to enter.");
-		PrintToChat(client, "You can also see the match information in your console.");
-		PrintMatchInformation(client);
-		g_iLoopCounter[client] = 0;
+		else if (state == PUGGER_STATE_CONFIRMING)
+		{
+			ShowPanel(client, PUGGER_STATE_CONFIRMING);
+			PrintToChat(client, "%s You have a new PUG invitation!", g_sTag);
+			PrintToChat(client, "Type !join to accept, or !unpug to decline.");
+		}
+		else if (state == PUGGER_STATE_ACCEPTED)
+		{
+			if (state != g_iLastSeenQueueState[client])
+				g_iLoopCounter[client] = 10;
+			if (g_iLoopCounter[client] < 10)
+			{
+				g_iLoopCounter[client]++;
+				return;
+			}
+			PrintToChat(client, "%s Waiting for others to accept...", g_sTag);
+			g_iLoopCounter[client] = 0;
+		}
+		else if (state == PUGGER_STATE_READY || state == PUGGER_STATE_LIVE)
+		{
+			if (state != g_iLastSeenQueueState[client])
+				g_iLoopCounter[client] = 10;
+			if (g_iLoopCounter[client] < 10)
+			{
+				g_iLoopCounter[client]++;
+				return;
+			}
+			ShowPanel(client, PUGGER_STATE_LIVE);
+			PrintToChat(client, "%s Everyone has accepted!", g_sTag);
+			PrintToChat(client, "A match has been created for you, type !join to enter.");
+			PrintToChat(client, "You can also see the match information in your console.");
+			PrintMatchInformation(client);
+			g_iLoopCounter[client] = 0;
+		}
+		else if (state == PUGGER_STATE_MIA)
+		{
+			PrintToChat(client, "%s You have an active PUG match!", g_sTag);
+			PrintToChat(client, "Type !join to enter the match. \
+	You can also see the match information in your console.");
+			PrintMatchInformation(client);
+			g_iLoopCounter[client] = 0;
+		}
+		g_iLastSeenQueueState[client] = state;
+		break;
 	}
-	else if (state == PUGGER_STATE_MIA)
-	{
-		PrintToChat(client, "%s You have an active PUG match!", g_sTag);
-		PrintToChat(client, "Type !join to enter the match. \
-You can also see the match information in your console.");
-		PrintMatchInformation(client);
-		g_iLoopCounter[client] = 0;
-	}
-	g_iLastSeenQueueState[client] = state;
 }
 
 int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")

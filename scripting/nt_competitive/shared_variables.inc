@@ -14,6 +14,10 @@ int g_iLastEpoch_CheckPugs;
 DataPack g_hPuggerData[MAXPLAYERS+1] = null;
 
 enum {
+  T_CONTEXT_JOIN_QUEUE = 1,
+};
+
+enum {
   PD_IS_USED,
   PD_STEAMID,
   PD_XP,

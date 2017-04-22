@@ -859,7 +859,7 @@ public Action Timer_Checkaccepts(Handle timer, int matchid)
 		{
 			PrintToChatAll("%s The new players didn't accept the invitation. \
 Match has been cancelled.", g_sTag);
-			KickPuggers(MATCHMAKE_CANCELLED);
+			KickPuggers();
 		}
 		// Nobody's on the server yet, can start to look for a new match right away
 		else
@@ -961,7 +961,7 @@ Match %i went live before this timer was destroyed. This should never happen.",
 			// Remove match's active puggers from queue
 			Puggers_UpdateStateByMatchID(matchid, PUGGER_STATE_INACTIVE);
 			PrintToChatAll("%s You have been removed from the PUG queue.", g_sTag);
-			KickPuggers(MATCHMAKE_CANCELLED);
+			KickPuggers();
 		}
 		else
 		{

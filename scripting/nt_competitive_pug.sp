@@ -222,6 +222,7 @@ public Action Command_Pug(int client, int args)
 		return Plugin_Stop;
 	}
 
+	PrintToServer("Command_Pug");
 	Threaded_Pugger_JoinQueue(client);
 	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
 	return Plugin_Handled;

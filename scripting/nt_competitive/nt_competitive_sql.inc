@@ -264,8 +264,130 @@ This should never happen.", steamID, state);
 }
 #endif
 
-bool Database_AddPugger(client = 0, bool bySteamID = false, const char[] steamID = "", state = PUGGER_STATE_QUEUING)
+void Threaded_Database_SetPuggerState(int userid, int state, int context)
 {
+	PrintToServer("Threaded_Database_SetPuggerState 1");
+	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
+	{
+		ThrowError("Invalid state enum %i, expected value in range 0 - %i",
+			state, PUGGER_STATE_ENUM_COUNT-1);
+	}
+
+	int client = GetClientOfUserId(userid);
+	if (!client)
+		return;
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid='%s'",
+		g_sqlTable[TABLES_PUGGERS], safe_steamid);
+
+	DataPack puggerStateData = new DataPack();
+	puggerStateData.WriteCell(context);
+	puggerStateData.WriteString(safe_steamid);
+	puggerStateData.WriteCell(state);
+
+	PrintToServer("Threaded_Database_SetPuggerState 2");
+	g_hDB_Threaded.Query(SQLCallback_Database_SetPuggerState_Select, sql, puggerStateData);
+}
+
+public void SQLCallback_Database_SetPuggerState_Select(Database db, DBResultSet results, const char[] error, DataPack puggerStateData)
+{
+	PrintToServer("SQLCallback_Database_SetPuggerState_Select 1");
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	puggerStateData.Reset();
+	int context = puggerStateData.ReadCell();
+	puggerStateData.ReadString(safe_steamid, sizeof(safe_steamid));
+	int state = puggerStateData.ReadCell();
+
+	PrintToServer("Callback_Database_SetPuggerState: steamid %s, state %i, context %i",
+		safe_steamid, state, context);
+
+	if (!results.HasResults)
+		ThrowError("No results yo");
+
+	decl String:sql[MAX_SQL_LENGTH];
+	int rowCount = results.RowCount;
+	// Pugger exists in database, update
+	if (rowCount == 1)
+	{
+		while (results.FetchRow())
+		{
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = %i, %s = NOW() WHERE %s = '%s'",
+				g_sqlTable[TABLES_PUGGERS],
+				g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], state,
+				g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP],
+				g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid
+			);
+
+			PrintToServer("SQLCallback_Database_SetPuggerState_Select 2");
+			g_hDB_Threaded.Query(SQLCallback_Database_SetPuggerState_Update, sql, puggerStateData);
+		}
+	}
+	// Pugger not yet in database, insert
+	else if (rowCount == 0)
+	{
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s), VALUES ('%s', %i, NOW())",
+			g_sqlTable[TABLES_PUGGERS],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_TIMESTAMP],
+			safe_steamid,
+			state
+		);
+
+		g_hDB_Threaded.Query(SQLCallback_Database_SetPuggerState_Insert, sql);
+	}
+	else
+	{
+		ThrowError("Result set has %i rows, expected 0 or 1.", rowCount);
+	}
+}
+
+public void SQLCallback_Database_SetPuggerState_Update(Database db, DBResultSet results, const char[] error, DataPack puggerStateData)
+{
+	PrintToServer("SQLCallback_Database_SetPuggerState_Update 1");
+	puggerStateData.Reset();
+	int context = puggerStateData.ReadCell();
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	puggerStateData.ReadString(steamid, sizeof(steamid));
+	int client = GetClientOfAuthId(steamid);
+	delete puggerStateData;
+
+	if (!IsValidClient(client))
+	{
+		PrintToChatAll("Invalid client");
+		return;
+	}
+
+	PrintToServer("SQLCallback_Database_SetPuggerState_Update 2");
+	PrintToChatAll("Checking context...");
+	if (context == T_CONTEXT_JOIN_QUEUE)
+	{
+		int searching = Puggers_GetCountPerState(PUGGER_STATE_QUEUING);
+		int playing = Puggers_GetCountPerState(PUGGER_STATE_LIVE);
+		int desiredPlayers = Database_GetDesiredPlayerCount();
+		PrintToChat(client, "%s You have joined the queue!", g_sTag);
+		PrintToChat(client, "Players queuing: %i/%i (%i currently playing)",
+			searching, desiredPlayers, playing);
+	}
+}
+
+public void SQLCallback_Database_SetPuggerState_Insert(Database db, DBResultSet results, const char[] error, any data)
+{
+	PrintToServer("SQLCallback_Database_SetPuggerState_Insert 1");
+}
+
+void Database_AddPugger(int userid, state = PUGGER_STATE_QUEUING)
+{
+	PrintToServer("Database_AddPugger 1: userid %i", userid);
+	Threaded_Database_SetPuggerState(userid, state, T_CONTEXT_JOIN_QUEUE);
+	return;
+	/*
 	if (!bySteamID)
 	{
 		if (!IsValidClient(client) || IsFakeClient(client))
@@ -344,6 +466,7 @@ expected 0 or 1", steamIDBuffer);
 	}
 	CloseHandle(stmt);
 	return true;
+	*/
 }
 
 /*
@@ -869,10 +992,11 @@ SQL statement returned multiple results; SQL: %s", sql);
 
 void Puggers_UpdateStateByMatchID(int matchid, int newState)
 {
+	PrintToServer("Puggers_UpdateStateByMatchID(%i, %i)", matchid, newState);
+
 	if (matchid == INVALID_MATCH_ID)
-	{
 		ThrowError("Invalid match ID %i", matchid);
-	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ? AND NOT %s = ?",
@@ -1499,6 +1623,7 @@ void Threaded_Pugger_JoinQueue(int client)
 	puggerPack.WriteCell(GetClientUserId(client));
 	puggerPack.WriteString(safe_steamid);
 
+	PrintToServer("Threaded_Pugger_JoinQueue");
 	g_hDB_Threaded.Query(SQLCallback_Pugger_JoinQueue, sql, puggerPack);
 }
 
@@ -1603,8 +1728,10 @@ please use !join to enter the PUG server.", g_sTag);
 
 public void SQLCallback_Pugger_JoinQueue(Database db, DBResultSet results, const char[] error, DataPack puggerPack)
 {
+	PrintToServer("SQLCallback_Pugger_JoinQueue 1");
 	puggerPack.Reset();
-	int client = GetClientOfUserId(puggerPack.ReadCell());
+	int userid = puggerPack.ReadCell();
+	int client = GetClientOfUserId(userid);
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	puggerPack.ReadString(safe_steamid, sizeof(safe_steamid));
 	delete puggerPack;
@@ -1627,20 +1754,8 @@ public void SQLCallback_Pugger_JoinQueue(Database db, DBResultSet results, const
 	{
 		case PUGGER_STATE_INACTIVE:
 		{
-			if (!Database_AddPugger(_, true, safe_steamid))
-			{
-				PrintToChat(client, "%s Failed to queue, please try again.", g_sTag);
-				PrintToChat(client, "This error has been logged.");
-			}
-			else
-			{
-				int searching = Puggers_GetCountPerState(PUGGER_STATE_QUEUING);
-				int playing = Puggers_GetCountPerState(PUGGER_STATE_LIVE);
-				int desiredPlayers = Database_GetDesiredPlayerCount();
-				PrintToChat(client, "%s You have joined the queue!", g_sTag);
-				PrintToChat(client, "Players queuing: %i/%i (%i currently playing)",
-					searching, desiredPlayers, playing);
-			}
+			PrintToServer("SQLCallback_Pugger_JoinQueue 2");
+			Database_AddPugger(userid);
 		}
 		case PUGGER_STATE_QUEUING:
 		{

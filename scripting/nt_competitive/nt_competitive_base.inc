@@ -419,13 +419,9 @@ void ToggleLive(bool:isKvRestore = false)
 	ToggleSourceTV();
 }
 
-void KickPuggers(int state = MATCHMAKE_FINISHED)
+void KickPuggers()
 {
 	PrintToChatAll("This server will soon close.");
-
-	int matchid = PugServer_GetMatchID_This();
-	Database_SetMatchStatus(matchid, state);
-
 	CreateTimer(20.0, Timer_PugFinished);
 }
 
@@ -2213,7 +2209,8 @@ void CheckMatchState()
 	{
 		if (GetConVarBool(g_hPugEnabled))
 		{
-			SetMatchStatus(MATCHMAKE_FINISHED);
+			int matchid = PugServer_GetMatchID_This();
+			Database_SetMatchStatus(matchid, MATCHMAKE_FINISHED);
 		}
 		ToggleLive();
 		LogCompetitive("Competitive match ended.");

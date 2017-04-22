@@ -6,7 +6,6 @@
 
 // TODO: Split this in plugin specific files when it's clear which parts
 // need to be shared and which don't.
-
 int GetClientOfAuthId(const String:steamID[MAX_STEAMID_LENGTH])
 {
 	decl String:buffer_SteamID[MAX_STEAMID_LENGTH];

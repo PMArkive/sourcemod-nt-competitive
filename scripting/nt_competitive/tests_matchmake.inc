@@ -3,6 +3,10 @@
 #endif
 #define _tests_matchmake_included_
 
+// NOTE: These tests are outdated, and only work with the non threaded model.
+// This file should remain excluded for now.
+#error "Tests are outdated (see comment)! Remove this line if you really want to compile them."
+
 public Action Command_RunTest_Matchmake(int client, int args)
 {
   Test_Matchmake_Main();

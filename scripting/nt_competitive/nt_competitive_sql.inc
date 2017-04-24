@@ -2754,6 +2754,50 @@ public void SQLCallback_Pugger_JoinActiveMatch(Database db, DBResultSet results,
 				ReplyToCommand(client, "Please contact server admins if you think this is an error.");
 				return;
 			}
+
+			/*
+			// TODO: Make the status check below threaded.
+			//int matchStatus = Database_GetMatchStatus(matchid);
+			switch (matchStatus)
+			{
+				case MATCHMAKE_ERROR:
+				{
+					ReplyToCommand(client, "%s Your match reports an error status.", g_sTag);
+					ReplyToCommand(client, "This is probably an error, please try again later.");
+				}
+				case MATCHMAKE_INVITING:
+				{
+					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+				}
+				case MATCHMAKE_WARMUP:
+				{
+					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+				}
+				case MATCHMAKE_LIVE:
+				{
+					// join (check if the player hasn't abandoned match first)
+					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+				}
+				case MATCHMAKE_PAUSED:
+				{
+					// join (check if the player hasn't abandoned match first)
+					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+				}
+				case MATCHMAKE_FINISHED:
+				{
+					ReplyToCommand(client, "%s Your match has already finished!");
+					ReplyToCommand(client, "Please contact server admins \
+		if you think this is an error.");
+				}
+				case MATCHMAKE_CANCELLED:
+				{
+					ReplyToCommand(client, "%s Your match was cancelled!");
+					ReplyToCommand(client, "Please contact server admins \
+		if you think this is an error.");
+				}
+			}
+			*/
+
 			SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
 		}
 		else

@@ -193,6 +193,8 @@ void PrintMatchInformation(int client)
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 
+	Threaded_Pugger_PrintMatchInformation(steamid);
+	/*
 	int matchid;
 	char connectPassword[MAX_CVAR_LENGTH];
 	char connectIP[MAX_IP_LENGTH];
@@ -208,6 +210,7 @@ void PrintMatchInformation(int client)
 	PrintToConsole(client, "Server IP: %s:%i (password: %s)",
 		connectIP, connectPort, connectPassword);
 	PrintToConsole(client, "- - - - - - - - - -\n");
+	*/
 }
 
 public Action Command_Pug(int client, int args)
@@ -223,8 +226,9 @@ public Action Command_Pug(int client, int args)
 	}
 
 	PrintToServer("Command_Pug");
-	Threaded_Pugger_JoinQueue(client);
 	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
+	Threaded_Pugger_JoinQueue(client);
+
 	return Plugin_Handled;
 
 	/*
@@ -290,8 +294,8 @@ public Action Command_UnPug(int client, int args)
 		return Plugin_Stop;
 	}
 
-	Threaded_Pugger_LeaveQueue(client);
 	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
+	Threaded_Pugger_LeaveQueue(client);
 	return Plugin_Handled;
 	/*
 	int queuingState = Pugger_GetQueuingState(_, _, _, true, steamid);
@@ -365,6 +369,10 @@ public Action Command_Join(int client, int args)
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 
+	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
+	Threaded_Pugger_JoinActiveMatch(steamid);
+	return Plugin_Handled;
+	/*
 	int queuingState = Pugger_GetQueuingState(_, _, _, true, steamid);
 	if (queuingState == PUGGER_STATE_INACTIVE)
 	{
@@ -458,6 +466,7 @@ public Action Command_Join(int client, int args)
 	for you.");
 	}
 	return Plugin_Handled;
+	*/
 }
 
 void SendPlayerToMatch(int client, const char[] connectIP, int connectPort, const char[] connectPassword)
@@ -465,7 +474,7 @@ void SendPlayerToMatch(int client, const char[] connectIP, int connectPort, cons
 	PrintToConsole(client, "%s Joining PUG: %s:%i password %s",
 		g_sTag, connectIP, connectPort, connectPassword);
 
-	decl String:cmd[MAX_IP_LENGTH+MAX_CVAR_LENGTH+64];
+	decl String:cmd[MAX_CVAR_LENGTH+MAX_IP_LENGTH+32];
 	Format(cmd, sizeof(cmd), "password %s; connect %s:%i",
 		connectPassword, connectIP, connectPort);
 	ClientCommand(client, cmd);
@@ -476,7 +485,10 @@ void SendPlayerToMatch(int client, const char[] connectIP, int connectPort, cons
 void GenerateIdentifier_This(char[] identifier)
 {
 	// The identifier has been manually set before compiling,
-	// no need to generate one
+	// no need to generate one here.
+	// Manually setting the identifier can get around issues where
+	// the IP returns "localhost" or similar. The identifier doesn't
+	// actually have to be the IP:port, as long as it's unique.
 	if (!StrEqual(identifier, ""))
 		return;
 

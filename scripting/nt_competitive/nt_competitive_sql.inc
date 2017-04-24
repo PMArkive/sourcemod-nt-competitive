@@ -2420,6 +2420,54 @@ bool Database_DoTablesExist()
 	return true;
 }
 
+void Threaded_Pugger_PrintMatchInformation(const char[] steamid)
+{
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s='%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid
+	);
+	g_hDB_Threaded.Query(SQLCallback_Pugger_PrintMatchInformation, sql);
+}
+
+public void SQLCallback_Pugger_PrintMatchInformation(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (!results.HasResults)
+		ThrowError("No result set");
+
+	while (results.FetchRow())
+	{
+		if (results.MoreRows)
+			ThrowError("Returned multiple rows");
+
+		decl String:steamid[MAX_STEAMID_LENGTH];
+		results.FetchString(SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
+
+		// TODO: Confirm this is valid?
+		//int matchid = results.FetchInt(SQL_TABLE_PUGGER_MATCH_ID);
+		int connectPort = results.FetchInt(SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
+
+		char connectIP[MAX_IP_LENGTH]; char connectPassword[MAX_CVAR_LENGTH];
+		results.FetchString(SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,
+			connectIP, sizeof(connectIP));
+		results.FetchString(SQL_TABLE_PUGGER_GAMESERVER_PASSWORD,
+			connectPassword, sizeof(connectPassword));
+
+		int client = GetClientOfAuthId(steamid);
+		if (!IsValidClient(client))
+			return;
+
+		PrintToConsole(client, "\n- - - - - - - - - -");
+		PrintToConsole(client, "%s You have a new match!", g_sTag);
+		PrintToConsole(client, "Server IP: %s:%i (password: %s)",
+			connectIP, connectPort, connectPassword);
+		PrintToConsole(client, "- - - - - - - - - -\n");
+	}
+}
+
 bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] connectIP, int &connectPort, char[] connectPassword)
 {
 	decl String:sql[MAX_SQL_LENGTH];
@@ -2635,6 +2683,87 @@ public void SQLCallback_Pugger_Threaded_CheckQueuingStatus(Database db, DBResult
 	}
 }
 #endif
+
+void Threaded_Pugger_JoinActiveMatch(const char[] steamid)
+{
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s='%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid
+	);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_JoinActiveMatch, sql);
+}
+
+public void SQLCallback_Pugger_JoinActiveMatch(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (!results.HasResults)
+		ThrowError("No result set");
+
+	while (results.FetchRow())
+	{
+		if (results.MoreRows)
+			ThrowError("Returned multiple rows");
+
+		decl String:steamid[MAX_STEAMID_LENGTH];
+		results.FetchString(SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
+		int client = GetClientOfAuthId(steamid);
+		if (!IsValidClient(client))
+			return;
+
+		int queuingState = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+
+		if (queuingState == PUGGER_STATE_INACTIVE)
+		{
+			ReplyToCommand(client, "%s You are not in the PUG queue! Use !pug to join.",
+				g_sTag);
+		}
+		else if (queuingState == PUGGER_STATE_CONFIRMING)
+		{
+			if (!Pugger_SetQueuingState(_, PUGGER_STATE_ACCEPTED, true, steamid))
+			{
+				ReplyToCommand(client, "%s Failed accepting the match, please try again.",
+					g_sTag);
+				ReplyToCommand(client, "This error has been logged.");
+			}
+			else
+			{
+				ReplyToCommand(client, "%s Match accepted! Please wait while others accept.",
+					g_sTag);
+			}
+		}
+		else if (queuingState == PUGGER_STATE_READY ||
+			queuingState == PUGGER_STATE_LIVE)
+		{
+			int matchid = results.FetchInt(SQL_TABLE_PUGGER_MATCH_ID);
+			int connectPort = results.FetchInt(SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
+
+			decl String:connectPassword[MAX_CVAR_LENGTH];
+			results.FetchString(SQL_TABLE_PUGGER_GAMESERVER_PASSWORD,
+				connectPassword, sizeof(connectPassword));
+			decl String:connectIP[MAX_IP_LENGTH];
+			results.FetchString(SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,
+				connectIP, sizeof(connectIP));
+
+			if (matchid == INVALID_MATCH_ID)
+			{
+				ReplyToCommand(client, "%s Could not find an active match for you.", g_sTag);
+				ReplyToCommand(client, "Please contact server admins if you think this is an error.");
+				return;
+			}
+			SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+		}
+		else
+		{
+			ReplyToCommand(client, "%s You don't have an active match invitation!", g_sTag);
+			ReplyToCommand(client, "Please wait while the system is looking for a match \
+		for you.");
+		}
+	}
+}
 
 int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")
 {

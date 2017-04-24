@@ -2682,7 +2682,6 @@ public void SQLCallback_Pugger_Threaded_CheckQueuingStatus(Database db, DBResult
 		break;
 	}
 }
-#endif
 
 void Threaded_Pugger_JoinActiveMatch(const char[] steamid)
 {
@@ -2808,7 +2807,9 @@ public void SQLCallback_Pugger_JoinActiveMatch(Database db, DBResultSet results,
 		}
 	}
 }
+#endif
 
+/*
 int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "", connectPort = 0, bool bySteamID = false, const char[] steamID = "")
 {
 	if (!bySteamID)
@@ -2884,7 +2885,7 @@ int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "
 	CloseHandle(stmt);
 	return state;
 }
-
+*/
 #if defined PLUGIN_PUG || defined PLUGIN_COMP
 int Puggers_GetCountPerState(state)
 {

@@ -138,6 +138,10 @@ as dead (health remaining: %i)", victim, health);
 
 public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
+	// Keep warmup going until match goes live.
+	if (!g_isLive && !g_isLiveCountdown)
+		SetGameState(GAMESTATE_WARMUP);
+
 	new bool:verbosityDelay = GetConVarBool(g_hVerbosityDelay);
 	new i;
 	for (i = 1; i <= MaxClients; i++)

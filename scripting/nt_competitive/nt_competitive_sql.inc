@@ -213,28 +213,28 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 
 				if (state == PUGGER_STATE_INACTIVE)
 				{
-					ReplyToCommand(client, "%s You are not in a PUG queue.", g_sTag);
+					PrintToChat(client, "%s You are not in a PUG queue.", g_sTag);
 					CloseHandle(stmt);
 					return;
 				}
 				else if (state == PUGGER_STATE_QUEUING)
 				{
-					ReplyToCommand(client, "%s You have left the PUG queue.", g_sTag);
+					PrintToChat(client, "%s You have left the PUG queue.", g_sTag);
 				}
 				else if (state == PUGGER_STATE_CONFIRMING)
 				{
-					ReplyToCommand(client, "%s You have left the PUG queue. \
+					PrintToChat(client, "%s You have left the PUG queue. \
 					Declining offered match.", g_sTag);
 				}
 				else if (state == PUGGER_STATE_ACCEPTED)
 				{
-					ReplyToCommand(client, "%s You have already accepted this match.", g_sTag);
+					PrintToChat(client, "%s You have already accepted this match.", g_sTag);
 					CloseHandle(stmt);
 					return;
 				}
 				else if (state == PUGGER_STATE_LIVE)
 				{
-					ReplyToCommand(client, "%s You already have a match live!", g_sTag);
+					PrintToChat(client, "%s You already have a match live!", g_sTag);
 					CloseHandle(stmt);
 					return;
 				}
@@ -266,17 +266,16 @@ This should never happen.", steamID, state);
 
 void Threaded_Database_SetPuggerState(const char[] steamid, int state, int context)
 {
-	PrintToServer("Threaded_Database_SetPuggerState 1");
 	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
 	{
 		ThrowError("Invalid state enum %i, expected value in range 0 - %i",
 			state, PUGGER_STATE_ENUM_COUNT-1);
 	}
 
+	decl String:sql[MAX_SQL_LENGTH];
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
-	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid='%s'",
 		g_sqlTable[TABLES_PUGGERS], safe_steamid);
 
@@ -285,7 +284,6 @@ void Threaded_Database_SetPuggerState(const char[] steamid, int state, int conte
 	puggerStateData.WriteString(safe_steamid);
 	puggerStateData.WriteCell(state);
 
-	PrintToServer("Threaded_Database_SetPuggerState 2");
 	g_hDB_Threaded.Query(SQLCallback_Database_SetPuggerState_Select, sql, puggerStateData);
 }
 
@@ -368,11 +366,68 @@ public void SQLCallback_Database_SetPuggerState_Update(Database db, DBResultSet 
 			PrintToChat(client, "%s You have joined the queue!", g_sTag);
 			Threaded_Pugger_AdvertiseQueueState(GetClientUserId(client));
 		}
-		case T_CONTEXT_PLAYER_HAS_LEFT:
+		case T_CONTEXT_PLAYER_HAS_LEFT_SERVER:
 		{
 			if (state == PUGGER_STATE_MIA)
 				PrintToChatAll("%s Player %s has disconnected", g_sTag, steamid);
 		}
+		case T_CONTEXT_LEAVE_QUEUE:
+		{
+			if (state == PUGGER_STATE_CONFIRMING)
+			{
+				PrintToChat(client, "%s You have declined the match invitation, \
+and left the PUG queue.", g_sTag);
+			}
+			else
+			{
+				PrintToChat(client, "%s You have left the PUG queue.", g_sTag);
+			}
+		}
+	}
+}
+
+void Threaded_Pugger_AdvertiseQueueState_If_Queued(int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!client)
+		return;
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid
+	);
+	g_hDB_Threaded.Query(SQLCallback_Pugger_AdvertiseQueueState_If_Queued, sql, userid);
+}
+
+public void SQLCallback_Pugger_AdvertiseQueueState_If_Queued(
+	Database db, DBResultSet results, const char[] error, any userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!client)
+		return;
+
+	if (!results.HasResults)
+		return;
+
+	int queuingState;
+	while (results.FetchRow())
+	{
+		if (results.MoreRows)
+			ThrowError("Found more rows, expected 1 row.");
+
+		queuingState = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+	}
+
+	if (queuingState == PUGGER_STATE_QUEUING)
+	{
+		PrintToChat(client, "%s Looking for a match...", g_sTag);
+		Threaded_Pugger_AdvertiseQueueState(userid);
 	}
 }
 
@@ -1738,7 +1793,32 @@ void Threaded_Pugger_LeaveQueue(int client)
 	g_hDB_Threaded.Query(SQLCallback_Pugger_LeaveQueue, sql, puggerPack);
 }
 
-public void SQLCallback_Pugger_LeaveQueue(Database db, DBResultSet results, const char[] error, DataPack puggerPack)
+void Threaded_Pugger_AcceptMatch(int client)
+{
+	if (!IsValidClient(client))
+		return;
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
+		safe_steamid
+	);
+
+	DataPack puggerPack = new DataPack();
+	puggerPack.WriteCell(GetClientUserId(client));
+	puggerPack.WriteString(safe_steamid);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_AcceptMatch, sql, puggerPack);
+}
+
+public void SQLCallback_Pugger_AcceptMatch(
+	Database db, DBResultSet results, const char[] error, DataPack puggerPack)
 {
 	puggerPack.Reset();
 	int client = GetClientOfUserId(puggerPack.ReadCell());
@@ -1746,11 +1826,11 @@ public void SQLCallback_Pugger_LeaveQueue(Database db, DBResultSet results, cons
 	puggerPack.ReadString(safe_steamid, sizeof(safe_steamid));
 	delete puggerPack;
 
-	if (!results.HasResults)
-		ThrowError("Result set does not exist. %s", error);
-
 	if (!client)
 		return;
+
+	if (!results.HasResults)
+		ThrowError("Result set does not exist. %s", error);
 
 	int queuingState;
 	while (results.FetchRow())
@@ -1764,50 +1844,73 @@ public void SQLCallback_Pugger_LeaveQueue(Database db, DBResultSet results, cons
 	{
 		case PUGGER_STATE_INACTIVE:
 		{
-			ReplyToCommand(client, "%s You are not in the PUG queue!", g_sTag);
-		}
-		case PUGGER_STATE_QUEUING:
-		{
-			if (!Pugger_SetQueuingState(_, PUGGER_STATE_INACTIVE, true, safe_steamid))
-			{
-				ReplyToCommand(client, "%s Failed leaving the queue, please try again.", g_sTag);
-				ReplyToCommand(client, "This error has been logged.");
-			}
-			else
-			{
-				ReplyToCommand(client, "%s You have left the PUG queue.", g_sTag);
-			}
+			PrintToChat(client, "%s You are not in the PUG queue! Use !pug to join.",
+				g_sTag);
 		}
 		case PUGGER_STATE_CONFIRMING:
 		{
-			if (!Pugger_SetQueuingState(_, PUGGER_STATE_INACTIVE, true, safe_steamid))
-			{
-				ReplyToCommand(client, "%s Failed leaving the queue, please try again.", g_sTag);
-				ReplyToCommand(client, "This error has been logged.");
-			}
-			else
-			{
-				ReplyToCommand(client, "%s You have declined the match invitation, \
-and left the PUG queue.", g_sTag);
-				// Set this to avoid the "you have been removed..." message on timer
-				g_iLastSeenQueueState[client] = PUGGER_STATE_INACTIVE;
-			}
+
+		}
+	}
+}
+
+public void SQLCallback_Pugger_LeaveQueue(
+	Database db, DBResultSet results, const char[] error, DataPack puggerPack)
+{
+	puggerPack.Reset();
+	int client = GetClientOfUserId(puggerPack.ReadCell());
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	puggerPack.ReadString(safe_steamid, sizeof(safe_steamid));
+	delete puggerPack;
+
+	if (!client)
+		return;
+
+	if (!results.HasResults)
+		ThrowError("Result set does not exist. %s", error);
+
+	int queuingState;
+	while (results.FetchRow())
+	{
+		queuingState = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+		if (results.MoreRows)
+			ThrowError("Found more than 1 rows, expected 0 or 1.");
+	}
+
+	switch (queuingState)
+	{
+		case PUGGER_STATE_INACTIVE:
+		{
+			PrintToChat(client, "%s You are not in the PUG queue!", g_sTag);
+		}
+		case PUGGER_STATE_QUEUING:
+		{
+			Threaded_Database_SetPuggerState(
+				safe_steamid, PUGGER_STATE_INACTIVE, T_CONTEXT_LEAVE_QUEUE);
+		}
+		case PUGGER_STATE_CONFIRMING:
+		{
+			Threaded_Database_SetPuggerState(
+				safe_steamid, PUGGER_STATE_INACTIVE, T_CONTEXT_LEAVE_QUEUE);
+
+			// Set this to avoid the "you have been removed..." message on timer
+			g_iLastSeenQueueState[client] = PUGGER_STATE_INACTIVE;
 		}
 		case PUGGER_STATE_ACCEPTED:
 		{
-			ReplyToCommand(client, "%s You have already accepted this match! \
+			PrintToChat(client, "%s You have already accepted this match! \
 Please wait while the invitation processes.", g_sTag);
 		}
 		case PUGGER_STATE_READY:
 		{
-			// todo: option to late decline/abandon the match here
-			ReplyToCommand(client, "%s You have already been assigned to a match, \
+			// TODO: option to late decline/abandon the match here
+			PrintToChat(client, "%s You have already been assigned to a match, \
 please use !join to enter the PUG server.", g_sTag);
 		}
 		case PUGGER_STATE_LIVE:
 		{
-			// todo: option to late decline/abandon the match here
-			ReplyToCommand(client, "%s You have already been assigned to a match, \
+			// TODO: option to late decline/abandon the match here
+			PrintToChat(client, "%s You have already been assigned to a match, \
 please use !join to enter the PUG server.", g_sTag);
 		}
 	}
@@ -2811,30 +2914,31 @@ public void SQLCallback_Pugger_JoinActiveMatch(Database db, DBResultSet results,
 
 		decl String:steamid[MAX_STEAMID_LENGTH];
 		results.FetchString(SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
+		decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+		g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
 		int client = GetClientOfAuthId(steamid);
 		if (!IsValidClient(client))
 			return;
 
+		int userid = GetClientUserId(client);
 		int queuingState = results.FetchInt(SQL_TABLE_PUGGER_STATE);
 
 		if (queuingState == PUGGER_STATE_INACTIVE)
 		{
-			ReplyToCommand(client, "%s You are not in the PUG queue! Use !pug to join.",
+			PrintToChat(client, "%s You are not in the PUG queue! Use !pug to join.",
 				g_sTag);
 		}
 		else if (queuingState == PUGGER_STATE_CONFIRMING)
 		{
-			if (!Pugger_SetQueuingState(_, PUGGER_STATE_ACCEPTED, true, steamid))
-			{
-				ReplyToCommand(client, "%s Failed accepting the match, please try again.",
-					g_sTag);
-				ReplyToCommand(client, "This error has been logged.");
-			}
-			else
-			{
-				ReplyToCommand(client, "%s Match accepted! Please wait while others accept.",
-					g_sTag);
-			}
+			decl String:sql[MAX_SQL_LENGTH];
+			Format(sql, sizeof(sql), "UPDATE %s SET %s = %i WHERE %s = '%s'",
+				g_sqlTable[TABLES_PUGGERS],
+				g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_ACCEPTED,
+				g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid
+			);
+			g_hDB_Threaded.Query(
+				SQLCallback_Pugger_JoinActiveMatch_Accept, sql, userid);
 		}
 		else if (queuingState == PUGGER_STATE_READY ||
 			queuingState == PUGGER_STATE_LIVE)
@@ -2851,63 +2955,30 @@ public void SQLCallback_Pugger_JoinActiveMatch(Database db, DBResultSet results,
 
 			if (matchid == INVALID_MATCH_ID)
 			{
-				ReplyToCommand(client, "%s Could not find an active match for you.", g_sTag);
-				ReplyToCommand(client, "Please contact server admins if you think this is an error.");
+				PrintToChat(client, "%s Could not find an active match for you.", g_sTag);
+				PrintToChat(client, "Please contact server admins if you think this is an error.");
 				return;
 			}
-
-			/*
-			// TODO: Make the status check below threaded.
-			//int matchStatus = Database_GetMatchStatus(matchid);
-			switch (matchStatus)
-			{
-				case MATCHMAKE_ERROR:
-				{
-					ReplyToCommand(client, "%s Your match reports an error status.", g_sTag);
-					ReplyToCommand(client, "This is probably an error, please try again later.");
-				}
-				case MATCHMAKE_INVITING:
-				{
-					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
-				}
-				case MATCHMAKE_WARMUP:
-				{
-					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
-				}
-				case MATCHMAKE_LIVE:
-				{
-					// join (check if the player hasn't abandoned match first)
-					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
-				}
-				case MATCHMAKE_PAUSED:
-				{
-					// join (check if the player hasn't abandoned match first)
-					SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
-				}
-				case MATCHMAKE_FINISHED:
-				{
-					ReplyToCommand(client, "%s Your match has already finished!");
-					ReplyToCommand(client, "Please contact server admins \
-		if you think this is an error.");
-				}
-				case MATCHMAKE_CANCELLED:
-				{
-					ReplyToCommand(client, "%s Your match was cancelled!");
-					ReplyToCommand(client, "Please contact server admins \
-		if you think this is an error.");
-				}
-			}
-			*/
-
 			SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
 		}
 		else
 		{
-			ReplyToCommand(client, "%s You don't have an active match invitation!", g_sTag);
-			ReplyToCommand(client, "Please wait while the system is looking for a match \
+			PrintToChat(client, "%s You don't have an active match invitation!", g_sTag);
+			PrintToChat(client, "Please wait while the system is looking for a match \
 		for you.");
 		}
 	}
+}
+
+public void SQLCallback_Pugger_JoinActiveMatch_Accept(
+	Database db, DBResultSet results, const char[] error, any userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!client)
+		return;
+
+	PrintToChat(client, "%s Match accepted! Please wait while others accept.",
+		g_sTag);
 }
 #endif
 
@@ -3368,7 +3439,8 @@ public void SQLCallback_Pugger_CommitLeave(Database db, DBResultSet results, con
 			matchid, steamid);
 	}
 
-	Threaded_Database_SetPuggerState(steamid, PUGGER_STATE_MIA, T_CONTEXT_PLAYER_HAS_LEFT);
+	Threaded_Database_SetPuggerState(
+		steamid, PUGGER_STATE_MIA, T_CONTEXT_PLAYER_HAS_LEFT_SERVER);
 }
 
 int PugServer_GetMatchID_This()

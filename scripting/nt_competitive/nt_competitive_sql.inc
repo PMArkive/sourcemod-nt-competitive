@@ -382,157 +382,79 @@ void Threaded_Pugger_AdvertiseQueueState(int userid)
 	if (!client)
 		return;
 
-	Threaded_Pugger_AdvertiseQueueState_GetQueuing(userid);
-}
-
-void Threaded_Pugger_AdvertiseQueueState_GetQueuing(int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if (!client)
-		return;
+	Transaction txnQueueState = new Transaction();
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i",
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING
 	);
+	txnQueueState.AddQuery(sql);
 
-	DataPack queueInfo = new DataPack();
-	queueInfo.WriteCell(userid);
-
-	g_hDB_Threaded.Query(SQLCallback_Pugger_AdvertiseQueueState_GetQueuing, sql, queueInfo);
-}
-
-public void SQLCallback_Pugger_AdvertiseQueueState_GetQueuing(
-	Database db, DBResultSet results, const char[] error, DataPack queueInfo)
-{
-	queueInfo.Reset();
-	int client = GetClientOfUserId(queueInfo.ReadCell());
-	if (!client)
-	{
-		delete queueInfo;
-		return;
-	}
-	else if (!results.HasResults)
-	{
-		delete queueInfo;
-		ThrowError("No results");
-	}
-
-	int queuingPlayers = results.RowCount;
-	queueInfo.WriteCell(queuingPlayers);
-	Threaded_Pugger_AdvertiseQueueState_GetLive(queueInfo);
-}
-
-void Threaded_Pugger_AdvertiseQueueState_GetLive(DataPack queueInfo)
-{
-	queueInfo.Reset();
-	int client = GetClientOfUserId(queueInfo.ReadCell());
-	if (!client)
-	{
-		delete queueInfo;
-		return;
-	}
-
-	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i",
 		g_sqlTable[TABLES_PUGGERS],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_LIVE
 	);
+	txnQueueState.AddQuery(sql);
 
-	g_hDB_Threaded.Query(SQLCallback_Pugger_AdvertiseQueueState_GetLive, sql, queueInfo);
-}
-
-public void SQLCallback_Pugger_AdvertiseQueueState_GetLive(
-	Database db, DBResultSet results, const char[] error, DataPack queueInfo)
-{
-	queueInfo.Reset();
-	int client = GetClientOfUserId(queueInfo.ReadCell());
-	if (!client)
-	{
-		delete queueInfo;
-		return;
-	}
-	else if (!results.HasResults)
-	{
-		delete queueInfo;
-		ThrowError("No results");
-	}
-
-	int livePlayers = results.RowCount;
-	queueInfo.ReadCell();
-	queueInfo.WriteCell(livePlayers);
-	Threaded_Pugger_AdvertiseQueueState_GetDesired(queueInfo);
-}
-
-void Threaded_Pugger_AdvertiseQueueState_GetDesired(DataPack queueInfo)
-{
-	queueInfo.Reset();
-	int client = GetClientOfUserId(queueInfo.ReadCell());
-	if (!client)
-	{
-		delete queueInfo;
-		return;
-	}
-
-	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT %s FROM %s",
 		g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT],
 		g_sqlTable[TABLES_RULES]
 	);
+	txnQueueState.AddQuery(sql);
 
-	g_hDB_Threaded.Query(SQLCallback_Pugger_AdvertiseQueueState_GetDesired, sql, queueInfo);
+	SQL_ExecuteTransaction(
+		g_hDB_Threaded, txnQueueState, SQLTxnSuccess_AdvertiseQueueState, _, userid);
 }
 
-public void SQLCallback_Pugger_AdvertiseQueueState_GetDesired(
-	Database db, DBResultSet results, const char[] error, DataPack queueInfo)
+public void SQLTxnSuccess_AdvertiseQueueState(
+	Database db, any userid, int numQueries, DBResultSet[] results, any[] queryData)
 {
-	queueInfo.Reset();
-	int client = GetClientOfUserId(queueInfo.ReadCell());
+	int client = GetClientOfUserId(userid);
 	if (!client)
-	{
-		delete queueInfo;
 		return;
-	}
-	else if (!results.HasResults)
+
+	enum {
+		QUEUING = 0,
+		LIVE,
+		DESIRED,
+		ENUM_COUNT
+	};
+	int playerAmount[ENUM_COUNT];
+
+	for (int i = 0; i < numQueries; i++)
 	{
-		delete queueInfo;
-		ThrowError("No results");
+		if (i >= ENUM_COUNT)
+		{
+			ThrowError("Too many queries!");
+		}
+		else if (!results[i].HasResults)
+		{
+			ThrowError("No results");
+		}
+
+		if (i == QUEUING || i == LIVE)
+		{
+			playerAmount[i] = results[i].RowCount;
+		}
+		else if (i == DESIRED)
+		{
+			while (results[i].FetchRow())
+			{
+				if (results[i].MoreRows)
+				{
+					ThrowError("Found more than 1 result, expected 1.");
+				}
+				playerAmount[i] = results[i].FetchInt(SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
+			}
+		}
 	}
-
-	int desiredPlayers;
-	while (results.FetchRow())
-	{
-		if (results.MoreRows)
-			ThrowError("Found more than 1 result, expected 1.");
-
-		desiredPlayers = results.FetchInt(SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
-	}
-
-	queueInfo.ReadCell();
-	queueInfo.ReadCell();
-	queueInfo.WriteCell(desiredPlayers);
-
-	Threaded_Pugger_AdvertiseQueueState_PresentInfo(queueInfo);
-}
-
-void Threaded_Pugger_AdvertiseQueueState_PresentInfo(DataPack queueInfo)
-{
-	queueInfo.Reset();
-	int client = GetClientOfUserId(queueInfo.ReadCell());
-	if (!client)
-	{
-		delete queueInfo;
-		return;
-	}
-
-	int queuingPlayers = queueInfo.ReadCell();
-	int livePlayers = queueInfo.ReadCell();
-	int desiredPlayers = queueInfo.ReadCell();
-	delete queueInfo;
 
 	PrintToChat(client, "Players queuing: %i/%i (%i currently playing)",
-		queuingPlayers, desiredPlayers, livePlayers);
+		playerAmount[QUEUING],
+		playerAmount[DESIRED],
+		playerAmount[LIVE]
+	);
 }
 
 public void SQLCallback_Database_SetPuggerState_Insert(Database db, DBResultSet results, const char[] error, any data)

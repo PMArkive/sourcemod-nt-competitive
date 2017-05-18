@@ -2941,7 +2941,8 @@ public void SQLCallback_Pugger_JoinActiveMatch(Database db, DBResultSet results,
 				SQLCallback_Pugger_JoinActiveMatch_Accept, sql, userid);
 		}
 		else if (queuingState == PUGGER_STATE_READY ||
-			queuingState == PUGGER_STATE_LIVE)
+			queuingState == PUGGER_STATE_LIVE ||
+			queuingState == PUGGER_STATE_MIA)
 		{
 			int matchid = results.FetchInt(SQL_TABLE_PUGGER_MATCH_ID);
 			int connectPort = results.FetchInt(SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
@@ -2960,6 +2961,11 @@ public void SQLCallback_Pugger_JoinActiveMatch(Database db, DBResultSet results,
 				return;
 			}
 			SendPlayerToMatch(client, connectIP, connectPort, connectPassword);
+		}
+		else if (queuingState == PUGGER_STATE_ABANDONED)
+		{
+			PrintToChat(client, "%s You didn't join your match in time!", g_sTag);
+			PrintToChat(client, "You can queue again with !pug");
 		}
 		else
 		{

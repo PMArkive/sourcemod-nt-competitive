@@ -15,6 +15,7 @@ DataPack g_hPuggerData[MAXPLAYERS+1] = null;
 
 enum {
   T_CONTEXT_JOIN_QUEUE = 1,
+  T_CONTEXT_PLAYER_HAS_LEFT = 2
 };
 
 enum {
@@ -46,11 +47,9 @@ new String:g_teamName[][64] = {
 };
 #endif
 
-#if defined PLUGIN_PUG
 // Set this to something uniquely identifying if the plugin fails to
 // retrieve your external IP.
 new String:g_sIdentifier[MAX_IDENTIFIER_LENGTH];
-#endif
 
 #if defined PLUGIN_COMP
 new String:g_livePlayers[MAXPLAYERS+1][MAX_STEAMID_LENGTH]; // Array for storing SteamIDs to allow disconnected players rejoining when live

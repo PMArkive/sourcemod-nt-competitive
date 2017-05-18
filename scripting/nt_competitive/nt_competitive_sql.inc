@@ -3214,7 +3214,7 @@ bool Match_SetPreparingForLive(int match_id)
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return false;
 	}
-	SQL_BindParamInt(stmt, 0, PUGGER_STATE_LIVE);
+	SQL_BindParamInt(stmt, 0, PUGGER_STATE_READY);
 	SQL_BindParamInt(stmt, 1, match_id);
 	SQL_Execute(stmt);
 	delete stmt;

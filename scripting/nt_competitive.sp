@@ -220,6 +220,9 @@ public Action Command_TestMatch(int client, int args)
 
 public OnPluginEnd()
 {
+	if (GetConVarBool(g_hPugEnabled))
+		Threaded_Organizers_Update_This(DB_ORG_INACTIVE);
+
 	// TODO/CLEANUP: This handle isn't needed until unloading,
 	// it doesn't really need a global. Might be other similar cases.
 	new unloadScoreLimit = GetConVarInt(g_hCvar_UnloadScoreLimit);
@@ -274,12 +277,12 @@ public OnMapStart()
 	// Make sure all global variables are reset properly
 	ResetGlobalVariables();
 
-#if defined PLUGIN_COMP
 /*
+#if defined PLUGIN_COMP
 	if (GetConVarBool(g_hPugEnabled))
 		g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
-*/
 #endif
+*/
 }
 
 public OnConfigsExecuted()
@@ -375,28 +378,10 @@ public OnClientDisconnect(client)
 	if (!GetConVarBool(g_hPugEnabled))
 		return;
 
-	int matchid = PugServer_GetMatchID_This();
-	if (matchid == MATCHMAKE_ERROR)
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	if (GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid)))
 	{
-		Player_SetState(client, PLAYER_STATUS_UNKNOWN);
-		return;
-	}
-
-	decl String:steamID[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID));
-
-	if (Pugger_DoesPlayInMatch(matchid, steamID))
-	{
-		Player_SetState(client, PLAYER_STATUS_ABANDONED);
-		Pugger_SetState(steamID, PUGGER_STATE_MIA);
-		if (g_isLive)
-		{
-			CreateAbandonTimer(steamID);
-		}
-	}
-	else
-	{
-		Player_SetState(client, PLAYER_STATUS_UNKNOWN);
+		Threaded_Pugger_HandleLeaver(steamid);
 	}
 }
 

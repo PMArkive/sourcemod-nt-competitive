@@ -264,7 +264,7 @@ This should never happen.", steamID, state);
 }
 #endif
 
-void Threaded_Database_SetPuggerState(int userid, int state, int context)
+void Threaded_Database_SetPuggerState(const char[] steamid, int state, int context)
 {
 	PrintToServer("Threaded_Database_SetPuggerState 1");
 	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
@@ -273,12 +273,6 @@ void Threaded_Database_SetPuggerState(int userid, int state, int context)
 			state, PUGGER_STATE_ENUM_COUNT-1);
 	}
 
-	int client = GetClientOfUserId(userid);
-	if (!client)
-		return;
-
-	decl String:steamid[MAX_STEAMID_LENGTH];
-	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
@@ -355,6 +349,7 @@ public void SQLCallback_Database_SetPuggerState_Update(Database db, DBResultSet 
 	int context = puggerStateData.ReadCell();
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	puggerStateData.ReadString(steamid, sizeof(steamid));
+	int state = puggerStateData.ReadCell();
 	int client = GetClientOfAuthId(steamid);
 	delete puggerStateData;
 
@@ -366,15 +361,178 @@ public void SQLCallback_Database_SetPuggerState_Update(Database db, DBResultSet 
 
 	PrintToServer("SQLCallback_Database_SetPuggerState_Update 2");
 	PrintToChatAll("Checking context...");
-	if (context == T_CONTEXT_JOIN_QUEUE)
+	switch (context)
 	{
-		int searching = Puggers_GetCountPerState(PUGGER_STATE_QUEUING);
-		int playing = Puggers_GetCountPerState(PUGGER_STATE_LIVE);
-		int desiredPlayers = Database_GetDesiredPlayerCount();
-		PrintToChat(client, "%s You have joined the queue!", g_sTag);
-		PrintToChat(client, "Players queuing: %i/%i (%i currently playing)",
-			searching, desiredPlayers, playing);
+		case T_CONTEXT_JOIN_QUEUE:
+		{
+			PrintToChat(client, "%s You have joined the queue!", g_sTag);
+			Threaded_Pugger_AdvertiseQueueState(GetClientUserId(client));
+		}
+		case T_CONTEXT_PLAYER_HAS_LEFT:
+		{
+			if (state == PUGGER_STATE_MIA)
+				PrintToChatAll("%s Player %s has disconnected", g_sTag, steamid);
+		}
 	}
+}
+
+void Threaded_Pugger_AdvertiseQueueState(int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!client)
+		return;
+
+	Threaded_Pugger_AdvertiseQueueState_GetQueuing(userid);
+}
+
+void Threaded_Pugger_AdvertiseQueueState_GetQueuing(int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (!client)
+		return;
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_QUEUING
+	);
+
+	DataPack queueInfo = new DataPack();
+	queueInfo.WriteCell(userid);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_AdvertiseQueueState_GetQueuing, sql, queueInfo);
+}
+
+public void SQLCallback_Pugger_AdvertiseQueueState_GetQueuing(
+	Database db, DBResultSet results, const char[] error, DataPack queueInfo)
+{
+	queueInfo.Reset();
+	int client = GetClientOfUserId(queueInfo.ReadCell());
+	if (!client)
+	{
+		delete queueInfo;
+		return;
+	}
+	else if (!results.HasResults)
+	{
+		delete queueInfo;
+		ThrowError("No results");
+	}
+
+	int queuingPlayers = results.RowCount;
+	queueInfo.WriteCell(queuingPlayers);
+	Threaded_Pugger_AdvertiseQueueState_GetLive(queueInfo);
+}
+
+void Threaded_Pugger_AdvertiseQueueState_GetLive(DataPack queueInfo)
+{
+	queueInfo.Reset();
+	int client = GetClientOfUserId(queueInfo.ReadCell());
+	if (!client)
+	{
+		delete queueInfo;
+		return;
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_LIVE
+	);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_AdvertiseQueueState_GetLive, sql, queueInfo);
+}
+
+public void SQLCallback_Pugger_AdvertiseQueueState_GetLive(
+	Database db, DBResultSet results, const char[] error, DataPack queueInfo)
+{
+	queueInfo.Reset();
+	int client = GetClientOfUserId(queueInfo.ReadCell());
+	if (!client)
+	{
+		delete queueInfo;
+		return;
+	}
+	else if (!results.HasResults)
+	{
+		delete queueInfo;
+		ThrowError("No results");
+	}
+
+	int livePlayers = results.RowCount;
+	queueInfo.ReadCell();
+	queueInfo.WriteCell(livePlayers);
+	Threaded_Pugger_AdvertiseQueueState_GetDesired(queueInfo);
+}
+
+void Threaded_Pugger_AdvertiseQueueState_GetDesired(DataPack queueInfo)
+{
+	queueInfo.Reset();
+	int client = GetClientOfUserId(queueInfo.ReadCell());
+	if (!client)
+	{
+		delete queueInfo;
+		return;
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT %s FROM %s",
+		g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT],
+		g_sqlTable[TABLES_RULES]
+	);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_AdvertiseQueueState_GetDesired, sql, queueInfo);
+}
+
+public void SQLCallback_Pugger_AdvertiseQueueState_GetDesired(
+	Database db, DBResultSet results, const char[] error, DataPack queueInfo)
+{
+	queueInfo.Reset();
+	int client = GetClientOfUserId(queueInfo.ReadCell());
+	if (!client)
+	{
+		delete queueInfo;
+		return;
+	}
+	else if (!results.HasResults)
+	{
+		delete queueInfo;
+		ThrowError("No results");
+	}
+
+	int desiredPlayers;
+	while (results.FetchRow())
+	{
+		if (results.MoreRows)
+			ThrowError("Found more than 1 result, expected 1.");
+
+		desiredPlayers = results.FetchInt(SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
+	}
+
+	queueInfo.ReadCell();
+	queueInfo.ReadCell();
+	queueInfo.WriteCell(desiredPlayers);
+
+	Threaded_Pugger_AdvertiseQueueState_PresentInfo(queueInfo);
+}
+
+void Threaded_Pugger_AdvertiseQueueState_PresentInfo(DataPack queueInfo)
+{
+	queueInfo.Reset();
+	int client = GetClientOfUserId(queueInfo.ReadCell());
+	if (!client)
+	{
+		delete queueInfo;
+		return;
+	}
+
+	int queuingPlayers = queueInfo.ReadCell();
+	int livePlayers = queueInfo.ReadCell();
+	int desiredPlayers = queueInfo.ReadCell();
+	delete queueInfo;
+
+	PrintToChat(client, "Players queuing: %i/%i (%i currently playing)",
+		queuingPlayers, desiredPlayers, livePlayers);
 }
 
 public void SQLCallback_Database_SetPuggerState_Insert(Database db, DBResultSet results, const char[] error, any data)
@@ -384,8 +542,15 @@ public void SQLCallback_Database_SetPuggerState_Insert(Database db, DBResultSet 
 
 void Database_AddPugger(int userid, state = PUGGER_STATE_QUEUING)
 {
-	PrintToServer("Database_AddPugger 1: userid %i", userid);
-	Threaded_Database_SetPuggerState(userid, state, T_CONTEXT_JOIN_QUEUE);
+	int client = GetClientOfUserId(userid);
+	if (!client)
+		return;
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+
+	PrintToServer("Database_AddPugger 1: %s", steamid);
+	Threaded_Database_SetPuggerState(steamid, state, T_CONTEXT_JOIN_QUEUE);
 	return;
 	/*
 	if (!bySteamID)
@@ -1782,12 +1947,27 @@ please use !join to enter the PUG server.", g_sTag);
 			PrintToChat(client, "%s You have already been assigned to a match, \
 please use !join to enter the PUG server.", g_sTag);
 		}
+		case PUGGER_STATE_MIA:
+		{
+			PrintToChat(client, "%s You have an active match already!", g_sTag);
+			PrintToChat(client, "Please use !join to enter the PUG server.");
+		}
+		case PUGGER_STATE_ABANDONED:
+		{
+			PrintToChat(client, "%s You have abandoned your previous match.", g_sTag);
+			Database_AddPugger(userid);
+		}
 		default:
 		{
+			PrintToChat(client, "%s There was an error with queuing, please try again later.",
+				g_sTag);
+			PrintToChat(client, "This error has been logged.");
+
 			ThrowError("Invalid queuing state %i!", queuingState);
 		}
 	}
 }
+#endif
 
 void Threaded_Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
@@ -2010,7 +2190,7 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 	return false;
 }
 */
-#endif
+
 
 #if defined PLUGIN_COMP
 bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
@@ -3172,6 +3352,101 @@ int Database_GetMatchStatus(int matchid)
 	}
 	delete stmt;
 	return status;
+}
+
+void Threaded_Pugger_HandleLeaver(const char[] steamid)
+{
+	decl String:ipAddress[MAX_IP_LENGTH];
+	int port;
+	GetServerConnectionDetails(ipAddress, port);
+	char safe_ipAddress[MAX_IP_LENGTH*2+1];
+	g_hDB_Threaded.Escape(ipAddress, safe_ipAddress, sizeof(safe_ipAddress));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s' AND %s = %i \
+ORDER BY %s DESC",
+		g_sqlTable[TABLES_MATCHES],
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_IP], safe_ipAddress,
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_PORT], port,
+		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
+	);
+
+	DataPack leaver = new DataPack();
+	leaver.WriteString(steamid);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_HandleLeaver, sql, leaver);
+}
+
+public void SQLCallback_Pugger_HandleLeaver(Database db, DBResultSet results, const char[] error, DataPack leaver)
+{
+	leaver.Reset();
+	char steamid[MAX_STEAMID_LENGTH];
+	leaver.ReadString(steamid, sizeof(steamid));
+	delete leaver;
+
+	if (!results.HasResults)
+		ThrowError("No result set");
+
+	int matchid;
+	while (results.FetchRow())
+	{
+		matchid = results.FetchInt(SQL_TABLE_MATCHES_ID);
+		break;
+	}
+	if (matchid == MATCHMAKE_ERROR)
+	{
+		ThrowError("MatchID error");
+	}
+
+	Threaded_Pugger_CommitLeave(matchid, steamid);
+}
+
+void Threaded_Pugger_CommitLeave(int matchid, const char[] steamid)
+{
+	char safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = %i AND %s = '%s'",
+		g_sqlTable[TABLES_MATCH_HISTORY],
+		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID], matchid,
+		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID], safe_steamid
+	);
+
+	DataPack leaver = new DataPack();
+	leaver.WriteCell(matchid);
+	leaver.WriteString(steamid);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_CommitLeave, sql, leaver);
+}
+
+public void SQLCallback_Pugger_CommitLeave(Database db, DBResultSet results, const char[] error, DataPack leaver)
+{
+	leaver.Reset();
+	int matchid = leaver.ReadCell();
+	char steamid[MAX_STEAMID_LENGTH];
+	leaver.ReadString(steamid, sizeof(steamid));
+	delete leaver;
+
+	int rows = 0;
+	if (results.HasResults)
+	{
+		rows = results.RowCount;
+	}
+
+	// Player doesn't play in this match; don't mark them as leaver
+	if (rows == 0)
+	{
+		//Threaded_Database_SetPuggerState(steamid, PLAYER_STATUS_UNKNOWN, T_CONTEXT_PLAYER_HAS_LEFT);
+		return;
+	}
+	else if (rows > 1)
+	{
+		ThrowError("Found multiple matches for match id %i and steamID %s.",
+			matchid, steamid);
+	}
+
+	Threaded_Database_SetPuggerState(steamid, PUGGER_STATE_MIA, T_CONTEXT_PLAYER_HAS_LEFT);
 }
 
 int PugServer_GetMatchID_This()

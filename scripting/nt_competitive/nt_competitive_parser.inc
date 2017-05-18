@@ -937,11 +937,10 @@ public Action Timer_Pug_WaitingForPlayers(Handle timer, any matchid)
 		return Plugin_Stop;
 	}
 
+	// Already live! Probably either admin controlled,
+	// or everyone already connected and readied up.
 	if (g_isLive)
 	{
-		LogError("Timer_Pug_WaitingForPlayers: \
-Match %i went live before this timer was destroyed. This should never happen.",
-			matchid);
 		g_hTimer_Pug_WaitingForPlayers = null;
 		return Plugin_Stop;
 	}

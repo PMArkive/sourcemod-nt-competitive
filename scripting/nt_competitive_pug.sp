@@ -224,9 +224,6 @@ public Action Command_Pug(int client, int args)
 		ReplyToCommand(client, "%s Failed to read your SteamID, please try again.", g_sTag);
 		return Plugin_Stop;
 	}
-
-	PrintToServer("Command_Pug");
-	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
 	Threaded_Pugger_JoinQueue(client);
 
 	return Plugin_Handled;
@@ -244,7 +241,6 @@ public Action Command_UnPug(int client, int args)
 		return Plugin_Stop;
 	}
 
-	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
 	Threaded_Pugger_LeaveQueue(client);
 	return Plugin_Handled;
 }
@@ -264,7 +260,6 @@ public Action Command_Join(int client, int args)
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 
-	ReplyToCommand(client, "%s OK - please wait for the database response...", g_sTag);
 	Threaded_Pugger_JoinActiveMatch(steamid);
 	return Plugin_Handled;
 }

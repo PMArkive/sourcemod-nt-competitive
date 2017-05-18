@@ -15,7 +15,8 @@ DataPack g_hPuggerData[MAXPLAYERS+1] = null;
 
 enum {
   T_CONTEXT_JOIN_QUEUE = 1,
-  T_CONTEXT_PLAYER_HAS_LEFT = 2
+  T_CONTEXT_PLAYER_HAS_LEFT_SERVER = 2,
+  T_CONTEXT_LEAVE_QUEUE = 3
 };
 
 enum {

@@ -758,7 +758,7 @@ This should never happen.", desiredPlayers);
 	return Plugin_Stop;
 }
 
-public Action Timer_Checkaccepts(Handle timer, int matchid)
+public Action Timer_Checkaccepts(Handle timer, any matchid)
 {
 	g_iTimerLoops++;
 	PrintToServer("Timer_Checkaccepts");
@@ -889,6 +889,7 @@ Match has been cancelled.", g_sTag);
 		}
 		g_hTimer_Pug_WaitingForPlayers = CreateTimer(TIMER_WAITINGFORPLAYERS,
 			Timer_Pug_WaitingForPlayers, matchid);
+		CreateTimer(10.0, Timer_AnnounceWaitingForPlayers, _, TIMER_REPEAT);
 
 		return Plugin_Stop;
 	}
@@ -900,7 +901,16 @@ matchid %i where desired playercount was %i. This line should never run.",
 	return Plugin_Continue;
 }
 
-public Action Timer_Pug_WaitingForPlayers(Handle timer, int matchid)
+public Action Timer_AnnounceWaitingForPlayers(Handle timer)
+{
+	if (g_hTimer_Pug_WaitingForPlayers == null)
+		return Plugin_Stop;
+
+	PrintToChatAll("%s Waiting for players", g_sTag);
+	return Plugin_Continue;
+}
+
+public Action Timer_Pug_WaitingForPlayers(Handle timer, any matchid)
 {
 	if (matchid == INVALID_MATCH_ID || !Database_MatchExists(matchid))
 	{

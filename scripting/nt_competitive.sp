@@ -276,7 +276,7 @@ public OnMapStart()
 	SetGameState(GAMESTATE_WARMUP);
 	// Make sure all global variables are reset properly
 	ResetGlobalVariables();
-
+	g_bNominationsAndRtvEnabled = true;
 /*
 #if defined PLUGIN_COMP
 	if (GetConVarBool(g_hPugEnabled))

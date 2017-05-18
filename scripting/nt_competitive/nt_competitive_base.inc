@@ -265,6 +265,26 @@ void ToggleLive(bool:isKvRestore = false)
 					MATCHMAKE_LIVE, matchid);
 			}
 			g_bPugAlreadyPlaying = true;
+
+			if (g_bNominationsAndRtvEnabled)
+			{
+				DisableNominateAndRtv();
+				g_bNominationsAndRtvEnabled = false;
+			}
+
+			decl String:steamid[MAX_STEAMID_LENGTH];
+			for (int i = 1; i <= MaxClients; i++)
+			{
+				if (!IsValidClient(i) || IsFakeClient(i) || !IsClientAuthorized(i))
+					continue;
+
+				GetClientAuthId(i, AuthId_Steam2, steamid, sizeof(steamid));
+				if (!Pugger_DoesPlayInMatch(matchid, steamid))
+					continue;
+
+				Threaded_Database_SetPuggerState(
+					steamid, PUGGER_STATE_LIVE, T_CONTEXT_MATCH_GONE_LIVE);
+			}
 		}
 
 		SetGameState(GAMESTATE_NORMAL);
@@ -405,14 +425,34 @@ void ToggleLive(bool:isKvRestore = false)
 
 		SetGameState(GAMESTATE_WARMUP);
 
-		if (GetConVarBool(g_hPugEnabled) && GetMatchStatus() == MATCHMAKE_FINISHED)
+		decl String:ipAddress[MAX_IP_LENGTH];
+		int port;
+		GetServerConnectionDetails(ipAddress, port);
+
+		if (GetConVarBool(g_hPugEnabled))
 		{
+			if (GetMatchStatus() != MATCHMAKE_FINISHED)
+			{
+				LogError("ToggleLive: Abnormal matchmake end state.");
+				SetMatchStatus(MATCHMAKE_FINISHED);
+				PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+			}
 			g_bPugAlreadyPlaying = false;
 			PrintToChatAll("%s PUG match has finished.", g_sTag);
 
 			int matchid = PugServer_GetMatchID_This();
+			if (matchid == MATCHMAKE_ERROR)
+			{
+				LogError("ToggleLive: Failed to retrieve match id.");
+			}
 			Puggers_UpdateStateByMatchID(matchid, PUGGER_STATE_INACTIVE);
 			KickPuggers();
+
+			if (!g_bNominationsAndRtvEnabled)
+			{
+				EnableNominateAndRtv();
+				g_bNominationsAndRtvEnabled = true;
+			}
 		}
 	}
 	// NOTE: This shouldn't be called before modifying the g_isLive boolean

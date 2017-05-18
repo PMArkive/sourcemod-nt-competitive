@@ -888,11 +888,16 @@ Match has been cancelled.", g_sTag);
 			g_hTimer_Pug_WaitingForPlayers = null;
 		}
 
+		decl String:ipAddress[MAX_IP_LENGTH];
+		int port;
+		GetServerConnectionDetails(ipAddress, port);
+
 		g_hTimer_Pug_WaitingForPlayers = CreateTimer(TIMER_WAITINGFORPLAYERS,
 			Timer_Pug_WaitingForPlayers, matchid);
 		g_iWaitingForPlayersTimeRemaining = RoundToNearest(TIMER_WAITINGFORPLAYERS);
 
 		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_AnnounceWaitingForPlayers, _, TIMER_REPEAT);
+		PugServer_Set_Status(PUG_SERVER_STATUS_AWAITING_PLAYERS, ipAddress, port);
 
 		return Plugin_Stop;
 	}
@@ -914,11 +919,43 @@ public Action Timer_AnnounceWaitingForPlayers(Handle timer)
 		g_iWaitingForPlayersTimeRemaining -= RoundToNearest(MATCHMAKE_LOOKUP_TIMER);
 		if (g_iWaitingForPlayersTimeRemaining < 0)
 			g_iWaitingForPlayersTimeRemaining = 0;
+
+		if (g_iWaitingForPlayersTimeRemaining <= TIMER_WAITINGFORPLAYERS / 2)
+		{
+			if (g_bNominationsAndRtvEnabled)
+			{
+				DisableNominateAndRtv();
+				g_bNominationsAndRtvEnabled = false;
+			}
+		}
+		else
+		{
+			if (g_bNominationsAndRtvEnabled)
+			{
+				PrintToChatAll("Nominate and RTV are available for %i more seconds",
+					RoundToNearest(
+						g_iWaitingForPlayersTimeRemaining - TIMER_WAITINGFORPLAYERS / 2
+					)
+				);
+			}
+		}
 	}
 
 	PrintToChatAll("%s Waiting for players... (%i seconds remaining)",
 		g_sTag, g_iWaitingForPlayersTimeRemaining);
 	return Plugin_Continue;
+}
+
+void DisableNominateAndRtv()
+{
+	ServerCommand("sm plugins unload nominations");
+	ServerCommand("sm plugins unload rockthevote");
+}
+
+void EnableNominateAndRtv()
+{
+	ServerCommand("sm plugins load nominations");
+	ServerCommand("sm plugins load rockthevote");
 }
 
 public Action Timer_Pug_WaitingForPlayers(Handle timer, any matchid)

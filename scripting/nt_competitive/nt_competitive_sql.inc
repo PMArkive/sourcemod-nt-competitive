@@ -3393,22 +3393,25 @@ public void SQLTxnSuccess_Leaver(
 		QUERY_SELECT = 0,
 		QUERY_MATCHES,
 		QUERY_ENUM_COUNT
-	}
+	};
 
+	char steamid[MAX_STEAMID_LENGTH];
 	for (int i = 0; i < QUERY_ENUM_COUNT; i++)
 	{
 		if (!results[i].HasResults)
 			ThrowError("No results");
 
-		char steamid[MAX_STEAMID_LENGTH];
 		if (i == QUERY_SELECT)
 		{
 			// This client has not left an active match. Stop here.
-			if (!results[i].MoreRows)
+			if (results[i].RowCount == 0)
 				return;
 
 			while (results[i].FetchRow())
 			{
+				if (results[i].MoreRows)
+					ThrowError("SQLTxnSuccess_Leaver: Found multiple rows, expected one.");
+
 				results[i].FetchString(SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
 			}
 		}

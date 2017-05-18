@@ -887,9 +887,12 @@ Match has been cancelled.", g_sTag);
 			KillTimer(g_hTimer_Pug_WaitingForPlayers);
 			g_hTimer_Pug_WaitingForPlayers = null;
 		}
+
 		g_hTimer_Pug_WaitingForPlayers = CreateTimer(TIMER_WAITINGFORPLAYERS,
 			Timer_Pug_WaitingForPlayers, matchid);
-		CreateTimer(10.0, Timer_AnnounceWaitingForPlayers, _, TIMER_REPEAT);
+		g_iWaitingForPlayersTimeRemaining = RoundToNearest(TIMER_WAITINGFORPLAYERS);
+
+		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_AnnounceWaitingForPlayers, _, TIMER_REPEAT);
 
 		return Plugin_Stop;
 	}
@@ -906,7 +909,15 @@ public Action Timer_AnnounceWaitingForPlayers(Handle timer)
 	if (g_hTimer_Pug_WaitingForPlayers == null)
 		return Plugin_Stop;
 
-	PrintToChatAll("%s Waiting for players", g_sTag);
+	if (g_iWaitingForPlayersTimeRemaining > 0)
+	{
+		g_iWaitingForPlayersTimeRemaining -= RoundToNearest(MATCHMAKE_LOOKUP_TIMER);
+		if (g_iWaitingForPlayersTimeRemaining < 0)
+			g_iWaitingForPlayersTimeRemaining = 0;
+	}
+
+	PrintToChatAll("%s Waiting for players... (%i seconds remaining)",
+		g_sTag, g_iWaitingForPlayersTimeRemaining);
 	return Plugin_Continue;
 }
 
@@ -937,12 +948,12 @@ Match %i went live before this timer was destroyed. This should never happen.",
 
 	int desiredPlayers = Match_GetDesiredPlayers(matchid);
 	int presentPlayers;
+	decl String:steamid[MAX_STEAMID_LENGTH];
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!IsValidClient(i) || IsFakeClient(i) || !IsClientAuthorized(i))
 			continue;
 
-		decl String:steamid[MAX_STEAMID_LENGTH];
 		GetClientAuthId(i, AuthId_Steam2, steamid, sizeof(steamid));
 		if (Pugger_DoesPlayInMatch(matchid, steamid))
 			presentPlayers++;
@@ -951,8 +962,12 @@ Match %i went live before this timer was destroyed. This should never happen.",
 	// This should never happen
 	if (presentPlayers > desiredPlayers)
 	{
-		ThrowError("More match assigned players present (%i) than desired (%i)",
+		PrintToChatAll("%s Error: More match assigned players present (%i) than desired (%i)",
+			g_sTag, presentPlayers, desiredPlayers);
+		LogError("Timer_Pug_WaitingForPlayers: \
+More match assigned players present (%i) than desired (%i)",
 			presentPlayers, desiredPlayers);
+		return Plugin_Stop;
 	}
 	// Everyone has joined, we can go live
 	else if (presentPlayers == desiredPlayers)
@@ -992,8 +1007,7 @@ void CreateInviteTimer()
 	g_iTimerLoops = 0;
 	PugServer_SetReserve_This(DB_PUG_INACTIVE);
 	g_hTimer_Pug_SendInvites =
-		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT
-	);
+		CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_Pug_SendInvites, _, TIMER_REPEAT);
 }
 void CreateAcceptTimer(int matchid)
 {

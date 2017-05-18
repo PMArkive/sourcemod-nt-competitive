@@ -11,6 +11,8 @@
 int g_iTimerLoops;
 int g_iLastEpoch_CheckPugs;
 
+g_iWaitingForPlayersTimeRemaining = 0;
+
 DataPack g_hPuggerData[MAXPLAYERS+1] = null;
 
 enum {

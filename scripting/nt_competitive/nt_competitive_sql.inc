@@ -3355,7 +3355,19 @@ void Threaded_Pugger_HandleLeaver(const char[] steamid)
 	char safe_ipAddress[MAX_IP_LENGTH*2+1];
 	g_hDB_Threaded.Escape(ipAddress, safe_ipAddress, sizeof(safe_ipAddress));
 
+	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	Transaction txnLeaver = new Transaction();
+
 	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s' AND NOT %s = %i",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid,
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE], PUGGER_STATE_INACTIVE
+	);
+	txnLeaver.AddQuery(sql);
+
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s' AND %s = %i \
 ORDER BY %s DESC",
 		g_sqlTable[TABLES_MATCHES],
@@ -3363,11 +3375,61 @@ ORDER BY %s DESC",
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_PORT], port,
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
+	txnLeaver.AddQuery(sql);
 
+	g_hDB_Threaded.Execute(txnLeaver, SQLTxnSuccess_Leaver);
+	/*
 	DataPack leaver = new DataPack();
 	leaver.WriteString(steamid);
 
 	g_hDB_Threaded.Query(SQLCallback_Pugger_HandleLeaver, sql, leaver);
+	*/
+}
+
+public void SQLTxnSuccess_Leaver(
+	Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
+{
+	enum {
+		QUERY_SELECT = 0,
+		QUERY_MATCHES,
+		QUERY_ENUM_COUNT
+	}
+
+	for (int i = 0; i < QUERY_ENUM_COUNT; i++)
+	{
+		if (!results[i].HasResults)
+			ThrowError("No results");
+
+		char steamid[MAX_STEAMID_LENGTH];
+		if (i == QUERY_SELECT)
+		{
+			// This client has not left an active match. Stop here.
+			if (!results[i].MoreRows)
+				return;
+
+			while (results[i].FetchRow())
+			{
+				results[i].FetchString(SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
+			}
+		}
+		// This client has left an active match. "Commit" the MIA state to database.
+		else if (i == QUERY_MATCHES)
+		{
+			int matchid;
+			while (results[i].FetchRow())
+			{
+				matchid = results[i].FetchInt(SQL_TABLE_MATCHES_ID);
+				break;
+			}
+
+			if (matchid == MATCHMAKE_ERROR)
+			{
+				ThrowError("MatchID error");
+			}
+
+			Threaded_Pugger_CommitLeave(matchid, steamid);
+		}
+	}
 }
 
 public void SQLCallback_Pugger_HandleLeaver(Database db, DBResultSet results, const char[] error, DataPack leaver)

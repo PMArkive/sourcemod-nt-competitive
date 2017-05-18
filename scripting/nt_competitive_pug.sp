@@ -100,6 +100,7 @@ public Action Timer_CheckPugs(Handle timer)
 		// Only check for db messages once per minute
 		if (time > g_iLastEpoch_CheckPugs + 60)
 		{
+			Threaded_Pugger_AdvertiseQueueState_If_Queued(GetClientUserId(i));
 			Threaded_Pugger_DisplayDbMessage(i);
 			g_iLastEpoch_CheckPugs = time;
 		}

@@ -2758,6 +2758,107 @@ int Pugger_SetState(const char[] steamid, int state)
 	delete stmt;
 }
 
+#if defined PLUGIN_COMP
+void Threaded_Pugger_UpdateStatus(const char[] steamid)
+{
+	char safe_steamid[2*MAX_STEAMID_LENGTH+1];
+	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
+
+	decl String:sql[MAX_SQL_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s'",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID], safe_steamid
+	);
+
+	DataPack steamidPack = new DataPack();
+	steamidPack.WriteString(steamid);
+
+	g_hDB_Threaded.Query(SQLCallback_Pugger_UpdateStatus, sql, steamidPack);
+
+	/* TODO:
+					+ When player joins the PUG server, check their status,
+					and update accordingly. Eg. a MIA player returning should
+					recover their normal status (READY/LIVE).
+		TODO 2:
+					- READY state should be assigned similarly when joining.
+					Not like it is now, and it gets assigned as you accept.
+		TODO 3:
+					+ This same threaded call could be used to kick non-players
+					and abandoned people (excluding admins).
+	*/
+}
+
+public void SQLCallback_Pugger_UpdateStatus(
+	Database db, DBResultSet results, const char[] error, DataPack steamidPack)
+{
+	if (!GetConVarBool(g_hPugEnabled))
+		return;
+
+	if (!results.HasResults)
+		ThrowError("No results");
+
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	steamidPack.Reset();
+	steamidPack.ReadString(steamid, sizeof(steamid));
+	delete steamidPack;
+	int client = GetClientOfAuthId(steamid);
+	if (!IsValidClient(client))
+		return;
+
+	// Player is not in pug db.
+	if (results.RowCount == 0)
+	{
+		KickClient(client, "This match is private");
+		return;
+	}
+
+	while (results.FetchRow())
+	{
+		if (results.MoreRows)
+			ThrowError("Found multiple rows, expected 1 or 0");
+
+		int puggerMatch = results.FetchInt(SQL_TABLE_PUGGER_MATCH_ID);
+		// TODO: Transaction
+		int matchid = PugServer_GetMatchID_This();
+		if (puggerMatch != matchid)
+		{
+			KickClient(client, "You are not marked as a player in this match");
+			return;
+		}
+
+		int status = results.FetchInt(SQL_TABLE_PUGGER_STATE);
+		if (
+			status == PUGGER_STATE_INACTIVE ||
+			status == PUGGER_STATE_QUEUING ||
+			status == PUGGER_STATE_CONFIRMING ||
+			status == PUGGER_STATE_ACCEPTED)
+		{
+			KickClient(client, "You have no active match on this server");
+		}
+		else if (status == PUGGER_STATE_ABANDONED)
+		{
+			KickClient(client, "You have abandoned this match");
+		}
+		else if (
+			status == PUGGER_STATE_READY ||
+			status == PUGGER_STATE_MIA)
+		{
+			Threaded_Database_SetPuggerState(
+				steamid, PUGGER_STATE_LIVE, T_CONTEXT_PLAYER_HAS_JOINED_SERVER);
+		}
+		else if (status == PUGGER_STATE_LIVE)
+		{
+			// Do nothing; allow player join.
+		}
+		else
+		{
+			KickClient(client, "Error: Unknown player status");
+			ThrowError("Unexpected player status %i for client %i (%s)",
+				status, client, steamid);
+		}
+	}
+}
+#endif
 
 void Threaded_Pugger_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LENGTH] = "", int connectPort = 0)
 {

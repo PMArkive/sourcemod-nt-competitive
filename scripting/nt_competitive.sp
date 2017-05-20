@@ -294,8 +294,13 @@ public OnConfigsExecuted()
 
 // TODO: Separate PUG db mode and local variable mode completely
 // Probably means adding assigned team to db entry etc.
-public OnClientAuthorized(client, const String:authID[])
+public OnClientAuthorized(client, const char[] authID)
 {
+	if (GetConVarBool(g_hPugEnabled) && !IsFakeClient(client))
+	{
+		Threaded_Pugger_UpdateStatus(authID);
+	}
+
 	if (!g_isLive)
 		return;
 

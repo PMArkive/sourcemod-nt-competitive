@@ -153,8 +153,6 @@ public OnPluginStart()
 	HookConVarChange(g_hPugEnabled,							Event_PugEnabled);
 #endif
 
-	//RegConsoleCmd("sm_testmatch", Command_TestMatch);
-
 	// Hook fade to black (on death)
 	HookUserMessage(GetUserMessageId("Fade"), Hook_Fade, true);
 
@@ -196,15 +194,6 @@ public OnPluginStart()
 	CreateInviteTimer();
 #endif
 }
-
-/*
-public Action Command_TestMatch(int client, int args)
-{
-	PugServer_CreateMatch(1);
-	ReplyToCommand(client, "BAM");
-	return Plugin_Handled;
-}
-*/
 
 public OnPluginEnd()
 {
@@ -265,12 +254,6 @@ public OnMapStart()
 	// Make sure all global variables are reset properly
 	ResetGlobalVariables();
 	g_bNominationsAndRtvEnabled = true;
-/*
-#if defined PLUGIN_COMP
-	if (GetConVarBool(g_hPugEnabled))
-		g_iDesiredPlayers_Cached = Database_GetDesiredPlayerCount();
-#endif
-*/
 }
 
 public OnConfigsExecuted()

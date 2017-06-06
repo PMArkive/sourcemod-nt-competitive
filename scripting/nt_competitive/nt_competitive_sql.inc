@@ -323,7 +323,7 @@ public void SQLCallback_Database_SetPuggerState_Select(Database db, DBResultSet 
 	// Pugger not yet in database, insert
 	else if (rowCount == 0)
 	{
-		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s), VALUES ('%s', %i, NOW())",
+		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES ('%s', %i, NOW())",
 			g_sqlTable[TABLES_PUGGERS],
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID],
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
@@ -1944,6 +1944,7 @@ public void SQLCallback_Pugger_JoinQueue(Database db, DBResultSet results, const
 	{
 		case PUGGER_STATE_INACTIVE:
 		{
+			PrintToChat(client, "%s Joining PUG queue...", g_sTag);
 			PrintToServer("SQLCallback_Pugger_JoinQueue 2");
 			Database_AddPugger(userid);
 		}

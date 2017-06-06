@@ -195,23 +195,6 @@ void PrintMatchInformation(int client)
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
 
 	Threaded_Pugger_PrintMatchInformation(steamid);
-	/*
-	int matchid;
-	char connectPassword[MAX_CVAR_LENGTH];
-	char connectIP[MAX_IP_LENGTH];
-	int connectPort;
-	if (!Pugger_GetLastMatchDetails(
-		steamid, matchid, connectIP, connectPort, connectPassword))
-	{
-		ThrowError("Failed fetching match info for %s", steamid);
-	}
-
-	PrintToConsole(client, "\n- - - - - - - - - -");
-	PrintToConsole(client, "%s You have a new match!", g_sTag);
-	PrintToConsole(client, "Server IP: %s:%i (password: %s)",
-		connectIP, connectPort, connectPassword);
-	PrintToConsole(client, "- - - - - - - - - -\n");
-	*/
 }
 
 public Action Command_Pug(int client, int args)

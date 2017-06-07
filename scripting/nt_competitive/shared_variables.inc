@@ -7,7 +7,7 @@
 // need to be shared and which don't.
 
 #define TIMER_WAITINGFORPLAYERS 120.0
-#define MATCHMAKE_LOOKUP_TIMER 10.0
+#define MATCHMAKE_LOOKUP_TIMER 30.0
 int g_iTimerLoops;
 int g_iLastEpoch_CheckPugs;
 

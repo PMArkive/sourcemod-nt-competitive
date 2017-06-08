@@ -353,12 +353,12 @@ public void SQLCallback_Database_SetPuggerState_Update(Database db, DBResultSet 
 
 	if (!IsValidClient(client))
 	{
-		PrintToChatAll("Invalid client");
+		PrintToServer("Invalid client %i!", client);
 		return;
 	}
 
 	PrintToServer("SQLCallback_Database_SetPuggerState_Update 2");
-	PrintToChatAll("Checking context...");
+	PrintToServer("Checking context...");
 	switch (context)
 	{
 		case T_CONTEXT_JOIN_QUEUE:
@@ -369,7 +369,7 @@ public void SQLCallback_Database_SetPuggerState_Update(Database db, DBResultSet 
 		case T_CONTEXT_PLAYER_HAS_LEFT_SERVER:
 		{
 			if (state == PUGGER_STATE_MIA)
-				PrintToChatAll("%s Player %s has disconnected", g_sTag, steamid);
+				PrintToServer("%s Player %s has disconnected", g_sTag, steamid);
 		}
 		case T_CONTEXT_LEAVE_QUEUE:
 		{

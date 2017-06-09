@@ -459,7 +459,17 @@ void Threaded_Pugger_AdvertiseQueueState(int userid)
 	txnQueueState.AddQuery(sql);
 
 	SQL_ExecuteTransaction(
-		g_hDB_Threaded, txnQueueState, SQLTxnSuccess_AdvertiseQueueState, _, userid);
+		g_hDB_Threaded, txnQueueState,
+		SQLTxnSuccess_AdvertiseQueueState,
+		SQLTxnFailure_AdvertiseQueueState,
+		userid
+	);
+}
+
+public void SQLTxnFailure_AdvertiseQueueState(
+	Database db, any userid, int numQueries, const char[] error, int failIndex, any[] queryData)
+{
+	ThrowError("SQL transaction failed (fail index %i): %s", failIndex, error);
 }
 
 public void SQLTxnSuccess_AdvertiseQueueState(

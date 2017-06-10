@@ -89,6 +89,14 @@ public void OnClientDisconnect(int client)
 public Action Timer_CheckPugs(Handle timer)
 {
 	int time = GetTime();
+	bool showExtraInfo = false;
+	// Only check for db messages once per minute
+	if (time > g_iLastEpoch_CheckPugs + 60)
+	{
+		showExtraInfo = true;
+		g_iLastEpoch_CheckPugs = time;
+	}
+
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!IsValidClient(i) || IsFakeClient(i) ||
@@ -97,12 +105,10 @@ public Action Timer_CheckPugs(Handle timer)
 			continue;
 		}
 
-		// Only check for db messages once per minute
-		if (time > g_iLastEpoch_CheckPugs + 60)
+		if (showExtraInfo)
 		{
 			Threaded_Pugger_AdvertiseQueueState_If_Queued(GetClientUserId(i));
 			Threaded_Pugger_DisplayDbMessage(i);
-			g_iLastEpoch_CheckPugs = time;
 		}
 		Threaded_Pugger_CheckQueuingStatus(i);
 	}

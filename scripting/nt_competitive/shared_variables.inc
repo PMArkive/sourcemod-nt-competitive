@@ -43,6 +43,7 @@ enum {
 #define MAX_MATCH_TITLE_LENGTH 32
 #define MAX_ROUNDS_PLAYED 255 // This is just a random large number used for 1d int arrays because it's cheap and simple. A single comp game should never have more rounds than this to avoid weirdness.
 #define MAX_SNOWFLAKE_LENGTH 64
+#define MAX_DISCORD_SECRET_LENGTH 10
 
 #if defined PLUGIN_COMP
 #define KV_IDENTIFIER "compdata"
@@ -373,6 +374,14 @@ enum {
 };
 
 enum {
+  SQL_TABLE_DISCORD_AUTH_ID,
+  SQL_TABLE_DISCORD_AUTH_TIMESTAMP,
+  SQL_TABLE_DISCORD_AUTH_STEAMID,
+  SQL_TABLE_DISCORD_AUTH_SECRET,
+  SQL_TABLE_DISCORD_AUTH_ENUM_COUNT
+};
+
+enum {
   SQL_TABLE_MATCH_HISTORY_ID = 0,
   SQL_TABLE_MATCH_HISTORY_TIMESTAMP,
   SQL_TABLE_MATCH_HISTORY_STEAMID,
@@ -423,6 +432,7 @@ enum {
 	TABLES_PUGGERS,
   TABLES_MATCHES,
   TABLES_MATCH_HISTORY,
+  TABLES_DISCORD_AUTHENTICATION,
 	TABLES_ENUM_COUNT
 };
 
@@ -432,7 +442,8 @@ new const String:g_sqlTable[TABLES_ENUM_COUNT][] = {
 	"pickup_servers",
 	"puggers",
   "matches",
-  "match_history"
+  "match_history",
+  "discord_auth",
 };
 
 new const String:g_sqlRow_Rules[SQL_TABLE_RULES_ENUM_COUNT][] = {
@@ -501,6 +512,13 @@ new const String:g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_ENUM_COUNT][] = {
   "timestamp",
   "steamid",
   "match_id"
+};
+
+new const String:g_sqlRow_DiscordAuth[SQL_TABLE_DISCORD_AUTH_ENUM_COUNT][] = {
+  "id",
+  "timestamp",
+  "steamid",
+  "temp_secret"
 };
 
 int g_iLastSeenQueueState[MAXPLAYERS+1] = PUGGER_STATE_INACTIVE;

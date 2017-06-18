@@ -2605,6 +2605,27 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 			ThrowError(error);
 		ThrowError("SQL query failed, but could not fetch error.");
 	}
+
+	arrayIndex = SQL_TABLE_DISCORD_AUTH_ENUM_COUNT-1;
+	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
+%s INT NOT NULL AUTO_INCREMENT, \
+%s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
+%s VARCHAR(%i) NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
+PRIMARY KEY (%s)) CHARACTER SET=utf8",
+		g_sqlTable[TABLES_DISCORD_AUTHENTICATION],
+		g_sqlRow_DiscordAuth[arrayIndex--],
+		g_sqlRow_DiscordAuth[arrayIndex--],
+		g_sqlRow_DiscordAuth[arrayIndex--], MAX_STEAMID_LENGTH,
+		g_sqlRow_DiscordAuth[arrayIndex--], MAX_DISCORD_SECRET_LENGTH,
+		g_sqlRow_DiscordAuth[SQL_TABLE_DISCORD_AUTH_ID]
+	);
+	if (!SQL_FastQuery(g_hDB, sql))
+	{
+		if (SQL_GetError(g_hDB, error, sizeof(error)))
+			ThrowError(error);
+		ThrowError("SQL query failed, but could not fetch error.");
+	}
 }
 #endif
 

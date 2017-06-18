@@ -2444,6 +2444,7 @@ SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
 %s INT NOT NULL AUTO_INCREMENT, \
 %s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
 %s VARCHAR(%i) NOT NULL, \
+%s VARCHAR(%i), \
 %s INT NOT NULL, \
 %s VARCHAR(45) NOT NULL, \
 %s INT NOT NULL, \
@@ -2461,6 +2462,7 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[arrayIndex--], MAX_STEAMID_LENGTH,
+		g_sqlRow_Puggers[arrayIndex--], MAX_SNOWFLAKE_LENGTH,
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[arrayIndex--],

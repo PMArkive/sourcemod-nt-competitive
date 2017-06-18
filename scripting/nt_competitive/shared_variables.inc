@@ -42,6 +42,7 @@ enum {
 #define QUEUE_CHECK_TIMER 30
 #define MAX_MATCH_TITLE_LENGTH 32
 #define MAX_ROUNDS_PLAYED 255 // This is just a random large number used for 1d int arrays because it's cheap and simple. A single comp game should never have more rounds than this to avoid weirdness.
+#define MAX_SNOWFLAKE_LENGTH 64
 
 #if defined PLUGIN_COMP
 #define KV_IDENTIFIER "compdata"

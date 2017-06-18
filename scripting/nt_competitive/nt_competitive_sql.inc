@@ -1018,7 +1018,7 @@ bool Database_MatchExists(const int match_id)
 	}
 	else if (rows > 1)
 	{
-		LogError("Database_MatchExists: %i matches matched match_id %i, \
+		LogError("Database_MatchExists: %i rows found with match_id %i, \
 expected 0 or 1.", rows, match_id);
 	}
 	return true;

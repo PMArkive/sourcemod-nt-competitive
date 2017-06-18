@@ -309,6 +309,7 @@ enum {
 	SQL_TABLE_PUGGER_ID = 0,									// Auto incremented database id
 	SQL_TABLE_PUGGER_TIMESTAMP,				  			// Timestamp of last update
 	SQL_TABLE_PUGGER_STEAMID,						  		// Player SteamID in AuthId_Steam2 format
+  SQL_TABLE_PUGGER_DISCORD_SNOWFLAKE,       // Client's unique Discord ID, in the form of a Twitter Snowflake
 	SQL_TABLE_PUGGER_STATE,							   		// Current state of pugger, eg. queuing, confirming, playing a match
 	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,		// If playing, which server IP is player currently invited to play on
 	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT,	// If playing, which server port is player currently invited to play on
@@ -449,6 +450,7 @@ new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
 	"id",
 	"timestamp",
 	"steamid",
+  "discord_snowflake",
 	"state",
 	"server_connect_ip",
 	"server_connect_port",

@@ -2612,12 +2612,14 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 %s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
 %s VARCHAR(%i) NOT NULL, \
 %s VARCHAR(%i) NOT NULL, \
+%s VARCHAR(%i) NOT NULL, \
 PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlTable[TABLES_DISCORD_AUTHENTICATION],
 		g_sqlRow_DiscordAuth[arrayIndex--],
 		g_sqlRow_DiscordAuth[arrayIndex--],
 		g_sqlRow_DiscordAuth[arrayIndex--], MAX_STEAMID_LENGTH,
 		g_sqlRow_DiscordAuth[arrayIndex--], MAX_DISCORD_SECRET_LENGTH,
+		g_sqlRow_DiscordAuth[arrayIndex--], MAX_SNOWFLAKE_LENGTH,
 		g_sqlRow_DiscordAuth[SQL_TABLE_DISCORD_AUTH_ID]
 	);
 	if (!SQL_FastQuery(g_hDB, sql))

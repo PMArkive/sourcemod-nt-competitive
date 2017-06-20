@@ -374,10 +374,11 @@ enum {
 };
 
 enum {
-  SQL_TABLE_DISCORD_AUTH_ID,
+  SQL_TABLE_DISCORD_AUTH_ID = 0,
   SQL_TABLE_DISCORD_AUTH_TIMESTAMP,
   SQL_TABLE_DISCORD_AUTH_STEAMID,
   SQL_TABLE_DISCORD_AUTH_SECRET,
+  SQL_TABLE_DISCORD_AUTH_SNOWFLAKE,
   SQL_TABLE_DISCORD_AUTH_ENUM_COUNT
 };
 
@@ -518,7 +519,8 @@ new const String:g_sqlRow_DiscordAuth[SQL_TABLE_DISCORD_AUTH_ENUM_COUNT][] = {
   "id",
   "timestamp",
   "steamid",
-  "temp_secret"
+  "secret",
+  "snowflake"
 };
 
 int g_iLastSeenQueueState[MAXPLAYERS+1] = PUGGER_STATE_INACTIVE;

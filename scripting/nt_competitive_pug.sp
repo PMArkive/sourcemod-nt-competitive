@@ -12,7 +12,6 @@
 #define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
 debug the SQL as it disables some safety checks */
 
-new bool:g_bIsDatabaseDown;
 new bool:g_bIsQueueActive;
 
 new const String:g_sTag[] = "[PUG]";

@@ -2357,12 +2357,6 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 #if DEBUG_SQL
 // Create all the necessary tables in the database
 // TODO: Always log this command to a logfile
-public Action:Command_CreateTables(client, args)
-{
-	Database_CreateTables(client);
-	return Plugin_Handled;
-}
-
 void Database_CreateTables(int client = 0)
 {
 	new rows;
@@ -2445,6 +2439,7 @@ SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
 %s TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, \
 %s VARCHAR(%i) NOT NULL, \
 %s VARCHAR(%i), \
+%s VARCHAR(%i), \
 %s INT NOT NULL, \
 %s VARCHAR(45) NOT NULL, \
 %s INT NOT NULL, \
@@ -2463,6 +2458,7 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[arrayIndex--], MAX_STEAMID_LENGTH,
 		g_sqlRow_Puggers[arrayIndex--], MAX_SNOWFLAKE_LENGTH,
+		g_sqlRow_Puggers[arrayIndex--], MAX_DISCORD_SECRET_LENGTH,
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[arrayIndex--],

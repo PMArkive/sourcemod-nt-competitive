@@ -6,6 +6,8 @@
 // TODO: Split this in plugin specific files when it's clear which parts
 // need to be shared and which don't.
 
+new bool:g_bIsDatabaseDown;
+
 #define TIMER_WAITINGFORPLAYERS 120.0
 #define MATCHMAKE_LOOKUP_TIMER 30.0
 int g_iTimerLoops;
@@ -312,6 +314,7 @@ enum {
 	SQL_TABLE_PUGGER_TIMESTAMP,				  			// Timestamp of last update
 	SQL_TABLE_PUGGER_STEAMID,						  		// Player SteamID in AuthId_Steam2 format
   SQL_TABLE_PUGGER_DISCORD_SNOWFLAKE,       // Client's unique Discord ID, in the form of a Twitter Snowflake
+  SQL_TABLE_PUGGER_DISCORD_SECRET,          // A "secret" token, used as an intermediate to link the snowflake to a SteamID
 	SQL_TABLE_PUGGER_STATE,							   		// Current state of pugger, eg. queuing, confirming, playing a match
 	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,		// If playing, which server IP is player currently invited to play on
 	SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT,	// If playing, which server port is player currently invited to play on
@@ -464,6 +467,7 @@ new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
 	"timestamp",
 	"steamid",
   "discord_snowflake",
+  "discord_secret",
 	"state",
 	"server_connect_ip",
 	"server_connect_port",

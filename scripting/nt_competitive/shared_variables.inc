@@ -208,10 +208,6 @@ new Handle:g_hCenteredDisplayRemaining;
 new Handle:g_hCenteredDisplayTarget;
 new Handle:g_hCompForceCamera;
 
-#if defined PLUGIN_COMP
-new Handle:g_hPugEnabled;
-#endif
-
 new Handle:g_hPassword;
 new Handle:g_hCvar_UnloadScoreLimit;
 #endif

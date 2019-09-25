@@ -25,6 +25,10 @@ debug the SQL as it disables some safety checks */
 
 new const String:g_sTag[] = "[COMP]";
 
+#if defined PLUGIN_COMP
+new Handle:g_hPugEnabled;
+#endif
+
 #include <sourcemod>
 #include <sdktools>
 #include <neotokyo>

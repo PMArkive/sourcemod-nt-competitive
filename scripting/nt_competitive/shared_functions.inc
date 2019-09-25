@@ -71,7 +71,7 @@ bool IsLocalhostString(const char[] ipAddress)
 {
 	if (StrEqual(ipAddress, "localhost") ||
 			StrEqual(ipAddress, "127.0.0.1") ||
-			StrContains(ipAddress, "192.168.") == 0)
+			strcmp(ipAddress, "192.168.") == 1)
 	{
 		return true;
 	}

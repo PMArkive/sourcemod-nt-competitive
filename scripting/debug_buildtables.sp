@@ -170,8 +170,19 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
-			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		{
+			new const String:helper[] = "(If this error is about a timestamp, \
+you probably need to disable NO_ZERO_DATE from your SQL setup.) Error msg was: ";
+			decl String:errorBuffer[sizeof(error) + sizeof(helper) + 1];
+			StrCat(errorBuffer, sizeof(errorBuffer), helper);
+			StrCat(errorBuffer, sizeof(errorBuffer), error);
+		
+			ThrowError(errorBuffer);
+		}
+		else
+		{
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
 
 	// Build organizers table

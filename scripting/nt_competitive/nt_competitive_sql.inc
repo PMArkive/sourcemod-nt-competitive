@@ -2217,6 +2217,8 @@ Please wait while the invitation processes.", g_sTag);
 			// TODO: option to late decline/abandon the match here
 			PrintToChat(client, "%s You have already been assigned to a match, \
 please use !join to enter the PUG server.", g_sTag);
+			PrintToChat(client, "If you can't play the match, the server will \
+automatically try and find another player in your place.");
 		}
 		case PUGGER_STATE_LIVE:
 		{

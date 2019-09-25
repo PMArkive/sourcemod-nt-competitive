@@ -488,8 +488,14 @@ finished, or join spectator for any admin tasks.", g_sTag);
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
 	GetServerConnectionDetails(ipAddress, port);
+	
+#if DEBUG
+	PrintToServer("Attempting to clear server state with IP:port of: %s:%i", ipAddress, port);
+#endif
+	
 	// Mark this PUG server as available again
 	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
+	
 	CreateInviteTimer();
 }
 

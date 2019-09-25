@@ -45,7 +45,7 @@ bool GetServerConnectionDetails(char[] sIPAddress, int &iPort)
 
 // Check for localhost addresses. These can occur with routers etc.
 // SQL debug flag will skip this for easier local testing.
-#if !defined DEBUG_SQL || DEBUG_SQL == 0
+#if !defined DEBUG_SQL || !DEBUG_SQL
 	if (IsLocalhostString(ipBuffer))
 	{
 	#if defined PLUGIN_PUG
@@ -69,9 +69,9 @@ of the plugin source code to manually circumvent this problem.",
 #if defined PLUGIN_PUG
 bool IsLocalhostString(const char[] ipAddress)
 {
-	if (StrEqual(ipAddress, "localhost") ||
-			StrEqual(ipAddress, "127.0.0.1") ||
-			strcmp(ipAddress, "192.168.") == 1)
+	if ((StrEqual(ipAddress, "localhost")) ||
+			(StrEqual(ipAddress, "127.0.0.1")) ||
+			(strcmp(ipAddress, "192.168.") == 1))
 	{
 		return true;
 	}

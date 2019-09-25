@@ -898,7 +898,7 @@ void Database_CleanAFKers()
 #endif
 
 #if defined PLUGIN_COMP
-bool PugServer_Update_This()
+bool PugServer_Update_This(bool isInitial = false)
 {
 	if (!g_hDB || g_bIsDatabaseDown)
 		return false;
@@ -946,12 +946,37 @@ bool PugServer_Update_This()
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
+	// If we just loaded or this server is marked unavailable in DB,
+	// try and reset to normal state.
+	if (isInitial || iStatus != PUG_SERVER_STATUS_AVAILABLE)
+	{
+		// Clean up our match IDs, if any
+		const int lookupDepth = 10;
+		int matchr[lookupDepth];
+		
+		int numGot = PugServer_GetMatchID_This(matchr);
+		PrintToServer("Got %i IDs", numGot);
+		for (int i = 0; i < numGot; i++)
+		{
+			if (matchr[i] == INVALID_MATCH_ID)
+			{
+				continue;
+			}
+			
+			Puggers_UpdateStateByMatchID(matchr[i], PUGGER_STATE_INACTIVE);
+		}
+		
+		// Finally, mark our server available for matches again, once we've cleaned up.
+		PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, sIP, iPort);
+	}
+
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ? AND %s = ?",
 		g_sqlTable[TABLES_PUG_SERVERS],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
 	SQL_LockDatabase(g_hDB);
+	
 	new Handle:stmt_RowCount = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_RowCount == INVALID_HANDLE)
 	{
@@ -3369,7 +3394,13 @@ public void SQLCallback_Pugger_UpdateStatus(
 
 		int puggerMatch = results.FetchInt(SQL_TABLE_PUGGER_MATCH_ID);
 		// TODO: Transaction
-		int matchid = PugServer_GetMatchID_This();
+		int matchr[1];
+		int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
+		if (matchid == INVALID_MATCH_ID)
+		{
+			return;
+		}
+		
 		if (puggerMatch != matchid)
 		{
 			KickClient(client, "You are not marked as a player in this match");
@@ -4321,7 +4352,9 @@ public void SQLCallback_Pugger_CommitLeave(Database db, DBResultSet results, con
 		steamid, PUGGER_STATE_MIA, T_CONTEXT_PLAYER_HAS_LEFT_SERVER);
 }
 
-int PugServer_GetMatchID_This()
+// We should usually just have 1 match, but this will return any number by reference.
+// Return value is the number of results.
+int PugServer_GetMatchID_This(int[] matchIDs, int maxResults = 1)
 {
 	if (!g_hDB)
 	{
@@ -4359,16 +4392,21 @@ ORDER BY %s DESC",
 	SQL_Execute(stmt);
 
 	int match_id = INVALID_MATCH_ID;
+	int i = 0;
 	if (SQL_HasResultSet(stmt))
 	{
 		while (SQL_FetchRow(stmt))
 		{
+			if (i >= maxResults)
+				break;
+			
 			match_id = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_ID);
-			break;
+			matchIDs[i++] = match_id;
 		}
 	}
 	
 	delete stmt;
 	SQL_UnlockDatabase(g_hDB);
-	return match_id;
+	
+	return i;
 }

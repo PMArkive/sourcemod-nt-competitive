@@ -252,18 +252,21 @@ void ToggleLive(bool:isKvRestore = false)
 			SetMatchStatus(MATCHMAKE_LIVE);
 			PugServer_Set_Status(PUG_SERVER_STATUS_LIVE, ipAddress, port);
 
-			int matchid = PugServer_GetMatchID_This();
+			int matchr[1];
+			int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
+
 			if (matchid == INVALID_MATCH_ID)
 			{
 				// TODO: this should probably be a match aborting state
 				ThrowError("Invalid match ID!");
 			}
-			if (!Database_SetMatchStatus(matchid, MATCHMAKE_LIVE))
+			else if (!Database_SetMatchStatus(matchid, MATCHMAKE_LIVE))
 			{
 				// TODO: this should probably be a match aborting state
 				ThrowError("Failed setting match status to %i for match ID %i",
 					MATCHMAKE_LIVE, matchid);
 			}
+			
 			g_bPugAlreadyPlaying = true;
 
 			if (g_bNominationsAndRtvEnabled)
@@ -440,12 +443,17 @@ void ToggleLive(bool:isKvRestore = false)
 			g_bPugAlreadyPlaying = false;
 			PrintToChatAll("%s PUG match has finished.", g_sTag);
 
-			int matchid = PugServer_GetMatchID_This();
-			if (matchid == MATCHMAKE_ERROR)
+			int matchr[1];
+			int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
+			if (matchid == INVALID_MATCH_ID)
 			{
 				LogError("ToggleLive: Failed to retrieve match id.");
 			}
-			Puggers_UpdateStateByMatchID(matchid, PUGGER_STATE_INACTIVE);
+			else
+			{
+				Puggers_UpdateStateByMatchID(matchid, PUGGER_STATE_INACTIVE);
+			}
+			
 			KickPuggers();
 
 			if (!g_bNominationsAndRtvEnabled)
@@ -2261,8 +2269,13 @@ void CheckMatchState()
 	{
 		if (GetConVarBool(g_hPugEnabled))
 		{
-			int matchid = PugServer_GetMatchID_This();
-			Database_SetMatchStatus(matchid, MATCHMAKE_FINISHED);
+			int matchr[1];
+			int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
+			
+			if (matchid != INVALID_MATCH_ID)
+			{
+				Database_SetMatchStatus(matchid, MATCHMAKE_FINISHED);
+			}
 		}
 		ToggleLive();
 		LogCompetitive("Competitive match ended.");
@@ -2318,7 +2331,9 @@ public Action Timer_AbandonTimer(Handle timer, DataPack steamidData)
 		PrintToChatAll("%s Marked player %s as abandoned.", g_sTag, steamid);
 		PrintToChatAll("%s Looking for a replacement player...", g_sTag);
 
-		int matchid = PugServer_GetMatchID_This();
+		int matchr[1];
+		int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
+		
 		if (matchid == INVALID_MATCH_ID || !Database_MatchExists(matchid))
 		{
 			ThrowError("Invalid match ID %i", matchid);
@@ -3129,7 +3144,7 @@ bool PugMode_Initialize()
 	GetServerConnectionDetails(ipAddress, port);
 	PugServer_Set_Status(PUG_SERVER_STATUS_AVAILABLE, ipAddress, port);
 
-	if (!PugServer_Update_This())
+	if (!PugServer_Update_This(true))
 	{
 		SetConVarBool(g_hPugEnabled, false);
 		decl String:error[] = "Failed going to PUG mode, check logs";
@@ -3155,7 +3170,8 @@ void PlayerStateChanged()
 		ThrowError("This should never get called when pug mode is disabled.");
 	}
 
-	int matchid = PugServer_GetMatchID_This();
+	int matchr[1];
+	int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
 	if (matchid == INVALID_MATCH_ID)
 		return;
 
@@ -3236,8 +3252,9 @@ void Players_ClearState()
 
 void Players_UpdateState()
 {
-	int matchid = PugServer_GetMatchID_This();
-	if (matchid == MATCHMAKE_ERROR)
+	int matchr[1];
+	int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
+	if (matchid == INVALID_MATCH_ID)
 		return;
 
 	int status = PugServer_Get_Status_This();

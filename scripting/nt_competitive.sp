@@ -185,10 +185,13 @@ public void OnPluginStart()
 	{
 		Database_Initialize();
 		if (!Database_DoTablesExist())
-			Database_CreateTables();
+		{
+			SetFailState("Using PUG mode, but SQL tables are not set for PUG.");
+		}
 
 		PugMode_Initialize();
 	}
+	
 	CreateInviteTimer();
 #endif
 }
@@ -368,7 +371,8 @@ public void OnClientPostAdminCheck(int client)
 		// Matchmake pug mode
 		if (GetConVarBool(g_hPugEnabled))
 		{
-			int matchid = PugServer_GetMatchID_This();
+			int matchr[1];
+			int matchid = (PugServer_GetMatchID_This(matchr) == 1) ? matchr[0] : INVALID_MATCH_ID;
 			if (matchid == INVALID_MATCH_ID)
 			{
 				AdminFilter(client);

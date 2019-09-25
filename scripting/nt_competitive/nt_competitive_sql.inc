@@ -259,10 +259,35 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 					return;
 				}
 				else if (state == PUGGER_STATE_LIVE)
-				{
-					PrintToChat(client, "%s You already have a match live!", g_sTag);
-					CloseHandle(stmt);
+				{	
+					int matchid = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_MATCH_ID);
+					
 					SQL_UnlockDatabase(g_hDB);
+					
+					if (!Database_MatchExists(matchid))
+					{
+						PrintToChat(client, "%s There was a problem with your match server! \
+Returning to PUG queue... (type !unpug to exit)", g_sTag);
+						Pugger_SetQueuingState(client, PUGGER_STATE_QUEUING);
+					}
+					else
+					{
+						int matchStatus = Database_GetMatchStatus(matchid);
+						if (matchStatus != MATCHMAKE_INVITING && matchStatus != MATCHMAKE_WARMUP &&
+							matchStatus != MATCHMAKE_LIVE && matchStatus != MATCHMAKE_PAUSED)
+						{
+							PrintToChat(client, "%s Your previous match has ended! \
+Returning to PUG queue... (type !unpug to exit)", g_sTag);
+							Pugger_SetQueuingState(client, PUGGER_STATE_QUEUING);
+						}
+						else
+						{
+							PrintToChat(client, "%s You already have a match live!", g_sTag);
+							PrintMatchInformation(client);
+						}
+					}
+					
+					CloseHandle(stmt);
 					return;
 				}
 				else

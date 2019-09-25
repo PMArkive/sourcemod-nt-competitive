@@ -882,7 +882,8 @@ Match has been cancelled.", g_sTag);
 			return Plugin_Stop;
 		}
 
-		PrintToServer("This means game should happen.");
+		PresentMatchInvitation(matchid);
+		
 		if (g_hTimer_Pug_WaitingForPlayers != null)
 		{
 			KillTimer(g_hTimer_Pug_WaitingForPlayers);
@@ -910,6 +911,69 @@ matchid %i where desired playercount was %i. This line should never run.",
 	return Plugin_Continue;
 }
 
+void PresentMatchInvitation(int matchid)
+{
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+	else if (!Database_MatchExists(matchid))
+	{
+		ThrowError("Timer_Checkaccepts: Couldn't find match with ID %i", matchid);
+	}
+
+	decl String:sql[MAX_SQL_LENGTH];
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
+	);
+	
+	SQL_LockDatabase(g_hDB);
+	
+	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
+		ThrowError(error);
+	}
+
+	SQL_BindParamInt(stmt, 0, matchid);
+	SQL_Execute(stmt);
+
+	if (!SQL_HasResultSet(stmt))
+	{
+		delete stmt;
+		SQL_UnlockDatabase(g_hDB);
+		return;
+	}
+	
+	decl String:steamid[MAX_STEAMID_LENGTH];
+	while (SQL_FetchRow(stmt))
+	{
+		int puggerState = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
+		// Player has accepted
+		if (puggerState == PUGGER_STATE_READY)
+		{
+			SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
+			
+			int client = GetClientOfAuthId(steamid);
+			if (client == 0)
+			{
+				continue;
+			}
+			
+			PrintToChat(client, "%s Your match is ready! Please type !join in chat to connect.", g_sTag);
+			PrintToConsole(client, "%s Your match is ready! Please type !join in chat to connect.", g_sTag);
+			PrintToChat(client, "If you crash on join, the password to reconnect will be \"ANPA\".");
+			PrintToConsole(client, "If you crash on join, the password to reconnect will be \"ANPA\".");
+		}
+	}
+	
+	SQL_UnlockDatabase(g_hDB);
+	delete stmt;
+}
+
 public Action Timer_AnnounceWaitingForPlayers(Handle timer)
 {
 	if (g_hTimer_Pug_WaitingForPlayers == null)
@@ -927,13 +991,18 @@ public Action Timer_AnnounceWaitingForPlayers(Handle timer)
 			{
 				DisableNominateAndRtv();
 				g_bNominationsAndRtvEnabled = false;
+				
+				PrintToChatAll("%s Map selection has now been disabled.", g_sTag);
+				PrintToChatAll("The match will start in %i seconds.",
+					g_iWaitingForPlayersTimeRemaining);
 			}
 		}
 		else
 		{
 			if (g_bNominationsAndRtvEnabled)
 			{
-				PrintToChatAll("Nominate and RTV are available for %i more seconds",
+				PrintToChatAll("%s Nominate and RTV are available for %i more seconds",
+					g_sTag,
 					RoundToNearest(
 						g_iWaitingForPlayersTimeRemaining - TIMER_WAITINGFORPLAYERS / 2
 					)

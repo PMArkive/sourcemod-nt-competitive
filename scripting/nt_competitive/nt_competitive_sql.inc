@@ -411,7 +411,9 @@ public void SQLCallback_Database_SetPuggerState_Update(Database db,
 
 	if (!IsValidClient(client))
 	{
+#if DEBUG
 		PrintToServer("Invalid client %i!", client);
+#endif
 		return;
 	}
 

@@ -11,6 +11,7 @@
 #define DEBUG 1
 #define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
 debug the SQL as it disables some safety checks */
+#define DEBUG_ALLOW_LAN_STEAMIDS 1
 
 new bool:g_bIsQueueActive;
 
@@ -208,11 +209,15 @@ public Action Command_Pug(int client, int args)
 	{
 		return Plugin_Stop;
 	}
+	
+#if !DEBUG_ALLOW_LAN_STEAMIDS
 	if (!IsClientAuthorized(client))
 	{
 		ReplyToCommand(client, "%s Failed to read your SteamID, please try again.", g_sTag);
 		return Plugin_Stop;
 	}
+#endif
+
 	Threaded_Pugger_JoinQueue(client);
 
 	return Plugin_Handled;

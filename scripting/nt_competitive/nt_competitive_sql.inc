@@ -531,6 +531,8 @@ public void SQLTxnSuccess_AdvertiseQueueState(
 	DBResultSet res;
 	for (int i = 0; i < numQueries; i++)
 	{
+		res = view_as<DBResultSet>(results[i]);
+	
 		if (i >= ENUM_COUNT)
 		{
 			ThrowError("Too many queries!");
@@ -552,7 +554,7 @@ public void SQLTxnSuccess_AdvertiseQueueState(
 				{
 					ThrowError("Found more than 1 result, expected 1.");
 				}
-				playerAmount[i] = res.FetchInt(SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
+				playerAmount[i] = res.FetchInt(0);
 			}
 		}
 	}
@@ -4203,9 +4205,10 @@ public void SQLTxnSuccess_Leaver(
 				break;
 			}
 
+			// This can happen if hotloading the plugin while there's players around
 			if (matchid == MATCHMAKE_ERROR)
 			{
-				ThrowError("MatchID error");
+				return;
 			}
 
 			Threaded_Pugger_CommitLeave(matchid, steamid);

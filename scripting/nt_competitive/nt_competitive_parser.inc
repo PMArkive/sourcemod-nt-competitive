@@ -726,7 +726,8 @@ This should never happen.", desiredPlayers);
 	// Not enough accepted players to make a match
 	if (queuingPlayers < desiredPlayers)
 	{
-		PrintToServer("Not enough queued");
+		PrintToServer("Not enough queued (%i queuing vs %i desired)",
+			queuingPlayers, desiredPlayers);
 		return Plugin_Continue;
 	}
 	// Try to reserve the database to handle queued up players.

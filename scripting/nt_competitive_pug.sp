@@ -69,24 +69,15 @@ Please consider recompiling %s", pluginFilename);
 	Database_Initialize();
 	if (g_bIsDatabaseDown)
 		SetFailState("Failed to join database");
-
-	GenerateIdentifier_This(g_sIdentifier);
-
-	float initDelay = 10.0;
-	PrintToServer("Please wait %f seconds for threaded db initialisation...", initDelay);
-	CreateTimer(initDelay, Timer_Threaded_FirstLaunch);
-}
-
-// This has been delayed to avoid a race condition with threaded SQL initialisation
-// TODO: Combine to the actual function instead of an arbitary delay?
-public Action Timer_Threaded_FirstLaunch(Handle timer)
-{
-	Threaded_Organizers_Update_This(DB_ORG_INACTIVE);
-	CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_CheckPugs, _, TIMER_REPEAT);
-
+	
 	RegConsoleCmd("sm_pug", Command_Pug);
 	RegConsoleCmd("sm_unpug", Command_UnPug);
 	RegConsoleCmd("sm_join", Command_Join);
+
+	GenerateIdentifier_This(g_sIdentifier);
+
+	Threaded_Organizers_Update_This(DB_ORG_INACTIVE);
+	CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_CheckPugs, _, TIMER_REPEAT);
 }
 
 public void OnMapStart()

@@ -54,19 +54,15 @@ bool Database_Initialize(bool checkTables = true)
 // Purpose: Initialize a threaded SQL handle.
 public void Threaded(Database db, const char[] error, any data)
 {
-	if (db == null)
+	if (!db)
 	{
 		g_bIsDatabaseDown = true;
 		PrintToServer("Database_Initialize (threaded callback): %s", error);
 		return;
 	}
+	
 	PrintToServer("success with threaded");
 	g_hDB_Threaded = db;
-
-	/*
-	PrintToServer("Checking rows stuff: %i",
-		Database_GetRowCountForTableName(g_sqlTable[TABLES_PUGGERS]));
-	*/
 }
 
 // Purpose: Check string for "dangerous" SQL characters
@@ -85,6 +81,9 @@ String contents: \"%s\"", haystack);
 
 int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesValidity = true)
 {
+	if (!g_hDB)
+		return 0;
+
 	CheckForSpookiness(tableName);
 
 	// We only want to throw error if table creation isn't currently happening
@@ -118,6 +117,9 @@ public void T_CheckRowCountForTableName(Database db, DBResultSet results, const 
 
 bool Database_RemovePugger(const char[] steamID)
 {
+	if (!g_hDB)
+		return false;
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
@@ -144,6 +146,9 @@ bool Database_RemovePugger(const char[] steamID)
 #if defined PLUGIN_PUG
 void Pugger_Remove(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMID_LENGTH] = "")
 {
+	if (!g_hDB)
+		return;
+
 	// Make sure client index is valid,
 	// unless removing player directly with SteamID instead
 	if (!bySteamID)
@@ -289,6 +294,9 @@ This should never happen.", steamID, state);
 
 void Threaded_Database_SetPuggerState(const char[] steamid, int state, int context)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
 	{
 		ThrowError("Invalid state enum %i, expected value in range 0 - %i",
@@ -413,6 +421,9 @@ and left the PUG queue.", g_sTag);
 
 void Threaded_Pugger_AdvertiseQueueState_If_Queued(int userid)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	int client = GetClientOfUserId(userid);
 	if (!client)
 		return;
@@ -458,6 +469,9 @@ public void SQLCallback_Pugger_AdvertiseQueueState_If_Queued(
 
 void Threaded_Pugger_AdvertiseQueueState(int userid)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	int client = GetClientOfUserId(userid);
 	if (!client)
 		return;
@@ -558,6 +572,9 @@ public void SQLCallback_Database_SetPuggerState_Insert(Database db,
 
 void Database_AddPugger(int userid, state = PUGGER_STATE_QUEUING)
 {
+	if (!g_hDB)
+		return;
+
 	int client = GetClientOfUserId(userid);
 	if (!client)
 		return;
@@ -697,6 +714,9 @@ WHERE %s = ? AND %s = ?",
 #if defined PLUGIN_PUG
 void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID[MAX_STEAMID_LENGTH] = "")
 {
+	if (!g_hDB)
+		return;
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -800,14 +820,20 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 #endif
 
 #if defined PLUGIN_PUG
+//TODO
 void Database_LogIgnore(client)
 {
-	//TODO
+	if (!g_hDB)
+		return;
+	
 	PrintDebug("Database_LogIgnore(%i)", client);
 }
 
 void Database_CleanAFKers()
 {
+	if (!g_hDB)
+		return;
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -847,7 +873,7 @@ void Database_CleanAFKers()
 #if defined PLUGIN_COMP
 bool PugServer_Update_This()
 {
-	if (g_bIsDatabaseDown)
+	if (!g_hDB || g_bIsDatabaseDown)
 		return false;
 
 	// Get PUG server IP address
@@ -987,6 +1013,9 @@ bool PugServer_Update_This()
 
 bool PugServer_Set_Status(status, String:sIPAddress[MAX_IP_LENGTH], iPort)
 {
+	if (!g_hDB)
+		return false;
+
 	if (status < PUG_SERVER_STATUS_ERROR || status >= PUG_SERVER_STATUS_ENUM_COUNT)
 	{
 		ThrowError("Invalid enum %i, expected enum between %i - %i",
@@ -1022,6 +1051,9 @@ bool PugServer_Set_Status(status, String:sIPAddress[MAX_IP_LENGTH], iPort)
 
 bool PugServer_MatchState_Set(const int match_id, const int state)
 {
+	if (!g_hDB)
+		return false;
+
 	if (state < 0 || state > MATCHMAKE_ENUM_COUNT)
 	{
 		LogError("Invalid state %i, expected value between 0 - %i",
@@ -1059,6 +1091,9 @@ bool PugServer_MatchState_Set(const int match_id, const int state)
 
 bool Database_MatchExists(const int match_id)
 {
+	if (!g_hDB)
+		return false;
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	
@@ -1105,6 +1140,9 @@ expected 0 or 1.", rows, match_id);
 // Returns matchid on success, INVALID_MATCH_ID on failure.
 int PugServer_CreateMatch(int numPlayers, bool ignoreGlobalDesiredPlayerCount = false)
 {
+	if (!g_hDB)
+		return INVALID_MATCH_ID;
+
 	if (!ignoreGlobalDesiredPlayerCount)
 	{
 		if (numPlayers != Database_GetDesiredPlayerCount())
@@ -1234,6 +1272,9 @@ SQL statement returned multiple results; SQL: %s", sql);
 void Puggers_UpdateStateByMatchID(int matchid, int newState)
 {
 	PrintToServer("Puggers_UpdateStateByMatchID(%i, %i)", matchid, newState);
+	
+	if (!g_hDB)
+		return;
 
 	if (matchid == INVALID_MATCH_ID)
 		ThrowError("Invalid match ID %i", matchid);
@@ -1268,6 +1309,9 @@ void Puggers_UpdateStateByMatchID(int matchid, int newState)
 
 void Match_Cancel(int matchid, bool dequeueInactive = false)
 {
+	if (!g_hDB)
+		return;
+
 	// Got here by trying to find a replacement player for someone
 	// who abandoned an already live match. Don't stop the ongoing match.
 	if (g_bPugAlreadyPlaying)
@@ -1362,6 +1406,9 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 
 void Threaded_Pugger_DisplayDbMessage(int client)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	if (!IsValidClient(client) || IsFakeClient(client) || !IsClientAuthorized(client))
 		return;
 
@@ -1427,6 +1474,9 @@ public void SQLCallback_Pugger_ClearDbMessage(Database db, DBResultSet results, 
 #if defined PLUGIN_COMP
 void Puggers_CommitAbandoned(int matchid)
 {
+	if (!g_hDB)
+		return;
+
 	if (matchid == INVALID_MATCH_ID)
 		ThrowError("Invalid match ID %i", INVALID_MATCH_ID);
 
@@ -1468,6 +1518,9 @@ Please poke Rain if you think this is an error.";
 
 bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
 {
+	if (!g_hDB)
+		return false;
+
 	// Get all players who are queuing
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
@@ -1579,6 +1632,9 @@ WHERE %s = ?",
 
 bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
 {
+	if (!g_hDB)
+		return false;
+
 	if (!Database_MatchExists(match_id))
 		return false;
 
@@ -1626,6 +1682,9 @@ Found multiple matches for match id %i and steamID %s.", match_id, steamID);
 
 bool Puggers_LogMatchParticipation(const int match_id, const char[] steamID)
 {
+	if (!g_hDB)
+		return false;
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -1699,6 +1758,9 @@ int PugServer_Get_Status_This()
 // Purpose: Get PUG server's status enum
 int PugServer_Get_Status(const String:sIP[], iPort)
 {
+	if (!g_hDB)
+		return PUG_SERVER_STATUS_ERROR;
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT %s FROM %s WHERE %s = ? AND %s = ?",
@@ -1753,6 +1815,11 @@ the database, expected 1 or 0.");
 // Purpose: Fetch this pug server's reserve status enum from db
 int PugServer_GetReserve_This()
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB handle error");
+	}
+
 	if (g_bIsDatabaseDown)
 	{
 		ThrowError("Failed to connect to database.");
@@ -1808,7 +1875,7 @@ int PugServer_GetReserve_This()
 // Purpose: Update this pug server's reserve status enum in db
 bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 {
-	if (g_bIsDatabaseDown)
+	if (!g_hDB || g_bIsDatabaseDown)
 		return false;
 
 	// Only allow reserve state edit if releasing reservation
@@ -1954,6 +2021,9 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 #if defined PLUGIN_PUG
 void Threaded_Pugger_JoinQueue(int client)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	if (!IsValidClient(client))
 		ThrowError("Invalid client %i", client);
 
@@ -1979,6 +2049,9 @@ void Threaded_Pugger_JoinQueue(int client)
 
 void Threaded_Pugger_LeaveQueue(int client)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	if (!IsValidClient(client))
 		ThrowError("Invalid client %i", client);
 
@@ -2003,6 +2076,9 @@ void Threaded_Pugger_LeaveQueue(int client)
 
 void Threaded_Pugger_AcceptMatch(int client)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	if (!IsValidClient(client))
 		return;
 
@@ -2205,7 +2281,7 @@ please use !join to enter the PUG server.", g_sTag);
 
 void Threaded_Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
-	if (g_bIsDatabaseDown)
+	if (!g_hDB_Threaded || g_bIsDatabaseDown)
 		return;
 
 	decl String:sql[MAX_SQL_LENGTH];
@@ -2216,7 +2292,11 @@ void Threaded_Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 
 public void SQLCallback_Organizers_Update_This(Database db, DBResultSet results, const char[] error, int reserveStatus)
 {
-	if (reserveStatus < DB_ORG_INACTIVE || reserveStatus >= DB_ORG_ENUM_COUNT)
+	if (!g_hDB_Threaded)
+	{
+		ThrowError("Unknown DB handle error.");
+	}
+	else if (reserveStatus < DB_ORG_INACTIVE || reserveStatus >= DB_ORG_ENUM_COUNT)
 	{
 		ThrowError("Invalid reserve status %i. Expected status between %i and %i",
 			reserveStatus, DB_ORG_INACTIVE, DB_ORG_ENUM_COUNT-1);
@@ -2268,6 +2348,9 @@ try set new status.", reserveStatus);
 
 public void SQLCallback_Organizers_Update_This_Select(Database db, DBResultSet results, const char[] error, int reserveStatus)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	decl String:sql[MAX_SQL_LENGTH];
 
 	decl String:safe_identifier[2*sizeof(g_sIdentifier)+1];
@@ -2330,7 +2413,7 @@ public void SQLCallback_Organizers_Update_This_Update(Database db, DBResultSet r
 bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 {
 	PrintToServer("dbdownA: %b", g_bIsDatabaseDown);
-	if (g_bIsDatabaseDown)
+	if (!g_hDB || g_bIsDatabaseDown)
 		return false;
 
 	// Cannot set busy reserve status if someone else is already busy.
@@ -2432,6 +2515,11 @@ bool Organizers_Update_This(reserveStatus = DB_ORG_INACTIVE)
 #if defined PLUGIN_COMP
 bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	char ipAddress[MAX_IP_LENGTH];
 	int port;
 	if (!GetServerConnectionDetails(ipAddress, port))
@@ -2504,6 +2592,11 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 #if defined PLUGIN_PUG
 bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_ORGANIZERS]);
@@ -2546,6 +2639,11 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 
 int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -2590,6 +2688,11 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 // TODO: Always log this command to a logfile
 void Database_CreateTables(int client = 0)
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	new rows;
 	for (int i = 0; i < TABLES_ENUM_COUNT; i++)
 	{
@@ -2954,6 +3057,11 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 
 bool Database_DoTablesExist()
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:sql[TABLES_ENUM_COUNT][MAX_SQL_LENGTH];
 	for (new i = 0; i < TABLES_ENUM_COUNT; i++)
 	{
@@ -2996,6 +3104,9 @@ THEN 1 ELSE 0 END) AS TableExists FROM information_schema.tables", g_sqlTable[i]
 
 void Threaded_Pugger_PrintMatchInformation(const char[] steamid)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
@@ -3044,6 +3155,11 @@ public void SQLCallback_Pugger_PrintMatchInformation(Database db, DBResultSet re
 
 bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] connectIP, int &connectPort, char[] connectPassword)
 {
+	if (!g_hDB)
+	{
+		return false;
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
@@ -3090,6 +3206,11 @@ bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] conne
 
 int Pugger_GetState(const char[] steamid)
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
@@ -3123,8 +3244,13 @@ int Pugger_GetState(const char[] steamid)
 	return state;
 }
 
-int Pugger_SetState(const char[] steamid, int state)
+void Pugger_SetState(const char[] steamid, int state)
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
@@ -3153,6 +3279,9 @@ int Pugger_SetState(const char[] steamid, int state)
 #if defined PLUGIN_COMP
 void Threaded_Pugger_UpdateStatus(const char[] steamid)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	char safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
@@ -3254,6 +3383,9 @@ public void SQLCallback_Pugger_UpdateStatus(
 
 void Threaded_Pugger_CheckQueuingStatus(client, const String:connectIP[MAX_IP_LENGTH] = "", int connectPort = 0)
 {
+	if (!g_hDB_Threaded)
+		return;
+
 	if (!IsValidClient(client) || IsFakeClient(client) ||
 	!IsClientAuthorized(client) || !IsClientInGame(client))
 	{
@@ -3381,8 +3513,40 @@ public void SQLCallback_Pugger_Threaded_CheckQueuingStatus(Database db, DBResult
 	}
 }
 
+// Get the client index for a SteamID.
+// Returns clientindex in range 1-MaxClients, or 0 if not found.
+int GetClientForAuthId(const char[] steamid)
+{
+	decl String:authBuffer[MAX_STEAMID_LENGTH];
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsClientInGame(i) || IsFakeClient(i) || !IsClientAuthorized(i))
+		{
+			continue;
+		}
+	
+		if (GetClientAuthId(i, AuthId_Steam2, authBuffer, sizeof(authBuffer)))
+		{
+			if (StrEqual(steamid, authBuffer))
+			{
+				return i;
+			}
+		}
+	}
+	
+	return 0;
+}
+
 void Threaded_Pugger_JoinActiveMatch(const char[] steamid)
 {
+	if (!g_hDB_Threaded)
+	{
+		int client = GetClientForAuthId(steamid);
+		PrintToChat(client, "%s There was a problem connecting to the match database. \
+Please try again.", g_sTag);
+		return;
+	}
+
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
@@ -3561,6 +3725,11 @@ int Pugger_GetQueuingState(client = 0, const String:connectIP[MAX_IP_LENGTH] = "
 #if defined PLUGIN_PUG || defined PLUGIN_COMP
 int Puggers_GetCountPerState(state)
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	if (0 > state || state > PUGGER_STATE_ENUM_COUNT)
 	{
 		ThrowError("Invalid state %i, expected state between 0 and %i",
@@ -3610,6 +3779,11 @@ void CheckSQLConstants()
 
 int Database_GetDesiredPlayerCount()
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 
 	Format(sql, sizeof(sql), "SELECT %s FROM %s",
@@ -3639,6 +3813,11 @@ int Database_GetDesiredPlayerCount()
 #if defined PLUGIN_PUG
 int Database_GetEpoch()
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP()");
 
@@ -3660,6 +3839,11 @@ int Database_GetEpoch()
 
 bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const char[] steamID = "")
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	if (!bySteamID && !IsValidClient(client))
 	{
 		ThrowError("Invalid client %i", client);
@@ -3710,6 +3894,9 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 
 bool Match_SetPreparingForLive(int match_id)
 {
+	if (!g_hDB)
+		return false;
+
 	if (!Database_MatchExists(match_id))
 		return false;
 
@@ -3793,6 +3980,11 @@ bool Match_SetPreparingForLive(int match_id)
 
 int Match_GetDesiredPlayers(int match_id)
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	if (!Database_MatchExists(match_id))
 	{
 		ThrowError("Couldn't find match with id %i", match_id);
@@ -3836,7 +4028,11 @@ int Match_GetDesiredPlayers(int match_id)
 
 bool Database_SetMatchStatus(int matchid, int status)
 {
-	if (!Database_MatchExists(matchid))
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+	else if (!Database_MatchExists(matchid))
 	{
 		ThrowError("Match with ID %i does not exist.", matchid);
 	}
@@ -3869,7 +4065,11 @@ bool Database_SetMatchStatus(int matchid, int status)
 
 int Database_GetMatchStatus(int matchid)
 {
-	if (!Database_MatchExists(matchid))
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+	else if (!Database_MatchExists(matchid))
 	{
 		ThrowError("Match with ID %i does not exist.", matchid);
 	}
@@ -4032,6 +4232,11 @@ public void SQLCallback_Pugger_HandleLeaver(Database db, DBResultSet results, co
 
 void Threaded_Pugger_CommitLeave(int matchid, const char[] steamid)
 {
+	if (!g_hDB_Threaded)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	char safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
@@ -4081,6 +4286,11 @@ public void SQLCallback_Pugger_CommitLeave(Database db, DBResultSet results, con
 
 int PugServer_GetMatchID_This()
 {
+	if (!g_hDB)
+	{
+		ThrowError("Unknown DB error.");
+	}
+
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
 	GetServerConnectionDetails(ipAddress, port);

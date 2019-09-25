@@ -18,17 +18,11 @@ bool Database_Initialize(bool checkTables = true)
 		return false;
 	}
 
-	// Persistent threaded connection
-	Database.Connect(Threaded, configName);
-
 	// Persistent single thread connection
 	// TODO: Combine all non threaded calls into the threaded handle
 	// TODO2: Or the API...
 	char error[MAX_SQL_ERROR_LENGTH];
 	g_hDB = SQL_Connect(configName, true, error, sizeof(error));
-
-	// XXX!!! Cannot run unthreaded operations on the threaded handle
-	// without locking the handle first!
 
 	// Note: The threaded handle cannot be checked here
 	// as we don't know when it executes! It's checked inside its callback instead.
@@ -38,6 +32,13 @@ bool Database_Initialize(bool checkTables = true)
 		LogError("Database_Initialize: %s", error);
 		return false;
 	}
+
+	// XXX!!! Cannot run unthreaded operations on the threaded handle
+	// without locking the handle first!
+	SQL_LockDatabase(g_hDB);
+	// Persistent threaded connection
+	Database.Connect(Threaded, configName);
+	SQL_UnlockDatabase(g_hDB);
 
 	if (checkTables && !Database_DoTablesExist())
 	{
@@ -93,8 +94,10 @@ int Database_GetRowCountForTableName(const String:tableName[], bool checkTablesV
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", tableName);
 
+	SQL_LockDatabase(g_hDB);
 	Handle query = SQL_Query(g_hDB, sql);
 	int rows = SQL_GetRowCount(query);
+	SQL_UnlockDatabase(g_hDB);
 	delete query;
 
 	//g_hDB_Threaded.Query(T_CheckRowCountForTableName, sql, rows);
@@ -118,18 +121,23 @@ bool Database_RemovePugger(const char[] steamID)
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "DELETE FROM %s WHERE %s = ?",
-	g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
+	SQL_LockDatabase(g_hDB);
 	new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Delete == INVALID_HANDLE)
 	{
 		LogError(error);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 
 	SQL_BindParamString(stmt_Delete, 0, steamID, false);
 	SQL_Execute(stmt_Delete);
 	CloseHandle(stmt_Delete);
+	SQL_UnlockDatabase(g_hDB);
+	
 	return true;
 }
 
@@ -151,11 +159,15 @@ void Pugger_Remove(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMI
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE steamid = ?",
-	g_sqlTable[TABLES_PUGGERS]);
+		g_sqlTable[TABLES_PUGGERS]);
 
+	SQL_LockDatabase(g_hDB);
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	PrintDebug("Perceived SteamID: %s", steamID);
 
@@ -170,10 +182,15 @@ void Pugger_Remove(client = 0, bool bySteamID = false, String:steamID[MAX_STEAMI
 		LogError("Pugger_Remove: Found %i results for SteamID \"%s\" \
 		in database, expected to find 1. Deleting duplicates.", results, steamID);
 
+		SQL_UnlockDatabase(g_hDB);
 		if (!Database_RemovePugger(steamID))
 		{
 			CloseHandle(stmt);
 			ThrowError("Failed removing pugger.");
+		}
+		else
+		{
+			SQL_LockDatabase(g_hDB);
 		}
 	}
 	if (results > 1 || results == 0)
@@ -193,6 +210,7 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 		if (stmt_Insert == INVALID_HANDLE)
 		{
 			CloseHandle(stmt);
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
 		}
 
@@ -201,6 +219,7 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 		SQL_BindParamInt(stmt_Insert, paramIndex++, PUGGER_STATE_INACTIVE);
 		SQL_Execute(stmt_Insert);
 		CloseHandle(stmt_Insert);
+		SQL_UnlockDatabase(g_hDB);
 	}
 	else if (results == 1)
 	{
@@ -215,6 +234,7 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 				{
 					PrintToChat(client, "%s You are not in a PUG queue.", g_sTag);
 					CloseHandle(stmt);
+					SQL_UnlockDatabase(g_hDB);
 					return;
 				}
 				else if (state == PUGGER_STATE_QUEUING)
@@ -230,12 +250,14 @@ in database, inserting a row with PUGGER_STATE_INACTIVE", steamID);
 				{
 					PrintToChat(client, "%s You have already accepted this match.", g_sTag);
 					CloseHandle(stmt);
+					SQL_UnlockDatabase(g_hDB);
 					return;
 				}
 				else if (state == PUGGER_STATE_LIVE)
 				{
 					PrintToChat(client, "%s You already have a match live!", g_sTag);
 					CloseHandle(stmt);
+					SQL_UnlockDatabase(g_hDB);
 					return;
 				}
 				else
@@ -246,6 +268,7 @@ This should never happen.", steamID, state);
 			}
 		}
 		CloseHandle(stmt);
+		SQL_UnlockDatabase(g_hDB);
 
 		Pugger_SetQueuingState(client, PUGGER_STATE_INACTIVE, bySteamID, steamID);
 	}
@@ -287,7 +310,8 @@ void Threaded_Database_SetPuggerState(const char[] steamid, int state, int conte
 	g_hDB_Threaded.Query(SQLCallback_Database_SetPuggerState_Select, sql, puggerStateData);
 }
 
-public void SQLCallback_Database_SetPuggerState_Select(Database db, DBResultSet results, const char[] error, DataPack puggerStateData)
+public void SQLCallback_Database_SetPuggerState_Select(Database db,
+	DBResultSet results, const char[] error, DataPack puggerStateData)
 {
 	PrintToServer("SQLCallback_Database_SetPuggerState_Select 1");
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
@@ -340,7 +364,8 @@ public void SQLCallback_Database_SetPuggerState_Select(Database db, DBResultSet 
 	}
 }
 
-public void SQLCallback_Database_SetPuggerState_Update(Database db, DBResultSet results, const char[] error, DataPack puggerStateData)
+public void SQLCallback_Database_SetPuggerState_Update(Database db,
+	DBResultSet results, const char[] error, DataPack puggerStateData)
 {
 	PrintToServer("SQLCallback_Database_SetPuggerState_Update 1");
 	puggerStateData.Reset();
@@ -525,7 +550,8 @@ public void SQLTxnSuccess_AdvertiseQueueState(
 	);
 }
 
-public void SQLCallback_Database_SetPuggerState_Insert(Database db, DBResultSet results, const char[] error, any data)
+public void SQLCallback_Database_SetPuggerState_Insert(Database db,
+	DBResultSet results, const char[] error, any data)
 {
 	PrintToServer("SQLCallback_Database_SetPuggerState_Insert 1");
 }
@@ -541,8 +567,10 @@ void Database_AddPugger(int userid, state = PUGGER_STATE_QUEUING)
 
 	PrintToServer("Database_AddPugger 1: %s", steamid);
 	Threaded_Database_SetPuggerState(steamid, state, T_CONTEXT_JOIN_QUEUE);
-	return;
-	/*
+	
+#if(0)
+	return; // just in case the preprocessor fails
+	
 	if (!bySteamID)
 	{
 		if (!IsValidClient(client) || IsFakeClient(client))
@@ -621,7 +649,7 @@ expected 0 or 1", steamIDBuffer);
 	}
 	CloseHandle(stmt);
 	return true;
-	*/
+#endif
 }
 
 /*
@@ -674,9 +702,13 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUGGERS]);
 
+	SQL_LockDatabase(g_hDB);
 	new Handle:stmt_SelectPuggers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_SelectPuggers == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_Execute(stmt_SelectPuggers);
 
@@ -714,14 +746,15 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 
 		PrintDebug("Giveup SteamID: %s", steamID);
 		Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
-		g_sqlTable[TABLES_PUGGERS],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
-		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+			g_sqlTable[TABLES_PUGGERS],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
 		new Handle:stmt_UpdatePuggers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_UpdatePuggers == INVALID_HANDLE)
 		{
 			CloseHandle(stmt_SelectPuggers);
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
 		}
 
@@ -731,21 +764,27 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 		SQL_Execute(stmt_UpdatePuggers);
 
 		CloseHandle(stmt_UpdatePuggers);
+		
+		SQL_UnlockDatabase(g_hDB);
 
 		Pugger_ShowMatchFail(steamID);
 	}
+	SQL_LockDatabase(g_hDB);
 	CloseHandle(stmt_SelectPuggers);
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
-	g_sqlTable[TABLES_PUG_SERVERS],
-	g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS],
-	g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
+		g_sqlTable[TABLES_PUG_SERVERS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS],
+		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_STATUS]);
 
 	PrintDebug("SQL: %s", sql);
 
 	new Handle:stmt_SelectPugServers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_SelectPugServers == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	new paramIndex;
 	SQL_BindParamInt(stmt_SelectPugServers, paramIndex++, PUG_SERVER_STATUS_AVAILABLE);
@@ -753,6 +792,8 @@ void Database_GiveUpMatch(bool:giveUpEarly = false, const String:quittingSteamID
 	SQL_Execute(stmt_SelectPugServers);
 
 	CloseHandle(stmt_SelectPugServers);
+	
+	SQL_UnlockDatabase(g_hDB);
 
 	Organizers_Update_This();
 }
@@ -771,12 +812,16 @@ void Database_CleanAFKers()
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
-	g_sqlTable[TABLES_PUGGERS],
-	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
 
+	SQL_LockDatabase(g_hDB);
 	new Handle:stmt_CleanAfkers = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_CleanAfkers == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_BindParamInt(stmt_CleanAfkers, 0, PUGGER_STATE_CONFIRMING);
 	SQL_Execute(stmt_CleanAfkers);
@@ -788,9 +833,14 @@ void Database_CleanAFKers()
 			sizeof(steamID));
 
 		PrintDebug("Cleaning SteamID: %s", steamID);
+		
+		SQL_UnlockDatabase(g_hDB);
 		Pugger_Remove(_, true, steamID);
+		SQL_LockDatabase(g_hDB);
 	}
 	CloseHandle(stmt_CleanAfkers);
+	
+	SQL_UnlockDatabase(g_hDB);
 }
 #endif
 
@@ -848,11 +898,13 @@ bool PugServer_Update_This()
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
+	SQL_LockDatabase(g_hDB);
 	new Handle:stmt_RowCount = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_RowCount == INVALID_HANDLE)
 	{
 		LogError("PugServer_Update_This: %s", error);
 		LogError("SQL was:\n%s", sql);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 
@@ -896,6 +948,7 @@ bool PugServer_Update_This()
 	{
 		LogError("PugServer_Update_This: Found %i rows matching this server \
 (%s %s:%i), expected to find 1 or 0.", rowCount, sServerName, sIP, iPort);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 
@@ -904,6 +957,7 @@ bool PugServer_Update_This()
 	{
 		LogError("PugServer_Update_This: %s", error);
 		LogError("SQL was:\n%s", sql);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 
@@ -926,6 +980,8 @@ bool PugServer_Update_This()
 #endif
 	CloseHandle(stmt_ServerUpdate);
 
+	SQL_UnlockDatabase(g_hDB);
+
 	return true;
 }
 
@@ -945,9 +1001,13 @@ bool PugServer_Set_Status(status, String:sIPAddress[MAX_IP_LENGTH], iPort)
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
+	SQL_LockDatabase(g_hDB);
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	new paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, status);
@@ -956,6 +1016,7 @@ bool PugServer_Set_Status(status, String:sIPAddress[MAX_IP_LENGTH], iPort)
 	SQL_Execute(stmt);
 
 	CloseHandle(stmt);
+	SQL_UnlockDatabase(g_hDB);
 	return true;
 }
 
@@ -976,10 +1037,12 @@ bool PugServer_MatchState_Set(const int match_id, const int state)
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
 
+	SQL_LockDatabase(g_hDB);
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		LogError("PugServer_MatchState_Set: %s, SQL: %s", error, sql);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 
@@ -987,6 +1050,8 @@ bool PugServer_MatchState_Set(const int match_id, const int state)
 	SQL_BindParamInt(stmt, 1, match_id);
 	SQL_Execute(stmt);
 	delete stmt;
+	
+	SQL_UnlockDatabase(g_hDB);
 
 	return true;
 }
@@ -996,14 +1061,18 @@ bool Database_MatchExists(const int match_id)
 {
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
+	
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
 		g_sqlTable[TABLES_MATCHES],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		LogError("Database_MatchExists: %s", error);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 	SQL_BindParamInt(stmt, 0, match_id);
@@ -1011,10 +1080,14 @@ bool Database_MatchExists(const int match_id)
 	if (!SQL_HasResultSet(stmt))
 	{
 		delete stmt;
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 	int rows = SQL_GetRowCount(stmt);
 	delete stmt;
+	
+	SQL_UnlockDatabase(g_hDB);
+	
 	if (rows == 0)
 	{
 		return false;
@@ -1092,9 +1165,14 @@ currentStatus, PUG_SERVER_STATUS_AVAILABLE);
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError("%s, SQL: %s", error, sql);
+	}
 
 	int paramIndex;
 	SQL_BindParamString(stmt, paramIndex++, matchVanityTitle, false);
@@ -1108,7 +1186,9 @@ currentStatus, PUG_SERVER_STATUS_AVAILABLE);
 	SQL_Execute(stmt);
 	delete stmt;
 
+	SQL_UnlockDatabase(g_hDB);
 	SetMatchStatus(MATCHMAKE_INVITING);
+	SQL_LockDatabase(g_hDB);
 
 	DBResultSet result = SQL_Query(g_hDB, "SELECT LAST_INSERT_ID()");
 	if (result == null || !SQL_HasResultSet(result))
@@ -1116,6 +1196,7 @@ currentStatus, PUG_SERVER_STATUS_AVAILABLE);
 		if (result != null)
 			delete result;
 		LogError("PugServer_CreateMatch: SQL statement has no result set.");
+		SQL_UnlockDatabase(g_hDB);
 		return INVALID_MATCH_ID;
 	}
 	int rows;
@@ -1128,11 +1209,16 @@ currentStatus, PUG_SERVER_STATUS_AVAILABLE);
 			LogError("PugServer_CreateMatch: \
 SQL statement returned multiple results; SQL: %s", sql);
 			delete result;
+			SQL_UnlockDatabase(g_hDB);
 			return INVALID_MATCH_ID;
 		}
 		match_id = SQL_FetchInt(result, SQL_TABLE_MATCHES_ID);
 	}
+	
 	delete result;
+	
+	SQL_UnlockDatabase(g_hDB);
+	
 	// Could not invite players to this match for whatever reason.
 	// Mark match as cancelled (TODO) and make this server available again.
 	if (!PugServer_InvitePlayers(match_id, numPlayers))
@@ -1161,16 +1247,23 @@ void Puggers_UpdateStateByMatchID(int matchid, int newState)
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	int paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, newState);
 	SQL_BindParamInt(stmt, paramIndex++, matchid);
 	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_ABANDONED);
 	SQL_Execute(stmt);
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 }
 
 void Match_Cancel(int matchid, bool dequeueInactive = false)
@@ -1193,12 +1286,17 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
 			g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
 		);
+		
+		SQL_LockDatabase(g_hDB);
+		
 		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt == null)
 		{
 			LogError(error);
+			SQL_UnlockDatabase(g_hDB);
 			return;
 		}
+		
 		paramIndex = 0;
 		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_INACTIVE);
 		SQL_BindParamInt(stmt, paramIndex++, matchid);
@@ -1213,12 +1311,15 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
 	);
+	
 	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		LogError(error);
+		SQL_UnlockDatabase(g_hDB);
 		return;
 	}
+	
 	paramIndex = 0;
 	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_QUEUING);
 	SQL_BindParamInt(stmt, paramIndex++, matchid);
@@ -1227,23 +1328,30 @@ void Match_Cancel(int matchid, bool dequeueInactive = false)
 	delete stmt;
 
 	// Mark the match as cancelled
+	SQL_UnlockDatabase(g_hDB);
 	SetMatchStatus(MATCHMAKE_CANCELLED);
+	SQL_LockDatabase(g_hDB);
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
 		g_sqlTable[TABLES_MATCHES],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
+	
 	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		LogError(error);
+		SQL_UnlockDatabase(g_hDB);
 		return;
 	}
+	
 	SQL_BindParamInt(stmt, 0, MATCHMAKE_CANCELLED);
 	SQL_BindParamInt(stmt, 1, matchid);
 	SQL_Execute(stmt);
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
@@ -1334,9 +1442,14 @@ WHERE %s = ? AND %s = ?",
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	new const String:nagMsg[] = "You abandoned your last match. \
 Please poke Rain if you think this is an error.";
@@ -1348,7 +1461,9 @@ Please poke Rain if you think this is an error.";
 	SQL_BindParamInt(stmt, paramIndex++, matchid);
 	SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_MIA);
 	SQL_Execute(stmt);
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 }
 
 bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
@@ -1361,16 +1476,24 @@ bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]
 	);
 
+	SQL_LockDatabase(g_hDB);
+	
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
+	
 	SQL_BindParamInt(stmt, 0, PUGGER_STATE_QUEUING);
 	SQL_Execute(stmt);
+	
 	// There were no players queuing, this is an error
 	if (!SQL_HasResultSet(stmt))
 	{
 		LogError("AssignPlayers: SQL has no result set; SQL: %s", sql);
 		delete stmt;
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 	int results = SQL_GetRowCount(stmt);
@@ -1379,6 +1502,7 @@ bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
 	{
 		//LogError("AssignPlayers: Not enough players to assign a match for!");
 		delete stmt;
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
 	// Loop through numPlayers players and grab SteamIDs to invite
@@ -1393,7 +1517,10 @@ bool PugServer_InvitePlayers(const int match_id, const int numPlayers)
 		SQL_FetchString(stmt, SQL_TABLE_PUGGER_STEAMID,
 			steamIDs[i], sizeof(steamIDs[]));
 	}
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
+	
 	// This should never happen
 	if (i != numPlayers)
 	{
@@ -1419,11 +1546,17 @@ WHERE %s = ?",
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_GAMESERVER_PASSWORD],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	for (i = 0; i < numPlayers; i++)
 	{
 		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt == null)
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
+		}
 
 		int paramIndex;
 		SQL_BindParamInt(stmt, paramIndex++, PUGGER_STATE_CONFIRMING);
@@ -1435,8 +1568,12 @@ WHERE %s = ?",
 		SQL_Execute(stmt);
 		delete stmt;
 
+		SQL_UnlockDatabase(g_hDB);
 		Puggers_LogMatchParticipation(match_id, steamIDs[i]);
+		SQL_LockDatabase(g_hDB);
 	}
+	
+	SQL_UnlockDatabase(g_hDB);
 	return true;
 }
 
@@ -1452,12 +1589,17 @@ bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		LogError(error);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
+	
 	SQL_BindParamInt(stmt, 0, match_id);
 	SQL_BindParamString(stmt, 1, steamID, false);
 	SQL_Execute(stmt);
@@ -1468,6 +1610,7 @@ bool Pugger_DoesPlayInMatch(const int match_id, const char[] steamID)
 		rows = SQL_GetRowCount(stmt);
 	}
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 
 	if (rows == 0)
 	{
@@ -1491,12 +1634,17 @@ bool Puggers_LogMatchParticipation(const int match_id, const char[] steamID)
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
 		LogError(error);
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
+	
 	SQL_BindParamInt(stmt, 0, match_id);
 	SQL_BindParamString(stmt, 1, steamID, false);
 	SQL_Execute(stmt);
@@ -1504,6 +1652,7 @@ bool Puggers_LogMatchParticipation(const int match_id, const char[] steamID)
 	if (SQL_HasResultSet(stmt))
 		rows = SQL_GetRowCount(stmt);
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 
 	if (rows == 0)
 	{
@@ -1512,16 +1661,21 @@ bool Puggers_LogMatchParticipation(const int match_id, const char[] steamID)
 			g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_MATCH_ID],
 			g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_STEAMID]
 		);
+		
+		SQL_LockDatabase(g_hDB);
 		stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt == null)
 		{
+			SQL_UnlockDatabase(g_hDB);
 			LogError(error);
 			return false;
 		}
 		SQL_BindParamInt(stmt, 0, match_id);
 		SQL_BindParamString(stmt, 1, steamID, false);
 		SQL_Execute(stmt);
+		
 		delete stmt;
+		SQL_UnlockDatabase(g_hDB);
 	}
 	else
 	{
@@ -1553,9 +1707,14 @@ int PugServer_Get_Status(const String:sIP[], iPort)
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
+	SQL_LockDatabase(g_hDB);
+
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	new paramIndex;
 	SQL_BindParamString(stmt, paramIndex++, sIP, false);
@@ -1566,13 +1725,15 @@ int PugServer_Get_Status(const String:sIP[], iPort)
 	if (rows == 0)
 	{
 		CloseHandle(stmt);
+		SQL_UnlockDatabase(g_hDB);
 		return PUG_SERVER_STATUS_ERROR;
 	}
 	else if (rows > 1)
 	{
+		CloseHandle(stmt);
+		SQL_UnlockDatabase(g_hDB);
 		LogError("PugServer_Get_Status: Server %s:%i has %i row entries in \
 the database, expected 1 or 0.");
-		CloseHandle(stmt);
 		return PUG_SERVER_STATUS_ERROR;
 	}
 
@@ -1581,8 +1742,9 @@ the database, expected 1 or 0.");
 	{
 		status = SQL_FetchInt(stmt, 0);
 	}
+	
 	CloseHandle(stmt);
-
+	SQL_UnlockDatabase(g_hDB);
 	return status;
 }
 #endif
@@ -1610,9 +1772,12 @@ int PugServer_GetReserve_This()
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
 	}
 
@@ -1633,7 +1798,9 @@ int PugServer_GetReserve_This()
 		}
 		reserveStatus = SQL_FetchInt(stmt, SQL_TABLE_PUG_SERVER_RESERVING);
 	}
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 
 	return reserveStatus;
 }
@@ -1677,16 +1844,23 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	SQL_BindParamString(stmt_Select, 0, ipAddress, false);
 	SQL_BindParamInt(stmt_Select, 1, port);
 	SQL_Execute(stmt_Select);
 
 	if (stmt_Select == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	int results = SQL_GetRowCount(stmt_Select);
+	
 	delete stmt_Select;
+	SQL_UnlockDatabase(g_hDB);
 
 	if (results > 1 || results == 0)
 	{
@@ -1702,14 +1876,21 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 				g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 				g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
+			SQL_LockDatabase(g_hDB);
+
 			new Handle:stmt_Delete = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 			if (stmt_Delete == INVALID_HANDLE)
+			{
+				SQL_UnlockDatabase(g_hDB);
 				ThrowError(error);
+			}
 
 			SQL_BindParamString(stmt_Delete, 0, ipAddress, false);
 			SQL_BindParamInt(stmt_Delete, 1, port);
 			SQL_Execute(stmt_Delete);
+			
 			CloseHandle(stmt_Delete);
+			SQL_UnlockDatabase(g_hDB);
 		}
 		// Insert new record
 		Format(sql, sizeof(sql), "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
@@ -1718,16 +1899,22 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_RESERVING]);
 
+		SQL_LockDatabase(g_hDB);
 		new Handle:stmt_Insert = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Insert == INVALID_HANDLE)
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
+		}
 
 		new paramIndex;
 		SQL_BindParamString(stmt_Insert, paramIndex++, ipAddress, false);
 		SQL_BindParamInt(stmt_Insert, paramIndex++, port);
 		SQL_BindParamInt(stmt_Insert, paramIndex++, reserveStatus);
 		SQL_Execute(stmt_Insert);
+		
 		CloseHandle(stmt_Insert);
+		SQL_UnlockDatabase(g_hDB);
 		return true;
 	}
 	// Record already exists, just update
@@ -1739,18 +1926,26 @@ bool PugServer_SetReserve_This(int reserveStatus = DB_PUG_INACTIVE)
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_IP],
 			g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_CONNECT_PORT]);
 
+		SQL_LockDatabase(g_hDB);
+
 		new Handle:stmt_Update = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 		if (stmt_Update == INVALID_HANDLE)
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
+		}
 
 		new paramIndex;
 		SQL_BindParamInt(stmt_Update, paramIndex++, reserveStatus);
 		SQL_BindParamString(stmt_Update, paramIndex++, ipAddress, false);
 		SQL_BindParamInt(stmt_Update, paramIndex++, port);
 		SQL_Execute(stmt_Update);
+		
 		CloseHandle(stmt_Update);
+		SQL_UnlockDatabase(g_hDB);
 		return true;
 	}
+	
 	ThrowError("Something went wrong."); // should never happen
 	return false;
 }
@@ -1862,7 +2057,7 @@ public void SQLCallback_Pugger_AcceptMatch(
 		}
 		case PUGGER_STATE_CONFIRMING:
 		{
-
+			PrintToChat(client, "%s Status: confirming match", g_sTag);
 		}
 	}
 }
@@ -2091,10 +2286,7 @@ from database for organizer \"%s\", expected 0 or 1.", results.RowCount, g_sIden
 			safe_identifier
 		);
 
-		// Lock for non threaded operation
-		SQL_LockDatabase(g_hDB_Threaded);
-		SQL_FastQuery(g_hDB_Threaded, sql);
-		SQL_UnlockDatabase(g_hDB_Threaded);
+		g_hDB_Threaded.Query(SQLCallback_Organizers_Update_This_Select, sql);
 	}
 	if (resultCount > 1 || resultCount == 0)
 	{
@@ -2123,6 +2315,12 @@ from database for organizer \"%s\", expected 0 or 1.", results.RowCount, g_sIden
 	g_hDB_Threaded.Query(SQLCallback_Organizers_Update_This_Update, sql);
 }
 
+// TODO: ignore res entirely (non-threaded SQL_FastQuery? or can we thread it?)
+public void SQLCallback_Organizers_Update_This_Select_FireAndForget(Database db, DBResultSet results, const char[] error, any data)
+{
+}
+
+// TODO: can we replace with INVALID_FUNC, or run fastquery to ignore result?
 public void SQLCallback_Organizers_Update_This_Update(Database db, DBResultSet results, const char[] error, any data)
 {
 }
@@ -2245,21 +2443,29 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_PUG_SERVERS]);
 
+	SQL_LockDatabase(g_hDB);
+
 	// TODO: Unnecessary prepared statement, replace with error returning query
 	Handle stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_Execute(stmt_Select);
 
 	char ipBuffer[MAX_IP_LENGTH];
 	int portBuffer;
 	int dbState;
+	
 	if (!SQL_HasResultSet(stmt_Select))
 	{
 		delete stmt_Select;
+		SQL_UnlockDatabase(g_hDB);
 		return false;
 	}
+	
 	while (SQL_FetchRow(stmt_Select))
 	{
 		if (!includeMyself)
@@ -2270,6 +2476,7 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 
 			if (strlen(ipBuffer) < 1)
 			{
+				SQL_UnlockDatabase(g_hDB);
 				ThrowError("Failed fetching ip address from database to compare against %s",
 					ipAddress);
 			}
@@ -2282,9 +2489,14 @@ bool PugServers_Is_Anyone_Busy(bool includeMyself = true)
 
 		dbState = SQL_FetchInt(stmt_Select, SQL_TABLE_PUG_SERVER_RESERVING);
 		if (dbState != DB_PUG_INACTIVE)
+		{
+			SQL_UnlockDatabase(g_hDB);
 			return true;
+		}
 	}
+	
 	delete stmt_Select;
+	SQL_UnlockDatabase(g_hDB);
 	return false;
 }
 #endif
@@ -2296,10 +2508,15 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s", g_sqlTable[TABLES_ORGANIZERS]);
 
+	SQL_LockDatabase(g_hDB);
+
 	// TODO: Unnecessary prepared statement, replace with error returning query
 	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_Execute(stmt_Select);
 
@@ -2316,10 +2533,14 @@ bool Organizers_Is_Anyone_Busy(bool includeMyself = true)
 
 		dbState = SQL_FetchInt(stmt_Select, SQL_TABLE_ORG_RESERVING);
 		if (dbState != DB_ORG_INACTIVE)
+		{
+			SQL_UnlockDatabase(g_hDB);
 			return true;
+		}
 	}
+	
 	CloseHandle(stmt_Select);
-
+	SQL_UnlockDatabase(g_hDB);
 	return false;
 }
 
@@ -2333,9 +2554,14 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 	g_sqlTable[TABLES_PUGGERS],
 	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
 
+	SQL_LockDatabase(g_hDB);
+
 	new Handle:stmt_Select = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt_Select == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_BindParamString(stmt_Select, 0, steamID, false);
 	SQL_Execute(stmt_Select);
@@ -2345,7 +2571,9 @@ int Database_GetInviteTimeRemaining(const String:steamID[MAX_STEAMID_LENGTH])
 	{
 		inviteEpoch = SQL_FetchInt(stmt_Select, 0);
 	}
+	
 	CloseHandle(stmt_Select);
+	SQL_UnlockDatabase(g_hDB);
 
 	new currentEpoch = Database_GetEpoch();
 	new timeSinceInvite = currentEpoch - inviteEpoch;
@@ -2390,16 +2618,24 @@ SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
 	// Reversed array index for Format() order of operations
 	new arrayIndex = SQL_TABLE_RULES_ENUM_COUNT-1;
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
-									%s INT NOT NULL) \
-									CHARACTER SET=utf8",
-									g_sqlTable[TABLES_RULES],
-									g_sqlRow_Rules[arrayIndex--]
+%s INT NOT NULL) CHARACTER SET=utf8", g_sqlTable[TABLES_RULES],
+		g_sqlRow_Rules[arrayIndex--]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
 
 	Format(sql, sizeof(sql), "SELECT * from %s", g_sqlTable[TABLES_RULES]);
@@ -2407,11 +2643,19 @@ SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
 	if (query_SelectRules == null)
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
 	rows = SQL_GetRowCount(query_SelectRules);
 	delete query_SelectRules;
+	SQL_UnlockDatabase(g_hDB);
 
 	if (rows == 0)
 	{
@@ -2421,11 +2665,21 @@ SQL debug level: %i", rows, DEBUG, DEBUG_SQL);
 			g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT],
 			desiredPlayerCount
 		);
+		
+		SQL_LockDatabase(g_hDB);
+		
 		if (!SQL_FastQuery(g_hDB, sql))
 		{
 			if (SQL_GetError(g_hDB, error, sizeof(error)))
+			{
+				SQL_UnlockDatabase(g_hDB);
 				ThrowError(error);
-			ThrowError("SQL query failed, but could not fetch error.");
+			}
+			else
+			{
+				SQL_UnlockDatabase(g_hDB);
+				ThrowError("SQL query failed, but could not fetch error.");
+			}
 		}
 	}
 	else if (rows > 1)
@@ -2476,11 +2730,21 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Puggers[arrayIndex--],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
 
 	// Reversed array index for Format() order of operations
@@ -2500,12 +2764,22 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Organizers[arrayIndex--],
 		g_sqlRow_Organizers[SQL_TABLE_ORG_ID]
 	);
+	
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
+	
+	SQL_UnlockDatabase(g_hDB);
 
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_PUG_SERVER_ENUM_COUNT-1;
@@ -2532,12 +2806,24 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_PickupServers[arrayIndex--],
 		g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
+	
+	SQL_UnlockDatabase(g_hDB);
 
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_MATCHES_ENUM_COUNT-1;
@@ -2576,12 +2862,24 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_Matches[arrayIndex--],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
+	
+	SQL_UnlockDatabase(g_hDB);
 
 	// Reversed array index for Format() order of operations
 	arrayIndex = SQL_TABLE_MATCH_HISTORY_ENUM_COUNT-1;
@@ -2598,12 +2896,24 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_MatchHistory[arrayIndex--],
 		g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
+
+	SQL_UnlockDatabase(g_hDB);
 
 	arrayIndex = SQL_TABLE_DISCORD_AUTH_ENUM_COUNT-1;
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
@@ -2621,29 +2931,48 @@ PRIMARY KEY (%s)) CHARACTER SET=utf8",
 		g_sqlRow_DiscordAuth[arrayIndex--], MAX_SNOWFLAKE_LENGTH,
 		g_sqlRow_DiscordAuth[SQL_TABLE_DISCORD_AUTH_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	if (!SQL_FastQuery(g_hDB, sql))
 	{
 		if (SQL_GetError(g_hDB, error, sizeof(error)))
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
-		ThrowError("SQL query failed, but could not fetch error.");
+		}
+		else
+		{
+			SQL_UnlockDatabase(g_hDB);
+			ThrowError("SQL query failed, but could not fetch error.");
+		}
 	}
+	
+	SQL_UnlockDatabase(g_hDB);
 }
 #endif
 
 bool Database_DoTablesExist()
 {
+	decl String:sql[TABLES_ENUM_COUNT][MAX_SQL_LENGTH];
 	for (new i = 0; i < TABLES_ENUM_COUNT; i++)
 	{
-		decl String:sql[MAX_SQL_LENGTH];
-		decl String:error[MAX_SQL_ERROR_LENGTH];
-
-		Format(sql, sizeof(sql), "SELECT max(CASE WHEN table_name = '%s' \
-		THEN 1 ELSE 0 END) AS TableExists FROM information_schema.tables",
-		g_sqlTable[i]);
-
-		new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
+		Format(sql[i], MAX_SQL_LENGTH, "SELECT max(CASE WHEN table_name = '%s' \
+THEN 1 ELSE 0 END) AS TableExists FROM information_schema.tables", g_sqlTable[i]);
+	}
+	
+	decl String:error[MAX_SQL_ERROR_LENGTH];
+	
+	SQL_LockDatabase(g_hDB);
+	
+	for (new i = 0; i < TABLES_ENUM_COUNT; i++)
+	{
+		new Handle:stmt = SQL_PrepareQuery(g_hDB, sql[i], error, sizeof(error));
 		if (stmt == INVALID_HANDLE)
+		{
+			SQL_UnlockDatabase(g_hDB);
 			ThrowError(error);
+		}
 
 		SQL_Execute(stmt);
 
@@ -2655,8 +2984,13 @@ bool Database_DoTablesExist()
 		CloseHandle(stmt);
 
 		if (!tableExists)
+		{
+			SQL_UnlockDatabase(g_hDB);
 			return false;
+		}
 	}
+	
+	SQL_UnlockDatabase(g_hDB);
 	return true;
 }
 
@@ -2719,9 +3053,14 @@ bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] conne
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_BindParamString(stmt, 0, steamID, false);
 	SQL_Execute(stmt);
@@ -2729,9 +3068,11 @@ bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] conne
 	if (!SQL_HasResultSet(stmt))
 	{
 		delete stmt;
+		SQL_UnlockDatabase(g_hDB);
 		LogError("No result set for SQL: %s", sql);
 		return false;
 	}
+	
 	while (SQL_FetchRow(stmt))
 	{
 		SQL_FetchString(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_IP,
@@ -2741,7 +3082,9 @@ bool Pugger_GetLastMatchDetails(const char[] steamID, int &matchid, char[] conne
 		connectPort = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_GAMESERVER_CONNECT_PORT);
 		matchid = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_MATCH_ID);
 	}
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 	return true;
 }
 
@@ -2754,9 +3097,14 @@ int Pugger_GetState(const char[] steamid)
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_BindParamString(stmt, 0, steamid, false);
 	SQL_Execute(stmt);
@@ -2769,7 +3117,9 @@ int Pugger_GetState(const char[] steamid)
 			state = SQL_FetchInt(stmt, SQL_TABLE_PUGGER_STATE);
 		}
 	}
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 	return state;
 }
 
@@ -2783,14 +3133,21 @@ int Pugger_SetState(const char[] steamid, int state)
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_BindParamInt(stmt, 0, state);
 	SQL_BindParamString(stmt, 1, steamid, false);
 	SQL_Execute(stmt);
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 }
 
 #if defined PLUGIN_COMP
@@ -3207,18 +3564,21 @@ int Puggers_GetCountPerState(state)
 	if (0 > state || state > PUGGER_STATE_ENUM_COUNT)
 	{
 		ThrowError("Invalid state %i, expected state between 0 and %i",
-		state, PUGGER_STATE_ENUM_COUNT);
+			state, PUGGER_STATE_ENUM_COUNT);
 	}
 
 	decl String:sql[MAX_SQL_LENGTH];
 	decl String:error[MAX_SQL_ERROR_LENGTH];
 
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = ?",
-	g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+		g_sqlTable[TABLES_PUGGERS], g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE]);
+
+	SQL_LockDatabase(g_hDB);
 
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
 	}
 
@@ -3226,8 +3586,9 @@ int Puggers_GetCountPerState(state)
 	SQL_Execute(stmt);
 
 	new results = SQL_GetRowCount(stmt);
+	
 	CloseHandle(stmt);
-
+	SQL_UnlockDatabase(g_hDB);
 	return results;
 }
 #endif
@@ -3241,7 +3602,9 @@ void CheckSQLConstants()
 	CheckForSpookiness(g_sqlTable[TABLES_PUGGERS]);
 
 	for (new i = 0; i < sizeof(g_sqlRow_Puggers); i++)
+	{
 		CheckForSpookiness(g_sqlRow_Puggers[i]);
+	}
 }
 #endif
 
@@ -3250,12 +3613,15 @@ int Database_GetDesiredPlayerCount()
 	decl String:sql[MAX_SQL_LENGTH];
 
 	Format(sql, sizeof(sql), "SELECT %s FROM %s",
-	g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT], g_sqlTable[TABLES_RULES]);
+		g_sqlRow_Rules[SQL_TABLE_RULES_DESIRED_PLAYERCOUNT], g_sqlTable[TABLES_RULES]);
+
+	SQL_LockDatabase(g_hDB);
 
 	new Handle:query = SQL_Query(g_hDB, sql);
 	if (SQL_GetAffectedRows(query) == 0)
 	{
 		CloseHandle(query);
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError("No playercount found from database.");
 	}
 
@@ -3264,8 +3630,9 @@ int Database_GetDesiredPlayerCount()
 	{
 		playerCount = SQL_FetchInt(query, SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
 	}
+	
 	CloseHandle(query);
-
+	SQL_UnlockDatabase(g_hDB);
 	return playerCount;
 }
 
@@ -3275,6 +3642,8 @@ int Database_GetEpoch()
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT UNIX_TIMESTAMP()");
 
+	SQL_LockDatabase(g_hDB);
+
 	new Handle:query = SQL_Query(g_hDB, sql);
 
 	new epoch;
@@ -3282,8 +3651,9 @@ int Database_GetEpoch()
 	{
 		epoch = SQL_FetchInt(query, 0);
 	}
+	
 	CloseHandle(query);
-
+	SQL_UnlockDatabase(g_hDB);
 	return epoch;
 }
 #endif
@@ -3291,7 +3661,9 @@ int Database_GetEpoch()
 bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const char[] steamID = "")
 {
 	if (!bySteamID && !IsValidClient(client))
+	{
 		ThrowError("Invalid client %i", client);
+	}
 
 	if (state < 0 || state >= PUGGER_STATE_ENUM_COUNT)
 	{
@@ -3304,24 +3676,35 @@ bool Pugger_SetQueuingState(client = 0, state, bool:bySteamID = false, const cha
 
 	decl String:steamIDBuffer[MAX_STEAMID_LENGTH];
 	if (!bySteamID)
+	{
 		GetClientAuthId(client, AuthId_Steam2, steamIDBuffer, sizeof(steamIDBuffer));
+	}
 	else
+	{
 		strcopy(steamIDBuffer, sizeof(steamIDBuffer), steamID);
+	}
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
-	g_sqlTable[TABLES_PUGGERS],
-	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
-	g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+		g_sqlTable[TABLES_PUGGERS],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
+		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STEAMID]);
+
+	SQL_LockDatabase(g_hDB);
 
 	new Handle:stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == INVALID_HANDLE)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	new paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, state);
 	SQL_BindParamString(stmt, paramIndex++, steamIDBuffer, false);
 	SQL_Execute(stmt);
+	
 	CloseHandle(stmt);
+	SQL_UnlockDatabase(g_hDB);
 	return true;
 }
 
@@ -3349,42 +3732,57 @@ bool Match_SetPreparingForLive(int match_id)
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_STATE],
 		g_sqlRow_Puggers[SQL_TABLE_PUGGER_MATCH_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
+		SQL_UnlockDatabase(g_hDB);
 		LogError(error);
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return false;
 	}
+	
 	SQL_BindParamInt(stmt, 0, PUGGER_STATE_READY);
 	SQL_BindParamInt(stmt, 1, match_id);
 	SQL_Execute(stmt);
+	
+	SQL_UnlockDatabase(g_hDB);
 	delete stmt;
 
 	// Set the pug server's live state
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
 	GetServerConnectionDetails(ipAddress, port);
-	PugServer_Set_Status(
-		PUG_SERVER_STATUS_AWAITING_PLAYERS, ipAddress, port);
+	
+	PugServer_Set_Status(PUG_SERVER_STATUS_AWAITING_PLAYERS,
+		ipAddress, port);
 
 	Format(sql, sizeof(sql), "UPDATE %s SET %s = ? WHERE %s = ?",
 		g_sqlTable[TABLES_MATCHES],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_STATUS],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
+		SQL_UnlockDatabase(g_hDB);
 		LogError(error);
 		PugServer_SetReserve_This(DB_PUG_INACTIVE);
 		return false;
 	}
+	
 	int paramIndex;
 	SQL_BindParamInt(stmt, paramIndex++, MATCHMAKE_WARMUP);
 	SQL_BindParamInt(stmt, paramIndex++, match_id);
 	SQL_Execute(stmt);
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 
 	SetMatchStatus(MATCHMAKE_WARMUP);
 
@@ -3406,24 +3804,33 @@ int Match_GetDesiredPlayers(int match_id)
 		g_sqlTable[TABLES_MATCHES],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
 	}
+	
 	SQL_BindParamInt(stmt, 0, match_id);
 	SQL_Execute(stmt);
 
 	if (!SQL_HasResultSet(stmt) || SQL_GetRowCount(stmt) == 0)
 	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError("Query returned 0 results for match id %i.", match_id);
 	}
+	
 	int playercount;
 	while (SQL_FetchRow(stmt))
 	{
 		playercount = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_PLAYER_COUNT);
 	}
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 	return playercount;
 }
 
@@ -3442,14 +3849,21 @@ bool Database_SetMatchStatus(int matchid, int status)
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_BindParamInt(stmt, 0, status);
 	SQL_BindParamInt(stmt, 1, matchid);
 	SQL_Execute(stmt);
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 	return true;
 }
 
@@ -3467,15 +3881,21 @@ int Database_GetMatchStatus(int matchid)
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
 
+	SQL_LockDatabase(g_hDB);
+
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
+	{
+		SQL_UnlockDatabase(g_hDB);
 		ThrowError(error);
+	}
 
 	SQL_BindParamInt(stmt, 0, matchid);
 	SQL_Execute(stmt);
 
 	if (!SQL_HasResultSet(stmt))
 	{
+		SQL_UnlockDatabase(g_hDB);
 		delete stmt;
 		ThrowError("Failed to fetch status for match id %i", matchid);
 	}
@@ -3485,7 +3905,9 @@ int Database_GetMatchStatus(int matchid)
 	{
 		status = SQL_FetchInt(stmt, SQL_TABLE_MATCHES_STATUS);
 	}
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 	return status;
 }
 
@@ -3519,10 +3941,9 @@ ORDER BY %s DESC",
 	);
 	txnLeaver.AddQuery(sql);
 
-	// FIXME
 	g_hDB_Threaded.Execute(txnLeaver, SQLTxnSuccess_Leaver);
 	/*
-	DataPack leaver = new DataPack();
+	DataPack leaver = new DataPack(); // TODO(?)
 	leaver.WriteString(steamid);
 
 	g_hDB_Threaded.Query(SQLCallback_Pugger_HandleLeaver, sql, leaver);
@@ -3670,9 +4091,13 @@ ORDER BY %s DESC",
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_HOST_PORT],
 		g_sqlRow_Matches[SQL_TABLE_MATCHES_ID]
 	);
+	
+	SQL_LockDatabase(g_hDB);
+	
 	Handle stmt = SQL_PrepareQuery(g_hDB, sql, error, sizeof(error));
 	if (stmt == null)
 	{
+		SQL_UnlockDatabase(g_hDB);
 		LogError(error);
 		return INVALID_MATCH_ID;
 	}
@@ -3691,6 +4116,8 @@ ORDER BY %s DESC",
 			break;
 		}
 	}
+	
 	delete stmt;
+	SQL_UnlockDatabase(g_hDB);
 	return match_id;
 }

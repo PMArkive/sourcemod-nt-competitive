@@ -53,7 +53,7 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 	return APLRes_Success;
 }
 
-public OnPluginStart()
+public void OnPluginStart()
 {
 	RegConsoleCmd("sm_ready",			Command_Ready,						"Mark yourself as ready for a competitive match.");
 

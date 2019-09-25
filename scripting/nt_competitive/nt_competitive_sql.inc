@@ -3913,6 +3913,10 @@ int Database_GetMatchStatus(int matchid)
 
 void Threaded_Pugger_HandleLeaver(const char[] steamid)
 {
+	// This can happen if we load plugin whilst there are players connected
+	if (!g_hDB_Threaded)
+		return;
+
 	decl String:ipAddress[MAX_IP_LENGTH];
 	int port;
 	GetServerConnectionDetails(ipAddress, port);

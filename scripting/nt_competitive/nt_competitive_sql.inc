@@ -457,17 +457,20 @@ void Threaded_Pugger_AdvertiseQueueState(int userid)
 		g_sqlTable[TABLES_RULES]
 	);
 	txnQueueState.AddQuery(sql);
-
+#if(0) /// FIXME
 	SQL_ExecuteTransaction(
-		g_hDB_Threaded, txnQueueState,
+		g_hDB_Threaded,
+		txnQueueState,
 		SQLTxnSuccess_AdvertiseQueueState,
 		SQLTxnFailure_AdvertiseQueueState,
-		userid
+		userid,
+		DBPrio_Normal
 	);
+#endif
 }
 
-public void SQLTxnFailure_AdvertiseQueueState(
-	Database db, any userid, int numQueries, const char[] error, int failIndex, any[] queryData)
+public void SQLTxnFailure_AdvertiseQueueState(Database db, any userid,
+	int numQueries, const char[] error, int failIndex, any[] queryData)
 {
 	ThrowError("SQL transaction failed (fail index %i): %s", failIndex, error);
 }
@@ -3516,7 +3519,8 @@ ORDER BY %s DESC",
 	);
 	txnLeaver.AddQuery(sql);
 
-	g_hDB_Threaded.Execute(txnLeaver, SQLTxnSuccess_Leaver);
+	// FIXME
+	//g_hDB_Threaded.Execute(txnLeaver, SQLTxnSuccess_Leaver);
 	/*
 	DataPack leaver = new DataPack();
 	leaver.WriteString(steamid);

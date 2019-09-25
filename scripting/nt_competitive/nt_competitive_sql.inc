@@ -3800,9 +3800,16 @@ int Database_GetDesiredPlayerCount()
 	}
 
 	new playerCount;
+	int ruleEntries = 0;
 	while (SQL_FetchRow(query))
 	{
-		playerCount = SQL_FetchInt(query, SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
+		if (ruleEntries > 1)
+		{
+			LogError("Database_GetDesiredPlayerCount returned >1 rule entries");
+			break;
+		}
+		playerCount = SQL_FetchInt(query, 0);
+		ruleEntries++;
 	}
 	
 	CloseHandle(query);

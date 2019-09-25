@@ -327,7 +327,8 @@ enum {
 };
 // This table holds global rules PUG servers should follow
 enum {
-	SQL_TABLE_RULES_DESIRED_PLAYERCOUNT = 0,
+	SQL_TABLE_RULES_ID = 0,
+	SQL_TABLE_RULES_DESIRED_PLAYERCOUNT,
 	SQL_TABLE_RULES_ENUM_COUNT
 };
 // This table holds PUG organizer (public gameserver, chatbot, etc.) information
@@ -441,12 +442,13 @@ new const String:g_sqlTable[TABLES_ENUM_COUNT][] = {
 	"organizers",
 	"pickup_servers",
 	"puggers",
-  "matches",
-  "match_history",
-  "discord_auth",
+	"matches",
+	"match_history",
+	"discord_auth",
 };
 
 new const String:g_sqlRow_Rules[SQL_TABLE_RULES_ENUM_COUNT][] = {
+	"id",
 	"desired_playercount"
 };
 
@@ -462,8 +464,8 @@ new const String:g_sqlRow_Puggers[SQL_TABLE_PUGGER_ENUM_COUNT][] = {
 	"id",
 	"timestamp",
 	"steamid",
-  "discord_snowflake",
-  "discord_secret",
+	"discord_snowflake",
+	"discord_secret",
 	"state",
 	"server_connect_ip",
 	"server_connect_port",
@@ -486,41 +488,41 @@ new const String:g_sqlRow_PickupServers[SQL_TABLE_PUG_SERVER_ENUM_COUNT][] = {
 	"connect_port",
 	"connect_password",
 	"status",
-  "is_reserving",
-  "reserving_timestamp"
+	"is_reserving",
+	"reserving_timestamp"
 };
 
 new const String:g_sqlRow_Matches[SQL_TABLE_MATCHES_ENUM_COUNT][] = {
-  "match_id",
-  "timestamp",
-  "match_vanity_title",
-  "host_ip",
-  "host_port",
-  "host_vanity_name",
-  "match_password",
-  "match_type",
-  "status",
-  "playercount",
-  "score_jinrai",
-  "score_nsf",
-  "score_type",
-  "score_limit",
-  "last_edited"
+	"match_id",
+	"timestamp",
+	"match_vanity_title",
+	"host_ip",
+	"host_port",
+	"host_vanity_name",
+	"match_password",
+	"match_type",
+	"status",
+	"playercount",
+	"score_jinrai",
+	"score_nsf",
+	"score_type",
+	"score_limit",
+	"last_edited"
 };
 
 new const String:g_sqlRow_MatchHistory[SQL_TABLE_MATCH_HISTORY_ENUM_COUNT][] = {
-  "id",
-  "timestamp",
-  "steamid",
-  "match_id"
+	"id",
+	"timestamp",
+	"steamid",
+	"match_id"
 };
 
 new const String:g_sqlRow_DiscordAuth[SQL_TABLE_DISCORD_AUTH_ENUM_COUNT][] = {
-  "id",
-  "timestamp",
-  "steamid",
-  "secret",
-  "snowflake"
+	"id",
+	"timestamp",
+	"steamid",
+	"secret",
+	"snowflake"
 };
 
 int g_iLastSeenQueueState[MAXPLAYERS+1] = PUGGER_STATE_INACTIVE;

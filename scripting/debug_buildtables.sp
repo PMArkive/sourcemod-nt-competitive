@@ -79,10 +79,13 @@ PUG rows already exist. Command was aborted.", rows);
 	// Reversed array index for Format() order of operations
 	int arrayIndex = SQL_TABLE_RULES_ENUM_COUNT-1;
 	Format(sql, sizeof(sql), "CREATE TABLE IF NOT EXISTS %s ( \
-									%s INT NOT NULL) \
-									CHARACTER SET=utf8",
-									g_sqlTable[TABLES_RULES],
-									g_sqlRow_Rules[arrayIndex--]
+%s INT NOT NULL AUTO_INCREMENT, \
+%s INT NOT NULL, \
+PRIMARY KEY (%s)) CHARACTER SET=utf8",
+		g_sqlTable[TABLES_RULES],
+		g_sqlRow_Rules[arrayIndex--],
+		g_sqlRow_Rules[arrayIndex--],
+		g_sqlRow_Rules[SQL_TABLE_RULES_ID]
 	);
 
 	if (!SQL_FastQuery(g_hDB, sql))

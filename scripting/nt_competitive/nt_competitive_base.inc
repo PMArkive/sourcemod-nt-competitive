@@ -1264,6 +1264,11 @@ void LogCompetitive(const String:message[])
 	CloseHandle(hFile);
 }
 
+// This function only exists as native starting from SM 1.9.
+// Flip the boolean below from true/false or other way around
+// if you're having trouble compiling.
+#define SM_COMPILER_VERSION_IS_1_POINT_9_OR_HIGHER true
+#if !SM_COMPILER_VERSION_IS_1_POINT_9_OR_HIGHER
 void PrintToConsoleAll(const String:message[], any ...)
 {
 	decl String:formatMsg[512];
@@ -1277,6 +1282,7 @@ void PrintToConsoleAll(const String:message[], any ...)
 		PrintToConsole(i, formatMsg);
 	}
 }
+#endif
 
 // Purpose: Updates g_playersAlive array
 void UpdatePlayersAlive()

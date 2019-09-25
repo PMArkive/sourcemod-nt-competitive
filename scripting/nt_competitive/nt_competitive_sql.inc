@@ -457,7 +457,7 @@ void Threaded_Pugger_AdvertiseQueueState(int userid)
 		g_sqlTable[TABLES_RULES]
 	);
 	txnQueueState.AddQuery(sql);
-#if(0) /// FIXME
+
 	SQL_ExecuteTransaction(
 		g_hDB_Threaded,
 		txnQueueState,
@@ -466,7 +466,6 @@ void Threaded_Pugger_AdvertiseQueueState(int userid)
 		userid,
 		DBPrio_Normal
 	);
-#endif
 }
 
 public void SQLTxnFailure_AdvertiseQueueState(Database db, any userid,
@@ -476,7 +475,7 @@ public void SQLTxnFailure_AdvertiseQueueState(Database db, any userid,
 }
 
 public void SQLTxnSuccess_AdvertiseQueueState(
-	Database db, any userid, int numQueries, DBResultSet[] results, any[] queryData)
+	Database db, any userid, int numQueries, Handle[] results, any[] queryData)
 {
 	int client = GetClientOfUserId(userid);
 	if (!client)
@@ -490,30 +489,31 @@ public void SQLTxnSuccess_AdvertiseQueueState(
 	};
 	int playerAmount[ENUM_COUNT];
 
+	DBResultSet res;
 	for (int i = 0; i < numQueries; i++)
 	{
 		if (i >= ENUM_COUNT)
 		{
 			ThrowError("Too many queries!");
 		}
-		else if (!results[i].HasResults)
+		else if (!res.HasResults)
 		{
 			ThrowError("No results");
 		}
 
 		if (i == QUEUING || i == LIVE)
 		{
-			playerAmount[i] = results[i].RowCount;
+			playerAmount[i] = res.RowCount;
 		}
 		else if (i == DESIRED)
 		{
-			while (results[i].FetchRow())
+			while (res.FetchRow())
 			{
-				if (results[i].MoreRows)
+				if (res.MoreRows)
 				{
 					ThrowError("Found more than 1 result, expected 1.");
 				}
-				playerAmount[i] = results[i].FetchInt(SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
+				playerAmount[i] = res.FetchInt(SQL_TABLE_RULES_DESIRED_PLAYERCOUNT);
 			}
 		}
 	}
@@ -3500,7 +3500,7 @@ void Threaded_Pugger_HandleLeaver(const char[] steamid)
 	decl String:safe_steamid[2*MAX_STEAMID_LENGTH+1];
 	g_hDB_Threaded.Escape(steamid, safe_steamid, sizeof(safe_steamid));
 
-	Transaction txnLeaver = new Transaction();
+	Transaction txnLeaver = SQL_CreateTransaction();
 
 	decl String:sql[MAX_SQL_LENGTH];
 	Format(sql, sizeof(sql), "SELECT * FROM %s WHERE %s = '%s' AND NOT %s = %i",
@@ -3520,7 +3520,7 @@ ORDER BY %s DESC",
 	txnLeaver.AddQuery(sql);
 
 	// FIXME
-	//g_hDB_Threaded.Execute(txnLeaver, SQLTxnSuccess_Leaver);
+	g_hDB_Threaded.Execute(txnLeaver, SQLTxnSuccess_Leaver);
 	/*
 	DataPack leaver = new DataPack();
 	leaver.WriteString(steamid);
@@ -3530,7 +3530,7 @@ ORDER BY %s DESC",
 }
 
 public void SQLTxnSuccess_Leaver(
-	Database db, any data, int numQueries, DBResultSet[] results, any[] queryData)
+	Database db, any data, int numQueries, Handle[] results, any[] queryData)
 {
 	enum {
 		QUERY_SELECT = 0,
@@ -3539,32 +3539,35 @@ public void SQLTxnSuccess_Leaver(
 	};
 
 	char steamid[MAX_STEAMID_LENGTH];
+	DBResultSet res;
 	for (int i = 0; i < QUERY_ENUM_COUNT; i++)
 	{
-		if (!results[i].HasResults)
+		res = view_as<DBResultSet>(results[i]);
+	
+		if (!res.HasResults)
 			ThrowError("No results");
 
 		if (i == QUERY_SELECT)
 		{
 			// This client has not left an active match. Stop here.
-			if (results[i].RowCount == 0)
+			if (res.RowCount == 0)
 				return;
 
-			while (results[i].FetchRow())
+			while (res.FetchRow())
 			{
-				if (results[i].MoreRows)
+				if (res.MoreRows)
 					ThrowError("SQLTxnSuccess_Leaver: Found multiple rows, expected one.");
 
-				results[i].FetchString(SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
+				res.FetchString(SQL_TABLE_PUGGER_STEAMID, steamid, sizeof(steamid));
 			}
 		}
 		// This client has left an active match. "Commit" the MIA state to database.
 		else if (i == QUERY_MATCHES)
 		{
 			int matchid;
-			while (results[i].FetchRow())
+			while (res.FetchRow())
 			{
-				matchid = results[i].FetchInt(SQL_TABLE_MATCHES_ID);
+				matchid = res.FetchInt(SQL_TABLE_MATCHES_ID);
 				break;
 			}
 

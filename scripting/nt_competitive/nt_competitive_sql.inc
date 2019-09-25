@@ -954,7 +954,7 @@ bool PugServer_Update_This(bool isInitial = false)
 		const int lookupDepth = 10;
 		int matchr[lookupDepth];
 		
-		int numGot = PugServer_GetMatchID_This(matchr);
+		int numGot = PugServer_GetMatchID_This(matchr, lookupDepth);
 		PrintToServer("Got %i IDs", numGot);
 		for (int i = 0; i < numGot; i++)
 		{
@@ -963,7 +963,10 @@ bool PugServer_Update_This(bool isInitial = false)
 				continue;
 			}
 			
+			// Reset pending old queue status
 			Puggers_UpdateStateByMatchID(matchr[i], PUGGER_STATE_INACTIVE);
+			// Abandon any historical still ongoing matchmakes for this server
+			PugServer_MatchState_Set(matchr[i], MATCHMAKE_CANCELLED);
 		}
 		
 		// Finally, mark our server available for matches again, once we've cleaned up.

@@ -8,10 +8,14 @@
 #define PLUGIN_PUG 1
 #define PLUGIN_VERSION "0.1"
 
-#define DEBUG 1
-#define DEBUG_SQL 1 /* Make sure this is set to 0 unless you really want to
-debug the SQL as it disables some safety checks */
-#define DEBUG_ALLOW_LAN_STEAMIDS 1
+// NOTE: Make sure this is set to 0 unless you really want to
+// debug the SQL as it disables some safety checks!
+#define DEBUG_SQL true
+// Same as above with this option.
+#define DEBUG_ALLOW_LAN_STEAMIDS true
+
+// This debug flag is safe to use for pub servers.
+#define DEBUG true
 
 new bool:g_bIsQueueActive;
 
@@ -45,8 +49,21 @@ public OnPluginStart()
 	g_hCvar_DbConfig = CreateConVar("sm_pug_db_cfg", "pug",
 		"Database config entry name", FCVAR_PROTECTED);
 
+#if DEBUG_SQL || DEBUG_ALLOW_LAN_STEAMIDS
+	decl String:pluginFilename[PLATFORM_MAX_PATH];
+	GetPluginFilename(INVALID_HANDLE, pluginFilename, sizeof(pluginFilename));
+#endif
+
 #if DEBUG_SQL
+	PrintToServer("### WARNING ### DEBUG_SQL is enabled. It should only be enabled for plugin \
+development and not for public servers! Please consider recompiling %s", pluginFilename);
 	CheckSQLConstants();
+#endif
+
+#if DEBUG_ALLOW_LAN_STEAMIDS
+	PrintToServer("### WARNING ### DEBUG_ALLOW_LAN_STEAMIDS is enabled. \
+It should only be enabled for plugin development and not for public servers! \
+Please consider recompiling %s", pluginFilename);
 #endif
 
 	Database_Initialize();

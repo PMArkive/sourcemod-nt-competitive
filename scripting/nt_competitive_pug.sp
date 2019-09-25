@@ -229,11 +229,14 @@ public Action Command_UnPug(int client, int args)
 	{
 		return Plugin_Stop;
 	}
+	
+#if !DEBUG_ALLOW_LAN_STEAMIDS
 	if (!IsClientAuthorized(client))
 	{
 		ReplyToCommand(client, "Could not read your SteamID, please try again.");
 		return Plugin_Stop;
 	}
+#endif
 
 	Threaded_Pugger_LeaveQueue(client);
 	return Plugin_Handled;
@@ -245,11 +248,14 @@ public Action Command_Join(int client, int args)
 	{
 		return Plugin_Stop;
 	}
+	
+#if !DEBUG_ALLOW_LAN_STEAMIDS
 	if (!IsClientAuthorized(client))
 	{
 		ReplyToCommand(client, "Could not read your SteamID, please try again.");
 		return Plugin_Stop;
 	}
+#endif
 
 	decl String:steamid[MAX_STEAMID_LENGTH];
 	GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));

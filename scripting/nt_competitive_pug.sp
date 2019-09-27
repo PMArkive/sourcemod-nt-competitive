@@ -76,10 +76,7 @@ Please consider recompiling %s", pluginFilename);
 
 	Threaded_Organizers_Update_This(DB_ORG_INACTIVE);
 	CreateTimer(MATCHMAKE_LOOKUP_TIMER, Timer_CheckPugs, _, TIMER_REPEAT);
-}
-
-public void OnMapStart()
-{
+	
 	PrecacheSound(g_sMenuSoundOk);
 	PrecacheSound(g_sMenuSoundCancel);
 	PrecacheSound(g_sPugInvite1);

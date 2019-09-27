@@ -15,13 +15,6 @@ under the GPLv3 license: https://github.com/bcserv/smlib */
 // This debug flag is safe to use for pub servers.
 #define DEBUG true
 
-#include <sourcemod>
-#include <sdktools>
-#include <neotokyo>
-#include "nt_competitive/shared_variables"
-#include "nt_competitive/shared_functions"
-#include "nt_competitive/nt_competitive_sql"
-
 new bool:g_bIsQueueActive;
 
 new const String:g_sTag[] = "[PUG]";
@@ -30,6 +23,13 @@ new const String:g_sMenuSoundOk[] = "buttons/button14.wav";
 new const String:g_sMenuSoundCancel[] = "buttons/combine_button7.wav";
 new const String:g_sPugInvite1[] = "friends/friend_join.wav";
 new const String:g_sPugInvite2[] = "player/CPcaptured.wav";
+
+#include <sourcemod>
+#include <sdktools>
+#include <neotokyo>
+#include "nt_competitive/shared_variables"
+#include "nt_competitive/shared_functions"
+#include "nt_competitive/nt_competitive_sql"
 
 public Plugin:myinfo = {
 	name = "Neotokyo competitive, PUG Module",

@@ -103,7 +103,10 @@ public Action Timer_CheckPugs(Handle timer)
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (!IsValidClient(i) || IsFakeClient(i) ||
-		!IsClientAuthorized(i) || !IsClientInGame(i))
+#if !DEBUG_ALLOW_LAN_STEAMIDS
+		!IsClientAuthorized(i) ||
+#endif
+		!IsClientInGame(i))
 		{
 			continue;
 		}

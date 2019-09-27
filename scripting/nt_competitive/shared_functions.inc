@@ -65,8 +65,7 @@ of the plugin source code to manually circumvent this problem.",
 	return true;
 }
 
-#if !defined DEBUG_SQL || DEBUG_SQL == 0
-#if defined PLUGIN_PUG
+#if (defined PLUGIN_PUG) && (!defined DEBUG_SQL || !DEBUG_SQL)
 bool IsLocalhostString(const char[] ipAddress)
 {
 	if ((StrEqual(ipAddress, "localhost")) ||
@@ -77,7 +76,6 @@ bool IsLocalhostString(const char[] ipAddress)
 	}
 	return false;
 }
-#endif
 #endif
 
 void PrintDebug(const String:message[], any ...)

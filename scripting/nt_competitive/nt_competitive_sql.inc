@@ -1764,6 +1764,9 @@ WHERE %s = ?",
 		preparedQueries[i].BindString(paramIndex++, steamIDs[i], false);
 	}
 	
+	// FIXME: we can't add prepared statements to a transaction because reasons.
+	// Probably wanna turn this func threaded and use plain queries instead.
+	
 	SQL_ExecuteTransaction(g_hDB, txn);
 	
 	SQL_UnlockDatabase(g_hDB);

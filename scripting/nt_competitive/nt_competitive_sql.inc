@@ -33,12 +33,8 @@ bool Database_Initialize(bool checkTables = true)
 		return false;
 	}
 
-	// XXX!!! Cannot run unthreaded operations on the threaded handle
-	// without locking the handle first!
-	SQL_LockDatabase(g_hDB);
 	// Persistent threaded connection
 	Database.Connect(Threaded, configName);
-	SQL_UnlockDatabase(g_hDB);
 
 	if (checkTables && !Database_DoTablesExist())
 	{
